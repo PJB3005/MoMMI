@@ -1,6 +1,6 @@
 # MoMMI.
 
-MoMMI is the bot used on the official [/vg/station13](http://ss13.moe/) Discord server.
+MoMMI is the bot that will be used on the official [/vg/station13](http://ss13.moe/) Discord server.
 
 # Dependencies
 
