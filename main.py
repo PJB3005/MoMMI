@@ -1,9 +1,12 @@
+import logging
+# Here so other imports already get logged properly.
+logging.basicConfig(filename="example.log", level=logging.DEBUG)
 import aioprocessing.connection
 import asyncio
 import discord
-import logging
+from MoMMI.config import config
 
-logging.basicConfig(filename="example.log", level=logging.DEBUG)
+
 client = discord.Client()
 
 @client.async_event
@@ -17,5 +20,9 @@ def on_ready():
 
     logging.info("------")
 
+if config["token"] == "unset":
+    logging.critical("Discord auth token is unset, aborting.")
+    exit()
+
 logging.debug("Starting client.")
-client.run("test")
+client.run(config["token"])
