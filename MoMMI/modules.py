@@ -1,53 +1,29 @@
 from .client import client
+from .config import config
 import asyncio
 import logging
-import re
-
+import os
+import os.path
+import importlib
+import MoMMI.Modules.commloop
 
 logger = logging.getLogger(__name__)
-commands = {}
-is_command_re = None
+modules = []
 
-def setup_modules():
-    global is_command_re
-    is_command_re = re.compile("^<@%s>\s*" % (client.user.id))
+async def load_modules():
+    count = 0
 
-def command(command, flags=re.IGNORECASE):
-    """
-    Decorator that registers a function as a command.
-    This is regex.
-    """
+    directory = config.get("moduledir", os.path.join("MoMMI", "Modules"))
+    for file in os.listdir(directory):
+        path = os.path.join(directory, file)
+        if os.path.isfile(path) and file[-3:] == ".py" and file != "__init__.py":
+            logger.info("Loading module %s", path)
+            
+            try:
+                modules.append(importlib.import_module("MoMMI.Modules.%s" % (file[:-3])))
+                count += 1
 
-    def inner(function):
-        if not asyncio.iscoroutinefunction(function):
-            logging.warning("Attempted tor register non-coroutine %s!", function)
-            function = asyncio.coroutine(function)
-        
-        pattern = re.compile(command, flags)
-        commands[pattern] = function
-        return function
+            except:
+                logger.exception("Error while loading module %s", path)
 
-    return inner
-
-@client.event
-async def on_message(message):
-    match = is_command_re.match(message.content)
-    if not match:
-        return
-    
-    command = message.content[match.end():]
-    logger.info(command)
-    for regex in commands:
-        match = regex.match(command)
-        if match:
-            function = commands[regex]
-            await function(command, match, message)
-
-@command("roll\s*(\d+)\s*(\d+)")
-async def roll(content, match, message):
-    import random
-    random.seed()
-    msg = str(random.randint(int(match.group(1)), int(match.group(2))))
-    logger.info(msg)
-    await client.send_message(message.channel, msg)
-
+    return count

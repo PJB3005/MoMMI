@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.5
 
 import logging
-import MoMMI.logging
+import MoMMI.logsetup
 from MoMMI.config import config
 from MoMMI.client import client
 
