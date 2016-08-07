@@ -5,7 +5,6 @@ import logging
 import os
 import os.path
 import importlib
-import MoMMI.Modules.commloop
 
 logger = logging.getLogger(__name__)
 modules = []
