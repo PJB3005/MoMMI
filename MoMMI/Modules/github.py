@@ -22,7 +22,7 @@ async def github_event(msg, address):
 
     await func(msg["content"])
 
-invalid_actions = ["labeled", "assigned", "unassigned", "edited", "unlabeled"]
+invalid_actions = ["labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize"]
 async def issues(msg):
     if msg["action"] in invalid_actions:
         return
@@ -40,7 +40,6 @@ async def issues(msg):
 
 event_handlers["issues"] = issues
 
-invalid_actions = ["labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize"]
 async def pr(msg):
     if msg["action"] in invalid_actions:
         return
@@ -51,10 +50,12 @@ async def pr(msg):
     if action == "closed" and pull_request["merged"]:
         action = "merged"
 
-    message = "Issue #%s **%s** by %s: %s" % (pull_request["number"], action, sender["login"], pull_request["html_url"])
+    message = "Pull Request #%s **%s** by %s: %s" % (pull_request["number"], action, sender["login"], pull_request["html_url"])
     
     channel = getchannel(getserver(client, "/vg/"), "code-map-sprite")
     if not channel:
         logger.error("No channel.")
 
     await client.send_message(channel, message)
+
+event_handlers["pull_request"] = pr
