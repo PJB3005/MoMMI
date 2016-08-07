@@ -1,6 +1,9 @@
 token: unset
 
 commloop:
-  address: localhost
-  port: 1679 # Thanks random.org
-  auth: UNSET!!!
+    address: localhost
+    port: 1679 # Thanks random.org
+    auth: UNSET!!!
+
+owner:
+    id: 0
