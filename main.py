@@ -4,7 +4,6 @@ import logging
 import MoMMI.logging
 from MoMMI.config import config
 from MoMMI.client import client
-import MoMMI.modules
 
 logger = logging.getLogger(__name__)
 
