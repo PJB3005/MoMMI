@@ -43,3 +43,9 @@ def comm_event(function):
     return function
 
 processing_task = asyncio.ensure_future(process_loop())
+
+def unload():
+    global server
+    processing_task.cancel()
+    server.close()
+    del(server)

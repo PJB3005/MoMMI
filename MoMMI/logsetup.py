@@ -27,7 +27,7 @@ try:
     open(path, "a").close()
 
     handler = logging.FileHandler(path)
-    handler.setLevel(logging.NOTSET)
+    handler.setLevel(logging.INFO) # Discord.py makes DEBUG logs useless.
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
