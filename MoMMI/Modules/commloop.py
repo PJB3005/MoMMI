@@ -23,6 +23,7 @@ async def process_loop():
         while True: # While we have a connection
             try:
                 msg = await conn.coro_recv()
+                logger.info("Received a message.")
                 for event in events:
                     await event(msg, address)
 
