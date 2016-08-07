@@ -2,6 +2,7 @@
 
 import logging
 import MoMMI.logsetup
+import MoMMI.exceptions
 from MoMMI.config import config
 from MoMMI.client import client
 

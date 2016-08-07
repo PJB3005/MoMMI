@@ -6,12 +6,11 @@ import aiofiles
 logger = logging.getLogger("config")
 config = {}
 
-@asyncio.coroutine
-def parse(filename, safe=False):
+async def parse(filename, safe=False):
     global config
-    f = yield from aiofiles.open(filename, mode='r')
+    f = await aiofiles.open(filename, mode='r')
     try:
-        document = yield from f.read()
+        document = await f.read()
     finally:
         f.close()
 
@@ -25,6 +24,20 @@ def parse(filename, safe=False):
     except Exception as e:
         logger.exception("Failed to load config file %s due to exception.")
         return
+
+def get_config(value, default=None):
+    tree = value.split(".")
+
+    current = config
+    for node in tree:
+        if type(current) == dict and node in current:
+            current = current[node]
+        
+        else:
+            current = default
+            break
+
+    return current
 
 logger.info("Doing initial config file load.")
 loop = asyncio.get_event_loop()
