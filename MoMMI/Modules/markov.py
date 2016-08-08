@@ -43,13 +43,12 @@ class Chain(object):
     def read(self, words):
         for sentence in self.sentences(words):
             words = sentence.split()
-            if not len(words):
+            if len(words) < 7:
                 continue
 
             last = ""
 
             for word in words:
-                logging.info("word: %s, last: %s", word, last)
                 word = word.strip()
                 chain = self.db[last]
                 chain[word] += 1
@@ -76,7 +75,7 @@ class Chain(object):
         if seed != "":
             message.append(seed.title())
 
-        for i in range(100):
+        for i in range(100): # Prevent infinite loop.
             # Basic pickweight based on https://stackoverflow.com/questions/3679694/a-weighted-version-of-random-choice
             chain = self.db[seed]
             logger.info(chain)
