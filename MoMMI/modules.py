@@ -19,7 +19,11 @@ async def load_modules():
             logger.info("Loading module %s", path)
             
             try:
-                modules.append(importlib.import_module("MoMMI.Modules.%s" % (file[:-3])))
+                mod = importlib.import_module("MoMMI.Modules.%s" % (file[:-3]))
+                if hasattr(mod, "load"):
+                    await mod.load()
+
+                modules.append(mod)
                 count += 1
 
             except:
@@ -27,7 +31,7 @@ async def load_modules():
 
     return count
 
-def reload_modules():
+async def reload_modules():
     count = 0
     errored = 0
     new = 0
@@ -36,7 +40,7 @@ def reload_modules():
     for module in modules:
         if hasattr(module, "unload"):
             try:
-                module.unload()
+                await module.unload()
 
             except:
                 logger.exception("Exception while unloading a module.")
@@ -44,6 +48,9 @@ def reload_modules():
         try:
             filenames.append(module.__file__)
             importlib.reload(module)
+            if hasattr(module, "load"):
+                await module.load()
+
             count += 1
         except:
             logger.exception("Exception while trying to reload a module.")

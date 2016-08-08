@@ -7,12 +7,12 @@ import re
 import pickle
 import logging
 import random
+import aiofiles
 
 
 logger = logging.getLogger(__name__)
-
-if not os.path.isfile("markovdb"):
-    open("markovdb", "a").close()
+markov_chain = None
+sentence_re = re.compile("([.,?\n]|(?<!@)!)")
 
 def zero():
     return 0
@@ -20,23 +20,27 @@ def zero():
 def zero_dict():
     return defaultdict(zero)
 
-sentence_re = re.compile("([.,?\n]|(?<!@)!)")
 
 class Chain(object):
     def __init__(self, filename):
         self.db = None
         self.filename = filename
-        with open(filename, "rb") as f:
+    
+    async def load(self):
+        async with aiofiles.open(self.filename, "rb") as f:
             try:
-                self.db = pickle.load(f)
+                bytes = await f.read()
+                self.db = pickle.loads(bytes)
+
             except EOFError:
                 logger.exception("Unable to load markov database.")
                 self.db = defaultdict(zero_dict)
 
-    def dump(self):
+    async def dump(self):
         try:
-            with open(self.filename, "wb") as f:
-                pickle.dump(self.db, f)
+            async with aiofiles.open(self.filename, "wb") as f:
+                bytes = pickle.dumps(self.db)
+                await f.write(bytes)
         except:
             logger.exception("Unable to dump markov database.")
 
@@ -96,8 +100,6 @@ class Chain(object):
         logger.info(message)
         return " ".join(message) + "."
 
-markov_chain = Chain("markovdb")
-
 @always_command(True)
 async def markov_reader(message):
     markov_chain.read(message.content)
@@ -106,5 +108,16 @@ async def markov_reader(message):
 async def markov(content, match, message):
     await client.send_message(message.channel, markov_chain.generate())
 
-def unload():
-    markov_chain.dump()
+async def load():
+    logger.info("LOADING MARKOV")
+    global markov_chain
+    markov_chain = Chain("markovdb")
+    await markov_chain.load()
+
+async def unload():
+    logger.info("UNLOADING MARKOV")
+    await markov_chain.dump()
+
+async def save():
+    logger.info("Saving markov")
+    await markov_chain.dump()

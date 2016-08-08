@@ -3,6 +3,7 @@ from ..commands import command, commands, always_commands
 from ..config import get_config
 from ..client import client
 from ..modules import reload_modules
+from ..commloop import events
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,9 @@ async def reload(content, match, message):
     logger.info("Reloading modules! Initiated by %s (%s)", message.author.name, message.author.id)
     commands.clear()
     del(always_commands[:])
+    del(events[:])
     
-    reloaded, errored, new = reload_modules()
+    reloaded, errored, new = await reload_modules()
     
     text_message = "Reloaded %s modules" % (reloaded)
 
