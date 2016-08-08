@@ -6,6 +6,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 commands = {}
+always_commands = []
 is_command_re = None
 
 def setup_commands():
@@ -29,6 +30,20 @@ def command(command, flags=re.IGNORECASE):
 
     return inner
 
+def always_command(no_other_commands=False):
+    def inner(function):
+        global always_commands
+        if not asyncio.iscoroutinefunction(function):
+            logger.warning("Attempted tor register non-coroutine %s!", function)
+            function = asyncio.coroutine(function)
+
+        function.no_other_commands = no_other_commands
+        always_commands.append(function)
+
+        return function
+
+    return inner
+
 @client.event
 async def on_message(message):
     if message.author.id == client.user.id:
@@ -37,12 +52,18 @@ async def on_message(message):
 
     logging.info(u"(%s) %s: %s", message.channel.name, message.author.name, message.content)
     match = is_command_re.match(message.content)
-    if not match:
-        return
-    
-    command = message.content[match.end():]
-    for regex in commands:
-        match = regex.match(command)
-        if match:
-            function = commands[regex]
-            await function(command, match, message)
+    matched_anything = False
+    if match:
+        command = message.content[match.end():]
+        for regex in commands:
+            match = regex.match(command)
+            if match:
+                matched_anything = True
+                function = commands[regex]
+                await function(command, match, message)
+
+    for function in always_commands:
+        if function.no_other_commands and matched_anything:
+            continue
+        
+        await function(message)

@@ -91,3 +91,5 @@ ENV/
 
 ### From here on out it's not from the gitignore repo.
 config.yml
+
+markovdb
