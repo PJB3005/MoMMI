@@ -1,4 +1,4 @@
-from .commloop import comm_event
+from ..commloop import comm_event
 import logging
 
 

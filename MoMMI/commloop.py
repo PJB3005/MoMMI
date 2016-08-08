@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from aioprocessing.connection import AioListener as Listener
-from ..config import get_config
+from .config import get_config
 
 
 address = get_config("commloop.address", "localhost"), get_config("commloop.port", 1679)
@@ -10,17 +10,18 @@ authkey = get_config("commloop.auth", "UNSET!!!").encode("utf-8")
 
 logger = logging.getLogger(__name__)
 server = Listener(address)
+connection = None
 processing = True
 events = []
 
 async def process_loop():
     logger.info("Starting commloop on address %s", address)
     while processing:
-        conn = await server.coro_accept()
+        connection = await server.coro_accept()
         logger.info("Received connection from client %s.", server.last_accepted)
         while True: # While we have a connection
             try:
-                msg = await conn.coro_recv()
+                msg = await connection.coro_recv()
                 for event in events:
                     try:
                         await event(msg, address)
@@ -47,5 +48,6 @@ processing_task = asyncio.ensure_future(process_loop())
 def unload():
     global server
     processing_task.cancel()
+    connection.close()
     server.close()
     del(server)

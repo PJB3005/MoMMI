@@ -1,4 +1,4 @@
-from .commloop import comm_event
+from ..commloop import comm_event
 from ..client import client
 from ..util import getchannel, getserver
 import logging
