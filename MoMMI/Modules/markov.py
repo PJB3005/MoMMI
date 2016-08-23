@@ -13,6 +13,7 @@ import aiofiles
 logger = logging.getLogger(__name__)
 markov_chain = None
 sentence_re = re.compile("([.,?\n]|(?<!@)!)")
+parent_re = re.compile("[[\]{}()\"']")
 
 def zero():
     return 0
@@ -25,7 +26,7 @@ class Chain(object):
     def __init__(self, filename):
         self.db = None
         self.filename = filename
-    
+
     async def load(self):
         async with aiofiles.open(self.filename, "rb") as f:
             try:
@@ -34,6 +35,8 @@ class Chain(object):
 
             except EOFError:
                 logger.exception("Unable to load markov database.")
+
+            if not self.db:
                 self.db = defaultdict(zero_dict)
 
     async def dump(self):
@@ -45,6 +48,7 @@ class Chain(object):
             logger.exception("Unable to dump markov database.")
 
     def read(self, words):
+        logger.info(words)
         for sentence in self.sentences(words):
             words = sentence.split()
             if len(words) < 7:
@@ -67,7 +71,7 @@ class Chain(object):
             if string:
                 yield string
 
-            last = match.end()  
+            last = match.end()
 
         if last < len(words):
             string = words[last:].strip()
@@ -77,12 +81,15 @@ class Chain(object):
     def generate(self, seed=""):
         message = []
         if seed != "":
+            if seed not in self.db.keys():
+                return "Cannot make markov chain: unknown word"
+
             message.append(seed.title())
 
         for i in range(100): # Prevent infinite loop.
             # Basic pickweight based on https://stackoverflow.com/questions/3679694/a-weighted-version-of-random-choice
             chain = self.db[seed]
-            logger.info(chain)
+            # logger.info(chain)
             total = sum(chain.values())
             picked = random.randint(0, total)
 
@@ -92,21 +99,38 @@ class Chain(object):
                     seed = word
                     break
 
-            message.append(seed) 
+            message.append(seed)
 
             if seed == "":
                 break
-        
+
+        # Remove trailing "".
+        message.pop()
         logger.info(message)
         return " ".join(message) + "."
 
 @always_command(True)
 async def markov_reader(message):
-    markov_chain.read(message.content)
+    markov_chain.read(parent_re.sub(" ", message.content.lower()))
 
-@command("markov")
+@command("markov\s*(?:\((\S*)\))?")
 async def markov(content, match, message):
-    await client.send_message(message.channel, markov_chain.generate())
+    msg = ""
+    if match.group(1):
+        msg = markov_chain.generate(match.group(1))
+    else:
+        msg = markov_chain.generate()
+
+    await client.send_message(message.channel, msg)
+
+@command("wipemarkov")
+async def markov_wipe(content, match, message):
+    if int(get_config("owner.id", 97089048065097728)) != int(message.author.id):
+        await client.send_message(message.channel, "You don't have permission, fuck off.")
+        return
+
+    markov_chain.db = defaultdict(zero_dict)
+    await client.send_message(message.channel, "Wiped.")
 
 async def load():
     logger.info("LOADING MARKOV")
