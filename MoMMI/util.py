@@ -12,3 +12,8 @@ def getchannel(server, name):
     for channel in server.channels:
         if channel.name == name:
             return channel
+
+def getrole(server, id):
+    for role in server.roles:
+        if role.id == id:
+            return role
