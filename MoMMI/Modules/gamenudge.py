@@ -2,6 +2,7 @@ import logging
 from ..client import client
 from ..commloop import comm_event
 from ..config import get_config
+from ..util import getrole
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,6 @@ async def gamenudge(msg, address):
         return
 
     output = msg["content"]
-    output = output.replace("{ADMIN_PING}", "<@&%s>" % (get_config("mainserver.roles.admin")))
+    output = output.replace("{ADMIN_PING}", getrole(channel.server, str(get_config("mainserver.roles.admin"))).mention)
     
     await client.send_message(channel, output)
