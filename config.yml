@@ -1,9 +1,23 @@
 token: unset
 
 commloop:
-    address: localhost
+    address: 192.168.1.102
     port: 1679 # Thanks random.org
     auth: UNSET!!!
 
 owner:
-    id: 0
+    id: 97089048065097728
+
+nudges:
+    password: UNSET
+
+mainserver:
+    id: 174706781455515648
+
+    channels:
+        admin: 218470596122640384
+        main: 174706781455515648
+
+    roles:
+        admin: 218476919996284929
+        coder: 218476634309656576

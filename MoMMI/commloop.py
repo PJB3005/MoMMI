@@ -37,7 +37,7 @@ async def process_loop():
 def comm_event(function):
     global events
     if not asyncio.iscoroutinefunction(function):
-        logger.warning("Attempted tor register non-coroutine %s as comm_event!", function)
+        logger.warning("Attempted to register non-coroutine %s as comm_event!", function)
         function = asyncio.coroutine(function)
     
     events.append(function)

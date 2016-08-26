@@ -48,7 +48,6 @@ class Chain(object):
             logger.exception("Unable to dump markov database.")
 
     def read(self, words):
-        logger.info(words)
         for sentence in self.sentences(words):
             words = sentence.split()
             if len(words) < 7:
