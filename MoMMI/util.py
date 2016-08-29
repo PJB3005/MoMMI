@@ -1,3 +1,5 @@
+from .config import get_config
+from .client import client
 import logging
 
 
@@ -17,3 +19,6 @@ def getrole(server, id):
     for role in server.roles:
         if role.id == id:
             return role
+
+def mainserver():
+    return client.get_server(str(get_config("mainserver.id")))
