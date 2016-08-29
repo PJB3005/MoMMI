@@ -17,8 +17,13 @@ async def status_command(content, match, message):
     address = get_config("gameservers.%s.address" % (server))
     port = get_config("gameservers.%s.port" % (server))
 
-    response = await server_topic(address, port, b"?status")
+    try:
+        response = await asyncio.wait_for(server_topic(address, port, b"?status"), timeout=5)
     
+    except:
+        await client.send_message(message.channel, "Unable to connect to server")
+        return
+
     map = response["map_name"][0]
     playing = response["players"][0]
     
