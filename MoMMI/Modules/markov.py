@@ -1,5 +1,5 @@
 from ..config import get_config
-from ..commands import always_command, command
+from ..commands import always_command, command, command_help
 from ..client import client
 from collections import defaultdict
 import os
@@ -112,6 +112,7 @@ class Chain(object):
 async def markov_reader(message):
     markov_chain.read(parent_re.sub(" ", message.content.lower()))
 
+@command_help("markov", "Outputs a procedurally generated message generated with Markov chains.", "markov(<word to start sentence at>)")
 @command("markov\s*(?:\((\S*)\))?")
 async def markov(content, match, message):
     msg = ""

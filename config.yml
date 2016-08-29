@@ -22,3 +22,14 @@ mainserver:
     roles:
         admin: 0
         coder: 0
+
+gameservers:
+    default: "main"
+
+    main:
+        address: ""
+        port: 0
+    
+    test:
+        address: ""
+        port: 0

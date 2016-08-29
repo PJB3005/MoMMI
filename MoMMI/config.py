@@ -5,30 +5,45 @@ import aiofiles
 
 logger = logging.getLogger("config")
 config = {}
+overrides = {}
 
-async def parse(filename, safe=False):
+async def parse(filename, safe=False, override=False):
     global config
-    f = await aiofiles.open(filename, mode='r')
+    global overrides
     try:
-        document = await f.read()
-    finally:
-        f.close()
+        f = await aiofiles.open(filename, mode='r')
+        try:
+            document = await f.read()
+        finally:
+            f.close()
 
-
-    try:   
+        out = None
         if safe:
-            config = yaml.safe_load(document)
+            out = yaml.safe_load(document)
         else:
-            config = yaml.load(document)
+            out = yaml.load(document)
+
+        if override:
+            overrides = out
+        else:
+            config = out
 
     except Exception as e:
         logger.exception("Failed to load config file %s due to exception.")
         return
 
-def get_config(value, default=None):
+def get_config(value, default=None, dictionary=None):
+    logger.info(dictionary)
+    if dictionary == None:
+        logger.info("yes")
+        override = get_config(value, None, overrides)
+        if override:
+            return override
+        dictionary = config
+
     tree = value.split(".")
 
-    current = config
+    current = dictionary
     for node in tree:
         if type(current) == dict and node in current:
             current = current[node]
@@ -44,6 +59,7 @@ loop = asyncio.get_event_loop()
 
 # TODO: Unhardcode base config file, somehow, probably argparse.
 loop.run_until_complete(parse("config.yml"))
+loop.run_until_complete(parse("override.yml", override=True))
 logger.info("Successfully loaded config.yml.")
 logger.debug("Config is %s" % (config))
 

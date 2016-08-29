@@ -1,5 +1,5 @@
 from ..client import client
-from ..commands import command
+from ..commands import command, command_help
 from ..util import mainserver
 import logging
 import pickle
@@ -8,6 +8,13 @@ import aiofiles
 logger = logging.getLogger(__name__)
 pingGroups = {}
 
+@command_help("ping", "A system for opt-in ping groups.", "ping (list|create|leave|join|ping) [group name]", """Subcommands:
+ * **list**: Lists all pingroups, or the members of a specific group.
+ * **create**: Create a ping group with the provided name.
+ * **leave**: Leave the ping group with the provided name, deleting the group if it becomes empty.
+ * **join**: Join the ping group with the provided name.
+ * **ping**: Ping *everybody* in the ping group with the provided name. Yes you need to use ping twice when using this sub command. 
+""")
 @command("ping\s*(?P<action>list|create|leave|join|ping)\s*(?P<name>\S*)")
 async def pingcommand(content, match, message):
     action = match.group("action")

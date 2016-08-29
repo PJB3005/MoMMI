@@ -6,6 +6,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 commands = {}
+help_cache = {}
 always_commands = []
 is_command_re = None
 
@@ -67,3 +68,12 @@ async def on_message(message):
             continue
         
         await function(message)
+
+def command_help(key, shortdesc, usage, longdesc=None):
+    """
+    Register a command in the help cache.
+    """
+
+    help_cache[key] = shortdesc, usage, longdesc
+
+    return lambda f: f
