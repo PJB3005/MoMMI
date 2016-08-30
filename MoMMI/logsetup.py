@@ -48,3 +48,4 @@ try:
 except Exception as e:
     logging.exception("Unable to create ERROR log handler for file %s.", path)
 
+logging.getLogger("github3").setLevel(logging.WARNING)

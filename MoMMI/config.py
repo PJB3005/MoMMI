@@ -33,9 +33,7 @@ async def parse(filename, safe=False, override=False):
         return
 
 def get_config(value, default=None, dictionary=None):
-    logger.info(dictionary)
     if dictionary == None:
-        logger.info("yes")
         override = get_config(value, None, overrides)
         if override:
             return override

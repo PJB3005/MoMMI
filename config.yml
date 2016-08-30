@@ -33,3 +33,15 @@ gameservers:
     test:
         address: ""
         port: 0
+
+github:
+    login:
+        token: UNSET
+    
+    repo:
+        # Username of the user that owns the repo.
+        owner: UNSET
+        # Name of the repo.
+        name: UNSET
+
+        branch: UNSET
