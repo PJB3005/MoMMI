@@ -110,7 +110,7 @@ class Chain(object):
 
 @always_command(True)
 async def markov_reader(message):
-    markov_chain.read(parent_re.sub(" ", message.content.lower()))
+    markov_chain.read(parent_re.sub("", message.content.lower()))
 
 @command_help("markov", "Outputs a procedurally generated message generated with Markov chains.", "markov(<word to start sentence at>)")
 @command("markov\s*(?:\((\S*)\))?")
