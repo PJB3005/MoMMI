@@ -1,5 +1,6 @@
 from ..client import client
 from ..commands import command, command_help
+from ..util import output
 import logging
 import random
 
@@ -27,7 +28,7 @@ async def pick(content, match, message):
 
     chosen = random.choice(choices)
 
-    await client.send_message(message.channel, "**%s**" % (chosen))
+    await output(message.channel, "**%s**" % (chosen))
 
 @command_help("dice", "Rolls a specific number of dice", "dice 2d20+5")
 @command("dice\s*(\d+)?(?:d(\d+))?(?:\+\s*(\d+))?")

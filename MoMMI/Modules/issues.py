@@ -6,7 +6,7 @@ from ..client import client
 from ..commands import always_command
 from ..config import get_config
 
-
+"""
 logger = logging.getLogger(__name__)
 github = login(token=get_config("github.login.token"))
 repo   = github.repository(get_config("github.repo.owner"), get_config("github.repo.name"))
@@ -30,9 +30,13 @@ async def issue(message):
         logger.info(path)
         length = -len(path)
         for hash in tree.tree:
-            logger.info(hash.path)
+            logger.debug(hash.path)
             if hash.path.lower()[length:] == path:
-                url = "%s/blob/%s/%s" % (repo.html_url, get_config("github.repo.branch"), quote(hash.path)) + match.group(2)
+                logger.info(repo.html_url)
+                logger.info(get_config("github.repo.branch"))
+                logger.info(quote(hash.path))
+                logger.info(match.group(2))
+                url = "%s/blob/%s/%s" % (repo.html_url, get_config("github.repo.branch"), quote(hash.path)) + (match.group(2) or "")
                 await client.send_message(message.channel, url)
                 break;
 
@@ -42,3 +46,4 @@ def update():
 
     tree = repo.tree(repo.branch(get_config("github.repo.branch")).commit.sha)
     tree.recurse()
+"""

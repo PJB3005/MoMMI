@@ -1,9 +1,11 @@
 from ..commloop import comm_event
 from ..client import client
 from ..util import getchannel, getserver
+from ..config import get_config
 import logging
 import asyncio
-
+import aiohttp
+import json
 
 logger = logging.getLogger(__name__)
 event_handlers = {}
@@ -41,6 +43,9 @@ async def issues(msg):
 event_handlers["issues"] = issues
 
 async def pr(msg):
+    if msg["action"] == "synchronize" or msg["action"] == "opened":
+        await secret_repo_check(msg)
+
     if msg["action"] in invalid_actions:
         return
 
@@ -57,5 +62,29 @@ async def pr(msg):
         logger.error("No channel.")
 
     await client.send_message(channel, message)
+
+async def secret_repo_check(probject):
+    headers = {"Authorization": "token %s" % (get_config("github.login.token"))}
+    async with aiohttp.ClientSession() as session:
+        url = probject["pull_request"]["url"] + "/files"
+        async with session.get(url, headers=headers) as resp:
+            if resp.status != 200:
+                logger.error("Query to GitHub for PR file list returned status code %s!")
+                return
+
+            found = False
+            content = await resp.text()
+            logger.debug("Got back from GitHub for the files of PR #%s: %s", probject["number"], content)
+            data = json.loads(content)
+            for fileobject in data:
+                if fileobject["filename"] in get_config("github.repo.secret_repo_files"):
+                    found = True
+                    break
+            
+            if found:
+                url = probject["pull_request"]["issue_url"] + "/labels" 
+                postdata = json.dumps([get_config("github.repo.labels.secret_conflict")])
+                async with session.post(url, data=postdata, headers=headers) as postresp:
+                    logger.info("Setting label %s on PR #%s returned status code %s!", get_config("github.repo.secret_repo_files"), probject["number"], postresp.status)
 
 event_handlers["pull_request"] = pr

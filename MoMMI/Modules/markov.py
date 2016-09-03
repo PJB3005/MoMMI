@@ -1,6 +1,7 @@
 from ..config import get_config
 from ..commands import always_command, command, command_help
 from ..client import client
+from ..util import output
 from collections import defaultdict
 import os
 import re
@@ -121,7 +122,7 @@ async def markov(content, match, message):
     else:
         msg = markov_chain.generate()
 
-    await client.send_message(message.channel, msg)
+    await output(message.channel, msg)
 
 @command("wipemarkov")
 async def markov_wipe(content, match, message):
@@ -130,7 +131,7 @@ async def markov_wipe(content, match, message):
         return
 
     markov_chain.db = defaultdict(zero_dict)
-    await client.send_message(message.channel, "Wiped.")
+    await output(message.channel, "Wiped.")
 
 async def load():
     logger.info("LOADING MARKOV")
