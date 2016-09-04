@@ -6,7 +6,7 @@ from ..client import client
 from ..commands import always_command
 from ..config import get_config
 
-"""
+
 logger = logging.getLogger(__name__)
 github = login(token=get_config("github.login.token"))
 repo   = github.repository(get_config("github.repo.owner"), get_config("github.repo.name"))
@@ -20,6 +20,9 @@ REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
 async def issue(message):
     for match in REG_ISSUE.finditer(message.content):
         id = int(match.group(1))
+        if id < 1000:
+            continue
+
         issue = repo.issue(id)
 
         await client.send_message(message.channel, issue.html_url)
@@ -46,4 +49,3 @@ def update():
 
     tree = repo.tree(repo.branch(get_config("github.repo.branch")).commit.sha)
     tree.recurse()
-"""
