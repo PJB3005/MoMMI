@@ -1,10 +1,13 @@
 import logging
+import re
 from ..client import client
 from ..commloop import comm_event
 from ..config import get_config
 from ..util import getrole
 
+
 logger = logging.getLogger(__name__)
+
 
 @comm_event
 async def gamenudge(msg, address):
@@ -28,7 +31,10 @@ async def gamenudge(msg, address):
         logger.error("Unable to get a reference to the channel! Is the ID incorrect?")
         return
 
-    output = msg["content"]
-    output = output.replace("{ADMIN_PING}", getrole(channel.server, str(get_config("mainserver.roles.admin"))).mention)
-    
+    output = msg["content"].replace("@", "\\@")
+    if msg["ping"]:
+        output += " " + getrole(channel.server, str(get_config("mainserver.roles.admin"))).mention    
+
+    logger.info(output)
+
     await client.send_message(channel, output)
