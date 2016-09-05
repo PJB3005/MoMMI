@@ -4,13 +4,14 @@ from ..config import get_config
 from ..client import client
 from ..modules import reload_modules
 from ..commloop import events
+from ..permissions import isowner
 
 logger = logging.getLogger(__name__)
 
 @command("reload")
 async def reload(content, match, message):
     global always_commands
-    if int(get_config("owner.id", 97089048065097728)) != int(message.author.id):
+    if isowner(message.author):
         await client.send_message(message.channel, "You don't have permission, fuck off.")
         return
     

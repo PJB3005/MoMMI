@@ -17,7 +17,7 @@ except:
     bans = defaultdict(empty_list)
 
 def isowner(user):
-    return user.id == get_config("owner.id", "nope")
+    return user.id == str(get_config("owner.id", "nope"))
 
 def isrole(member, id):
     if isowner(member):
