@@ -1,6 +1,6 @@
 from .client import client
 from .util import output
-from .permissions import isrole, isbanned
+from .permissions import isrole, isbanned, bantypes
 import re
 import logging
 import asyncio
@@ -61,7 +61,7 @@ async def on_message(message):
     match = is_command_re.match(message.content)
     matched_anything = False
     if match:
-        if isbanned(message.author, "commands"):
+        if isbanned(message.author, bantypes.commands):
             await output(message.channel, "You are banned from executing commands.")
         
         else:    
@@ -86,7 +86,12 @@ def command_help(key, shortdesc, usage, longdesc=None):
     """
     Register a command in the help cache.
     """
+    def inner(function):
+        try:
+            permissions = function.role_requirement
+        except AttributeError:
+            permissions = None
 
-    help_cache[key] = shortdesc, usage, longdesc
+        help_cache[key] = shortdesc, usage, longdesc, permissions
 
-    return lambda f: f
+    return inner

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 @command("reload")
 async def reload(content, match, message):
     global always_commands
-    if isowner(message.author):
+    if not isowner(message.author):
         await client.send_message(message.channel, "You don't have permission, fuck off.")
         return
     

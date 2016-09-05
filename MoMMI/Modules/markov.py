@@ -2,6 +2,7 @@ from ..config import get_config
 from ..commands import always_command, command, command_help
 from ..client import client
 from ..util import output
+from ..permissions import isbanned, bantypes
 from collections import defaultdict
 import os
 import re
@@ -111,7 +112,8 @@ class Chain(object):
 
 @always_command(True)
 async def markov_reader(message):
-    markov_chain.read(parent_re.sub("", message.content.lower()))
+    if not isbanned(message.author, bantypes.markov):
+        markov_chain.read(parent_re.sub("", message.content.lower()))
 
 @command_help("markov", "Outputs a procedurally generated message generated with Markov chains.", "markov(<word to start sentence at>)")
 @command("markov\s*(?:\((\S*)\))?")

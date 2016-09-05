@@ -1,5 +1,6 @@
 from ..client import client
 from ..commands import command, command_help, help_cache
+from ..permissions import isrole
 
 
 @command_help("help", "Display a list of commands, or usage of a specific command.", "help [command]")
@@ -10,6 +11,11 @@ async def actually_the_help_command(content, match, message):
     if not commandname:
         content = "Available commands:\n"
         for command in help_cache:
+            # Handle permissions.
+            if help_cache[command][3]:
+                if not isrole(message.author, help_cache[command][3]):
+                    continue
+
             content += "**%s**: %s\n" % (command, help_cache[command][0])
     
     else:

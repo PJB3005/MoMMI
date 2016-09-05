@@ -1,8 +1,12 @@
 import logging
+from enum import Enum
 from .util import pickle_dump, pickle_load
 from .config import get_config
 from collections import defaultdict
 
+class bantypes(Enum):
+    commands = 1
+    markov = 2
 
 def empty_list():
     return []
@@ -29,21 +33,22 @@ def isrole(member, id):
 
     return False
 
-def isbanned(user, group="commands"):
+def isbanned(user, group=bantypes.commands):
     if isowner(user):
         return False
 
     return int(user.id) in bans[group]
 
-async def ban(user, group="commands"):
+async def ban(user, group=bantypes.commands):
     if isbanned(user, group):
         return
 
     bans[group].append(int(user.id))
     
+
     await pickle_dump(bans, "bandb")
 
-async def unban(user, group="commands"):
+async def unban(user, group=bantypes.commands):
     if not isbanned(user, group):
         return
 

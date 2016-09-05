@@ -26,11 +26,11 @@ def getrole(server, id):
 def mainserver():
     return client.get_server(str(get_config("mainserver.id")))
 
-async def output(channel, message):
-    message = re.sub("@(everyone|here)", "@​\g<1>", message)
+async def output(channel, message, *args):
+    message = re.sub("@(everyone|here)", "@​\g<1>", message % args)
     await client.send_message(channel, message)
 
-async def pickle_dump(object, filename):
+async def pickle_dump(obj, filename):
     byte = pickle.dumps(obj)
     async with aiofiles.open(filename, "wb") as f:
         await f.write(byte)
