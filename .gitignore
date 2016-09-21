@@ -94,4 +94,6 @@ config.yml
 
 markovdb
 pingdb
+bandb
 override.yml
+logs/*

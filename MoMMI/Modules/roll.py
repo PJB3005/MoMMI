@@ -3,6 +3,7 @@ from ..commands import command, command_help
 from ..util import output
 import logging
 import random
+import discord
 
 logger = logging.getLogger(__name__)
 random.seed()
@@ -31,14 +32,20 @@ async def pick(content, match, message):
     await output(message.channel, "**%s**" % (chosen))
 
 @command_help("dice", "Rolls a specific number of dice", "dice 2d20+5")
-@command("dice\s*(\d+)?(?:d(\d+))?(?:\+\s*(\d+))?")
+@command(r"dice\s*(\d+)?(?:d(\d+))?([\+\-]\d+)?")
 async def dice_command(content, match, message):
-    amount = min(100, int(match.group(1) or "1"))
+    amount = min(1000, int(match.group(1) or "1"))
     size   = int(match.group(2) or "6")
     offset = int(match.group(3) or "0")
 
-    rolls = [random.randint(0, size) for x in range(amount)]
+    rolls = [random.randint(1, size) for x in range(amount)]
 
-    content = "You rolled `%sd%s+%s` and got `(%s)%s=%s`!" % (amount, size, offset, "+".join([str(x) for x in rolls]),
-        "+%s" % offset if offset else "", sum(rolls) + offset)
-    await client.send_message(message.channel, content)
+    sign = "+" if offset >= 0 else ""
+    added = sign + str(offset)
+    content = "You rolled `%sd%s%s` and got `(%s)%s=%s`!" % (amount, size, added, "+".join([str(x) for x in rolls]),
+        added, sum(rolls) + offset)
+
+    try:
+        await client.send_message(message.channel, content)
+    except discord.errors.HTTPException:
+        await client.send_message(message.channel, "You hit the message limit, good job.")

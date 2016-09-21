@@ -12,9 +12,11 @@ help_cache = {}
 always_commands = []
 is_command_re = None
 
+
 def setup_commands():
     global is_command_re
-    is_command_re = re.compile("^<\!?@%s>\s*" % (client.user.id))
+    is_command_re = re.compile(r"^<@\!?%s>\s*" % (client.user.id))
+
 
 def command(command, flags=re.IGNORECASE, role=None, ban_groups=None):
     """
@@ -26,7 +28,7 @@ def command(command, flags=re.IGNORECASE, role=None, ban_groups=None):
         if not asyncio.iscoroutinefunction(function):
             logger.warning("Attempted to register non-coroutine %s!", function)
             function = asyncio.coroutine(function)
-        
+
         pattern = re.compile(command, flags)
         commands[pattern] = function
         function.role_requirement = role
@@ -34,6 +36,7 @@ def command(command, flags=re.IGNORECASE, role=None, ban_groups=None):
         return function
 
     return inner
+
 
 def always_command(no_other_commands=False):
     def inner(function):
@@ -49,6 +52,7 @@ def always_command(no_other_commands=False):
 
     return inner
 
+
 @client.event
 async def on_message(message):
     if message.author.id == client.user.id:
@@ -56,15 +60,14 @@ async def on_message(message):
         return
 
     logging.info(u"(%s) %s: %s", message.channel.name, message.author.name, message.content)
-    
-    
+
     match = is_command_re.match(message.content)
     matched_anything = False
     if match:
         if isbanned(message.author, bantypes.commands):
             await output(message.channel, "You are banned from executing commands.")
-        
-        else:    
+
+        else:
             command = message.content[match.end():]
             for regex in commands:
                 match = regex.match(command)
@@ -79,8 +82,9 @@ async def on_message(message):
     for function in always_commands:
         if function.no_other_commands and matched_anything:
             continue
-        
+
         await function(message)
+
 
 def command_help(key, shortdesc, usage, longdesc=None):
     """

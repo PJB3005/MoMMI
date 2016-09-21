@@ -17,7 +17,7 @@ async def actually_the_help_command(content, match, message):
                     continue
 
             content += "**%s**: %s\n" % (command, help_cache[command][0])
-    
+
     else:
         if commandname not in help_cache:
             content = "That command does not exist!"
