@@ -4,8 +4,9 @@ import discord
 import logging
 
 
-client = discord.Client()
+client = discord.Client()  # Type: discord.Client
 logger = logging.getLogger(__name__)
+
 
 @client.event
 async def on_ready():
@@ -20,6 +21,7 @@ async def on_ready():
     commands.setup_commands()
     count = await modules.load_modules()
     logger.info("Loaded %s modules.", count)
+
 
 @client.event
 async def on_error(event, *args, **kwargs):

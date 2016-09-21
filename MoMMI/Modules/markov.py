@@ -17,8 +17,10 @@ markov_chain = None
 sentence_re = re.compile("([.,?\n]|(?<!@)!)")
 parent_re = re.compile("[[\]{}()\"']")
 
+
 def zero():
     return 0
+
 
 def zero_dict():
     return defaultdict(zero)
@@ -41,9 +43,9 @@ class Chain(object):
             if not self.db:
                 self.db = defaultdict(zero_dict)
 
-    async def dump(self):
+    async def dump(self, loop=None):
         try:
-            async with aiofiles.open(self.filename, "wb") as f:
+            async with aiofiles.open(self.filename, "wb", loop=loop) as f:
                 bytes = pickle.dumps(self.db)
                 await f.write(bytes)
         except:
@@ -87,7 +89,8 @@ class Chain(object):
 
             message.append(seed.title())
 
-        for i in range(100): # Prevent infinite loop.
+        # Prevent infinite loop.
+        for i in range(100):
             # Basic pickweight based on https://stackoverflow.com/questions/3679694/a-weighted-version-of-random-choice
             chain = self.db[seed]
             # logger.info(chain)
@@ -110,10 +113,12 @@ class Chain(object):
         logger.info(message)
         return " ".join(message) + "."
 
+
 @always_command(True)
 async def markov_reader(message):
     if not isbanned(message.author, bantypes.markov):
         markov_chain.read(parent_re.sub("", message.content.lower()))
+
 
 @command_help("markov", "Outputs a procedurally generated message generated with Markov chains.", "markov(<word to start sentence at>)")
 @command("markov\s*(?:\((\S*)\))?")
@@ -125,6 +130,7 @@ async def markov(content, match, message):
         msg = markov_chain.generate()
 
     await output(message.channel, msg)
+
 
 @command("wipemarkov")
 async def markov_wipe(content, match, message):
@@ -141,9 +147,9 @@ async def load():
     markov_chain = Chain("markovdb")
     await markov_chain.load()
 
-async def unload():
+async def unload(loop=None):
     logger.info("UNLOADING MARKOV")
-    await markov_chain.dump()
+    await markov_chain.dump(loop)
 
 async def save():
     logger.info("Saving markov")

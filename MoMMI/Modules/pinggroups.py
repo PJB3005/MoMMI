@@ -8,12 +8,13 @@ import aiofiles
 logger = logging.getLogger(__name__)
 pingGroups = {}
 
+
 @command_help("ping", "A system for opt-in ping groups.", "ping (list|create|leave|join|ping) [group name]", """Subcommands:
  * **list**: Lists all pingroups, or the members of a specific group.
  * **create**: Create a ping group with the provided name.
  * **leave**: Leave the ping group with the provided name, deleting the group if it becomes empty.
  * **join**: Join the ping group with the provided name.
- * **ping**: Ping *everybody* in the ping group with the provided name. Yes you need to use ping twice when using this sub command. 
+ * **ping**: Ping *everybody* in the ping group with the provided name. Yes you need to use ping twice when using this sub command.
 """)
 @command("ping\s*(?P<action>list|create|leave|join|ping)\s*(?P<name>\S*)")
 async def pingcommand(content, match, message):
@@ -25,18 +26,18 @@ async def pingcommand(content, match, message):
         if name:
             if name in pingGroups:
                 await pingGroups[name].names(message.channel)
-            
+
             else:
                 await client.send_message(message.channel, "That group does not exist.")
-            
+
         # List every group (without names but with numbers) instead.
         else:
             content = ""
             for group in pingGroups.values():
                 content += "%s (%s members)\n" % (group.name, group.amount())
-            
+
             await client.send_message(message.channel, content or "No groups to list!")
-        
+
         # Return, so DO NOT save.
         return
 
@@ -49,7 +50,7 @@ async def pingcommand(content, match, message):
             pingGroups[name] = group
             group.add(message.author)
             await client.send_message(message.channel, "Successfully created the group.")
-    
+
     elif action == "leave":
         if name in pingGroups:
             if message.author in pingGroups[name].members:
@@ -61,10 +62,10 @@ async def pingcommand(content, match, message):
 
             else:
                 await client.send_message(message.channel, "You aren't even in the group!")
-        
+
         else:
             await client.send_message(message.channel, "That group does not exist.")
-        
+
     elif action == "join":
         if name in pingGroups:
             if message.author not in pingGroups[name].members:
@@ -72,7 +73,7 @@ async def pingcommand(content, match, message):
                 await client.send_message(message.channel, "Successfully added you to the group.")
             else:
                 await client.send_message(message.channel, "You are already in the group!")
-        
+
         else:
             await client.send_message(message.channel, "That group does not exist.")
 
@@ -82,11 +83,12 @@ async def pingcommand(content, match, message):
 
         else:
             await client.send_message(message.channel, "That group does not exist.")
-        
+
         # Return as to not save.
         return
 
     await _save()
+
 
 class pingGroup(object):
     def __init__(self, name):
@@ -98,9 +100,9 @@ class pingGroup(object):
     def __getstate__(self):
         return {
             "name": self.name,
-            "members": [member.id for member in self.members]
+            "members": [member and member.id for member in self.members]
         }
-    
+
     def __setstate__(self, state):
         self.name = state["name"]
         self.members = [mainserver().get_member(x) for x in state["members"]]
@@ -140,15 +142,15 @@ async def load():
     except EOFError:
         logger.warning("Making new pingdb.")
 
-async def unload():
+async def unload(loop=None):
     logger.info("Unloading ping groups.")
-    await _save()
+    await _save(loop)
 
 async def save():
     logger.info("Saving ping groups.")
     await _save()
 
-async def _save():
+async def _save(loop=None):
     byte = pickle.dumps(pingGroups)
-    async with aiofiles.open("pingdb", "wb") as f:
+    async with aiofiles.open("pingdb", "wb", loop=loop) as f:
         await f.write(byte)
