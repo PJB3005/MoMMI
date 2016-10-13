@@ -6,19 +6,24 @@ import logging
 
 client = discord.Client()  # Type: discord.Client
 logger = logging.getLogger(__name__)
+initial_module_load = True
 
 
 @client.event
 async def on_ready():
+    global initial_module_load
     from . import modules
     from . import commands
     logger.info("Logged in as %s (%s)", client.user.name, client.user.id)
     logger.info("Connected servers:")
+    commands.setup_commands()
     for server in client.servers:
         logger.info("    %s", server.name)
 
-    logger.info("Loaded %s commands", len(commands.commands))
-    commands.setup_commands()
+    if not initial_module_load:
+        return
+
+    initial_module_load = False
     count = await modules.load_modules()
     logger.info("Loaded %s modules.", count)
 

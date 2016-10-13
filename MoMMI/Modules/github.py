@@ -15,7 +15,7 @@ event_handlers = {}
 async def github_event(msg, address):
     if msg["id"] != "github":
         return
-    
+
     logger.info("Handling message from GitHub.")
     logger.info(msg["event"])
     func = event_handlers.get(msg["event"])
@@ -31,14 +31,20 @@ async def issues(msg):
 
     issue = msg["issue"]
     sender = msg["sender"]
-    message = "Issue #%s **%s** by %s: %s" % (issue["number"], msg["action"], sender["login"], issue["html_url"])
-    
+    pre = None
+    if msg["action"] == "closed":
+        pre = "<:PRclosed:230185474625503233>"
+    else:
+        pre = "<:PRopened:230186976362364932>"
+
+    message = "%s Issue #%s **%s** by %s: %s" % (pre, issue["number"], msg["action"], sender["login"], issue["html_url"])
+
     channel = getchannel(getserver(client, "/vg/"), "code-map-sprite")
     if not channel:
         logger.error("No channel.")
 
     await client.send_message(channel, message)
-    
+
 
 event_handlers["issues"] = issues
 
@@ -52,11 +58,17 @@ async def pr(msg):
     pull_request = msg["pull_request"]
     sender = msg["sender"]
     action = msg["action"]
+    if msg["action"] == "closed":
+        pre = "<:PRclosed:230185474625503233>"
+    else:
+        pre = "<:PRopened:230186976362364932>"
+
     if action == "closed" and pull_request["merged"]:
         action = "merged"
+        pre = "<:PRmerged:230185465200902145>"
 
-    message = "Pull Request #%s **%s** by %s: %s" % (pull_request["number"], action, sender["login"], pull_request["html_url"])
-    
+    message = "%s Pull Request #%s **%s** by %s: %s" % (pre, pull_request["number"], action, sender["login"], pull_request["html_url"])
+
     channel = getchannel(getserver(client, "/vg/"), "code-map-sprite")
     if not channel:
         logger.error("No channel.")
@@ -80,9 +92,9 @@ async def secret_repo_check(probject):
                 if fileobject["filename"] in get_config("github.repo.secret_repo_files"):
                     found = True
                     break
-            
+
             if found:
-                url = probject["pull_request"]["issue_url"] + "/labels" 
+                url = probject["pull_request"]["issue_url"] + "/labels"
                 postdata = json.dumps([get_config("github.repo.labels.secret_conflict")])
                 async with session.post(url, data=postdata, headers=headers) as postresp:
                     logger.info("Setting label %s on PR #%s returned status code %s!", get_config("github.repo.secret_repo_files"), probject["number"], postresp.status)

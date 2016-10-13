@@ -125,7 +125,7 @@ async def markov_reader(message):
 async def markov(content, match, message):
     msg = ""
     if match.group(1):
-        msg = markov_chain.generate(match.group(1))
+        msg = markov_chain.generate(match.group(1).lower())
     else:
         msg = markov_chain.generate()
 

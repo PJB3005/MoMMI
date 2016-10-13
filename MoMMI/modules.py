@@ -81,11 +81,13 @@ async def reload_modules():
 # Sanely unload modules!
 def handle_signterm(signum, frame):
     logger.info("SIGTERM received, unloading modules and shutting down!")
-    loop = asyncio.new_event_loop()
+    loop = asyncio.get_event_loop()
     tasks = [asyncio.ensure_future(module.unload(loop=loop), loop=loop) for module in modules if hasattr(module, "unload")]
     logger.info(tasks)
+    loop.stop()
+    loop.run_until_complete(client.logout())
     loop.run_until_complete(asyncio.gather(*tasks))
+    loop.close()
     logger.info("huh")
-    raise KeyboardInterrupt()
 
 signal.signal(signal.SIGTERM, handle_signterm)

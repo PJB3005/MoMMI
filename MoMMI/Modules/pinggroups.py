@@ -100,12 +100,12 @@ class pingGroup(object):
     def __getstate__(self):
         return {
             "name": self.name,
-            "members": [member and member.id for member in self.members]
+            "members": [member.id for member in self.members if member]
         }
 
     def __setstate__(self, state):
         self.name = state["name"]
-        self.members = [mainserver().get_member(x) for x in state["members"]]
+        self.members = [mainserver().get_member(x) for x in state["members"] if x]
 
     async def ping(self, channel):
         message = " ".join([x.mention for x in self.members])

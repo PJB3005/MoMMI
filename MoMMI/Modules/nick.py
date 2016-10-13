@@ -4,7 +4,7 @@ from ..client import client
 from ..config import get_config
 from ..commands import command
 
-@command(r"nick\s*(\S*)")
+@command(r"nick\s*(.*)$")
 async def nickname_changer(content, match, message):
     if not isowner(message.author):
         await output(message.channel, "No")
