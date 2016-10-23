@@ -2,6 +2,7 @@ from ..commands import unsafe_always_command, command, command_help
 from ..util import output
 from ..config import get_config
 from ..client import client
+from ..permissions import isbanned, bantypes
 import logging
 import asyncio
 import bottom
@@ -51,6 +52,9 @@ def keepalive(message, **kwargs):
 
 @unsafe_always_command()
 async def ircrelay(message):
+    if isbanned(message.author, bantypes.irc):
+        return
+
     if message.content[0] == "\u200B" or message.channel.id != str(get_config("mainserver.irc.discord.channel")):
         return
 
@@ -63,7 +67,10 @@ async def ircrelay(message):
     # Insert a zero-width space so people with the same name on IRC don't get pinged.
     author = prevent_ping(message.author.name)
 
-    irc_client.send("PRIVMSG", target=get_config("mainserver.irc.irc.channel"), message="DISCORD: <{}> {}".format(author, content))
+    try:
+        irc_client.send("PRIVMSG", target=get_config("mainserver.irc.irc.channel"), message="<{}> {}".format(author, content))
+    except RuntimeError:
+        pass
 
 """
 @command_help("irc", "Commands for interacting with IRC.", "irc who")

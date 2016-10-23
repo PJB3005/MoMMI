@@ -4,39 +4,47 @@ import re
 import logging
 import aiofiles
 import pickle
+import discord
 
 
 logger = logging.getLogger(__name__)
+
 
 def getserver(client, name):
     for server in client.servers:
         if server.name == name:
             return server
 
+
 def getchannel(server, name):
     for channel in server.channels:
         if channel.name == name:
             return channel
+
 
 def getrole(server, id):
     for role in server.roles:
         if role.id == id:
             return role
 
+
 def mainserver():
     return client.get_server(str(get_config("mainserver.id")))
 
-async def output(channel, message, *args):
+
+async def output(channel: discord.Channel, message: str, *args):
     message = re.sub("@(everyone|here)", "@​\g<1>", message % args)
     await client.send_message(channel, message)
+
 
 async def pickle_dump(obj, filename):
     byte = pickle.dumps(obj)
     async with aiofiles.open(filename, "wb") as f:
         await f.write(byte)
 
+
 async def pickle_load(filename):
     async with aiofiles.open(filename, "rb") as f:
         byte = await f.read()
-    
+
     return pickle.loads(byte)

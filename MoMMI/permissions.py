@@ -9,6 +9,7 @@ from collections import defaultdict
 class bantypes(Enum):
     commands = 1
     markov = 2
+    irc = 3
 
 
 def empty_list():

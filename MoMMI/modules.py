@@ -6,6 +6,7 @@ import os
 import os.path
 import importlib
 import signal
+import sys
 
 
 logger = logging.getLogger(__name__)
@@ -85,9 +86,12 @@ def handle_signterm(signum, frame):
     tasks = [asyncio.ensure_future(module.unload(loop=loop), loop=loop) for module in modules if hasattr(module, "unload")]
     logger.info(tasks)
     loop.stop()
-    loop.run_until_complete(client.logout())
     loop.run_until_complete(asyncio.gather(*tasks))
+    logger.info("ded")
+    sys.exit()
+    loop.run_until_complete(client.logout())
     loop.close()
     logger.info("huh")
 
-signal.signal(signal.SIGTERM, handle_signterm)
+# Fucking hell I wiped the databases AGAIN.
+# signal.signal(signal.SIGTERM, handle_signterm)
