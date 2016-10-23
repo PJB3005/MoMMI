@@ -1,11 +1,15 @@
 #!/usr/bin/env python3.5
 
 import logging
+import asyncio
 import MoMMI.logsetup
 import MoMMI.exceptions
+import MoMMI.permissions
 from MoMMI.config import get_config
 from MoMMI.client import client
 
+
+loop = asyncio.get_event_loop()
 logger = logging.getLogger(__name__)
 
 if get_config("token") == "UNSET":
@@ -13,4 +17,8 @@ if get_config("token") == "UNSET":
     exit()
 
 logger.info("Starting client.")
-client.run(get_config("token"))
+try:
+    asyncio.ensure_future(client.start(get_config("token")))
+    loop.run_forever()
+except KeyboardInterrupt:
+    pass

@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 commands = {}
 help_cache = {}
 always_commands = []
+unsafe_always_commands = []
 is_command_re = None
 
 
@@ -42,7 +43,7 @@ def always_command(no_other_commands=False):
     def inner(function):
         global always_commands
         if not asyncio.iscoroutinefunction(function):
-            logger.warning("Attempted tor register non-coroutine %s!", function)
+            logger.warning("Attempted to register non-coroutine %s!", function)
             function = asyncio.coroutine(function)
 
         function.no_other_commands = no_other_commands
@@ -55,6 +56,9 @@ def always_command(no_other_commands=False):
 
 @client.event
 async def on_message(message):
+    for function in unsafe_always_commands:
+        await function(message)
+
     if message.author.id == client.user.id:
         # Don't listen to ourselves!
         return
@@ -97,5 +101,19 @@ def command_help(key, shortdesc, usage, longdesc=None):
             permissions = None
 
         help_cache[key] = shortdesc, usage, longdesc, permissions
+
+    return inner
+
+
+def unsafe_always_command():
+    def inner(function):
+        global unsafe_always_commands
+        if not asyncio.iscoroutinefunction(function):
+            logger.warning("Attempted to register non-coroutine %s!", function)
+            function = asyncio.coroutine(function)
+
+        unsafe_always_commands.append(function)
+
+        return function
 
     return inner
