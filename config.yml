@@ -18,10 +18,25 @@ mainserver:
         admin: 0
         main: 0
         changelog: 0
+        code: 0
 
     roles:
         admin: 0
         coder: 0
+
+    irc:
+        irc:
+            address: unset
+            port: 6697
+            channel: "#unset"
+
+            user:
+                name: unset
+                realname: unset
+                nick: unset
+
+        discord:
+            channel: 0
 
 gameservers:
     default: "main"
@@ -29,7 +44,7 @@ gameservers:
     main:
         address: ""
         port: 0
-    
+
     test:
         address: ""
         port: 0
@@ -37,7 +52,7 @@ gameservers:
 github:
     login:
         token: UNSET
-    
+
     repo:
         # Username of the user that owns the repo.
         owner: UNSET
@@ -45,3 +60,9 @@ github:
         name: UNSET
 
         branch: UNSET
+
+        labels:
+            secret_conflict: "Unset"
+
+        secret_repo_files:
+            - "unset"
