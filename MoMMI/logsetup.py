@@ -27,7 +27,7 @@ try:
     open(path, "a").close()
 
     handler = logging.FileHandler(path)
-    handler.setLevel(logging.INFO) # Discord.py makes DEBUG logs useless.
+    handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -48,4 +48,25 @@ try:
 except Exception as e:
     logging.exception("Unable to create ERROR log handler for file %s.", path)
 
+
+path = os.path.join(outdir, "chat.log")
+try:
+    open(path, "a").close()
+
+    handler = logging.FileHandler(path)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter())
+    chatlogger = logging.getLogger("chat")
+    chatlogger.propogate = False
+    chatlogger.addHandler(handler)
+
+except Exception as e:
+    logging.exception("Unable to create CHAT log handler for file %s.", path)
+
+
+logging.getLogger("websockets").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("bottom").setLevel(logging.WARNING)
 logging.getLogger("github3").setLevel(logging.WARNING)
+logging.getLogger("discord").setLevel(logging.WARNING)
+logging.getLogger("asyncio").setLevel(logging.INFO)

@@ -12,9 +12,6 @@ from .codeoutput import CodeOutput
 logger = logging.getLogger(__name__)  # type: logging.Logger
 
 
-logger.info("yes")
-
-
 @code_handler("dm")
 class DMCodeHandler(CodeHandler):
     async def make_project(self, code: str) -> str:

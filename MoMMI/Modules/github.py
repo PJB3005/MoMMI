@@ -30,8 +30,6 @@ async def issues(msg):
         logger.error("invalid")
         return
 
-    logger.info("yes")
-
     issue = msg["issue"]
     sender = msg["sender"]
     pre = None

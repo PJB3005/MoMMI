@@ -6,6 +6,7 @@ import logging
 import asyncio
 
 logger = logging.getLogger(__name__)
+chatlogger = logging.getLogger("chat")
 
 commands = {}
 help_cache = {}
@@ -63,7 +64,7 @@ async def on_message(message):
         # Don't listen to ourselves!
         return
 
-    logging.info(u"(%s) %s: %s", message.channel.name, message.author.name, message.content)
+    chatlogger.info("(%s) %s: %s", message.channel.name, message.author.name, message.content)
 
     match = is_command_re.match(message.content)
     matched_anything = False
