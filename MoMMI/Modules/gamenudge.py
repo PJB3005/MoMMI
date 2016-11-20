@@ -31,7 +31,7 @@ async def gamenudge(msg, address):
         logger.error("Unable to get a reference to the channel! Is the ID incorrect?")
         return
 
-    output = msg["content"].replace("@", "\\@")
+    output = msg["content"].replace("@", "@​")
     if msg["ping"]:
         output += " " + getrole(channel.server, str(get_config("mainserver.roles.admin"))).mention    
 

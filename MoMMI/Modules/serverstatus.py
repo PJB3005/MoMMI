@@ -10,7 +10,7 @@ from ..config import get_config
 logger = logging.getLogger(__name__)
 
 @command_help("status", "Output the status of the game server.", "status [server]", "The server defaults to the main server if not specified.")
-@command("status\s*(\S*)")
+@command("stat(?:us|su)\s*(\S*)")
 async def status_command(content, match, message):
     server = match.group(1) or get_config("gameservers.default")
 

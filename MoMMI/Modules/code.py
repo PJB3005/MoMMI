@@ -14,8 +14,8 @@ from .CodeHandling.dm import DMCodeHandler
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 
-
-@command(r"```(?P<Language>[^\r\n]*)\r?\n(?P<Code>.*)\r?\n```", role=get_config("mainserver.roles.coder"), flags=re.DOTALL)
+# , role=get_config("mainserver.roles.coder")
+@command(r"```(?P<Language>[^\r\n]*)\r?\n(?P<Code>.*)\r?\n```", flags=re.DOTALL, role=get_config("mainserver.roles.coder"))
 async def runcode(content: str, match, message: discord.Message):
     language = match.group("Language").lower() or "dm"  # type: str
     code = match.group("Code")  # type: str

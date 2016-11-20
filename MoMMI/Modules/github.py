@@ -24,22 +24,25 @@ async def github_event(msg, address):
 
     await func(msg["content"])
 
-invalid_actions = ["labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize"]
+invalid_actions = {"labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize"}
 async def issues(msg):
     if msg["action"] in invalid_actions:
+        logger.error("invalid")
         return
+
+    logger.info("yes")
 
     issue = msg["issue"]
     sender = msg["sender"]
     pre = None
     if msg["action"] == "closed":
-        pre = "<:PRclosed:230185474625503233>"
+        pre = "<:ISSclosed:246037286322569216>"
     else:
-        pre = "<:PRopened:230186976362364932>"
+        pre = "<:ISSopened:246037149873340416>"
 
-    message = "%s Issue #%s **%s** by %s: %s" % (pre, issue["number"], msg["action"], sender["login"], issue["html_url"])
+    message = "\u200B%s Issue #%s **%s** by %s: %s" % (pre, issue["number"], msg["action"], sender["login"], issue["html_url"])
 
-    channel = getchannel(getserver(client, "/vg/"), "code-map-sprite")
+    channel = client.get_channel(str(get_config("mainserver.channels.code")))
     if not channel:
         logger.error("No channel.")
 
@@ -59,17 +62,17 @@ async def pr(msg):
     sender = msg["sender"]
     action = msg["action"]
     if msg["action"] == "closed":
-        pre = "<:PRclosed:230185474625503233>"
+        pre = "<:PRclosed:246037149839917056>"
     else:
-        pre = "<:PRopened:230186976362364932>"
+        pre = "<:PRopened:245910125041287168>"
 
     if action == "closed" and pull_request["merged"]:
         action = "merged"
-        pre = "<:PRmerged:230185465200902145>"
+        pre = "<:PRmerged:245910124781240321>"
 
-    message = "%s Pull Request #%s **%s** by %s: %s" % (pre, pull_request["number"], action, sender["login"], pull_request["html_url"])
+    message = "\u200B%s Pull Request #%s **%s** by %s: %s" % (pre, pull_request["number"], action, sender["login"], pull_request["html_url"])
 
-    channel = getchannel(getserver(client, "/vg/"), "code-map-sprite")
+    channel = client.get_channel(str(get_config("mainserver.channels.code")))
     if not channel:
         logger.error("No channel.")
 

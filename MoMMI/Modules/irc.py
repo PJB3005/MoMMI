@@ -18,6 +18,7 @@ irc_client = irc_client = bottom.Client(
 logger = logging.getLogger(__name__)
 messagelogger = logging.getLogger("IRC")
 MENTION_RE = re.compile(r"<@!?(\d+)>")
+IGNORED_NAMED = {"travis-ci", "vg-bot", "py-ctcp"}
 
 
 async def unload(loop=None):
@@ -37,7 +38,7 @@ asyncio.ensure_future(irc_client.connect(), loop=irc_client.loop)
 
 @irc_client.on("PRIVMSG")
 async def message(nick, target, message, **kvargs):
-    if nick == "py-ctcp":
+    if nick in IGNORED_NAMED:
         return
 
     messagelogger.info(message)
