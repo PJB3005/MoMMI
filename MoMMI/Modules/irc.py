@@ -18,7 +18,7 @@ irc_client = irc_client = bottom.Client(
 logger = logging.getLogger(__name__)
 messagelogger = logging.getLogger("IRC")
 MENTION_RE = re.compile(r"<@!?(\d+)>")
-IGNORED_NAMED = {"travis-ci", "vg-bot", "py-ctcp"}
+IGNORED_NAMES = {"travis-ci", "vg-bot", "py-ctcp"}
 
 
 async def unload(loop=None):
@@ -38,7 +38,7 @@ asyncio.ensure_future(irc_client.connect(), loop=irc_client.loop)
 
 @irc_client.on("PRIVMSG")
 async def message(nick, target, message, **kvargs):
-    if nick in IGNORED_NAMED:
+    if nick in IGNORED_NAMES:
         return
 
     messagelogger.info(message)
@@ -56,7 +56,7 @@ async def ircrelay(message):
     if isbanned(message.author, bantypes.irc):
         return
 
-    if message.content[0] == "\u200B" or message.channel.id != str(get_config("mainserver.irc.discord.channel")):
+    if len(message.content) == 0 or message.content[0] == "\u200B" or message.channel.id != str(get_config("mainserver.irc.discord.channel")):
         return
 
     content = message.content
