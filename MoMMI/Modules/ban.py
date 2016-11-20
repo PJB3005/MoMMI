@@ -8,6 +8,8 @@ from ..client import client
 @command_help("ban", "Bans somebody for a specified ban type.", "ban [@mention to member] [ban type]", """Ban types:
 * **commands**: Bans somebody from using most commands.
 * **markov**: Bans somebody from being listened to for building the markov database. This means their banter won't ever be said by MoMMI.
+* **irc**: Prevents a person's messages from showing up on IRC.
+* **music**: Bans a person from playing music.
 """)
 @command(r"ban\s*<@!?(?P<snowflake_id>\d+)>\s*(?P<type>\w+)", role=get_config("mainserver.roles.admin"))
 async def ban_command(content, match, message):
@@ -15,10 +17,10 @@ async def ban_command(content, match, message):
     if not member:
         await output(message.channel, "Unable to find the member with ID %s" % (match.group("snowflake_id")))
         return
-    
+
     try:
         bantype = bantypes[match.group("type")]
-    
+
     except KeyError:
         await output(message.channel, "That ban type does not exist. Use `help ban` for a list of ban groups.")
         return
@@ -31,6 +33,7 @@ async def ban_command(content, match, message):
 
     await output(message.channel, "It worked.")
 
+
 @command_help("unban", "Unbans somebody for a specified ban type.", "unban [@mention to member] [ban type]", "See the `ban` command for a list of ban types.")
 @command(r"unban\s*<@!?(?P<snowflake_id>\d+)>\s*(?P<type>\w+)", role=get_config("mainserver.roles.admin"))
 async def unban_command(content, match, message):
@@ -38,10 +41,10 @@ async def unban_command(content, match, message):
     if not member:
         await output(message.channel, "Unable to find the member with ID %s" % (match.group("snowflake_id")))
         return
-    
+
     try:
         bantype = bantypes[match.group("type")]
-    
+
     except KeyError:
         await output(message.channel, "That ban type does not exist. Use `help ban` for a list of ban groups.")
         return

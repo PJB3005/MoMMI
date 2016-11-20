@@ -14,6 +14,7 @@ class VoiceManager(object):
         self.player = None  # type: StreamPlayer
         self.queue = []  # type: List[str]
         self.server = server  # type: Server
+        self.lock = False  # type: bool
 
     def queue_url(self, url: str):
         self.queue.append(url)
@@ -75,6 +76,9 @@ class VoiceManager(object):
         logger.info("Joined channel %s, voice client: %s", channel.name, self.voice)
 
     async def leave_voice(self):
+        if self.lock:
+            return
+
         if self.voice is None:
             logger.warning("Tried to leave voice, but we're not connected!")
             return
@@ -83,8 +87,10 @@ class VoiceManager(object):
             logger.info("Stopping player due to voice leave!")
             self.stop_player()
 
-        logger.info("Disconnecting")
+        logger.info("Disconnecting...")
         await self.voice.disconnect()
+        self.voice = None
+        logger.info("Disconnected")
 
     async def next_in_queue(self):
         logger.info("Next in queue ran.")

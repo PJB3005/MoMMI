@@ -10,6 +10,7 @@ class bantypes(Enum):
     commands = 1
     markov = 2
     irc = 3
+    music = 4
 
 
 def empty_list():

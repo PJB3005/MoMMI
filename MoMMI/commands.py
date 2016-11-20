@@ -20,7 +20,7 @@ def setup_commands():
     is_command_re = re.compile(r"^<@\!?%s>\s*" % (client.user.id))
 
 
-def command(command, flags=re.IGNORECASE, role=None, ban_groups=None):
+def command(command, flags=re.IGNORECASE, role=None, ban_groups=[]):
     """
     Decorator that registers a function as a command.
     This is regex.
@@ -79,7 +79,15 @@ async def on_message(message):
                 if match:
                     matched_anything = True
                     function = commands[regex]
-                    if function.role_requirement and not isrole(message.author, function.role_requirement):
+                    found_ban = False  # type: bool
+                    for bantype in function.ban_groups:
+                        if isbanned(message.author, bantype):
+                            found_ban = True
+                            break
+
+                    if found_ban:
+                        await output(message.channel, "You are banned from executing that command.")
+                    elif function.role_requirement and not isrole(message.author, function.role_requirement):
                         await output(message.channel, "You do not have permission to execute that command.")
                     else:
                         await function(command, match, message)
