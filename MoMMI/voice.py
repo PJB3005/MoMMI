@@ -53,7 +53,6 @@ class VoiceManager(object):
                 return
 
         await self.join_channel(channel)
-
         self.player = await self.voice.create_ytdl_player(url, after=after_callback)
         self.player._callback_target = self
         self.player.start()
@@ -69,10 +68,15 @@ class VoiceManager(object):
                 return
 
             logger.info("Moving channel.")
-            self.voice = await self.voice.move_to(channel)
+            await self.voice.move_to(channel)
+            self.find_voice_client()
             return
 
-        self.voice = await client.join_voice_channel(channel)
+        try:
+            self.voice = await client.join_voice_channel(channel)
+        except:
+            self.find_voice_client()
+
         logger.info("Joined channel %s, voice client: %s", channel.name, self.voice)
 
     async def leave_voice(self):
@@ -105,7 +109,12 @@ class VoiceManager(object):
 
         await self.start_player(url, None, True)
 
-
+    def find_voice_client(self):
+        for voice_client in client.voice_clients:
+            if voice_client.server == self.server:
+                self.voice = voice_client
+                return
+        
 def after_callback(player: StreamPlayer):
     logger.info("Callback ran, continuing queue.")
 
