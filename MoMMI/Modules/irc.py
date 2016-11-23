@@ -15,6 +15,7 @@ irc_transforms = []
 
 def irc_transform(func):
     irc_transforms.append(func)
+    return func
 
 # Functions that do message modification before sending to Discord
 # Take message, author, irc client, discord server
@@ -22,6 +23,7 @@ discord_transforms = []
 
 def discord_transform(func):
     discord_transforms.append(func)
+    return func
 
 irc_client = irc_client = bottom.Client(
     host=get_config("mainserver.irc.irc.address"),
