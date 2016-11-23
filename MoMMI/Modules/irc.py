@@ -3,7 +3,6 @@ from ..util import output
 from ..config import get_config
 from ..client import client
 from ..permissions import isbanned, bantypes
-from functools import wraps
 import logging
 import asyncio
 import bottom
