@@ -1,3 +1,4 @@
+from discord import Server, Member
 from ..commands import unsafe_always_command, command, command_help
 from ..util import output
 from ..config import get_config
@@ -65,7 +66,7 @@ async def message(nick, target, message, **kvargs):
     for func in discord_transforms:
         content = func(content, nick, channel.server, irc_client)
 
-    await output(channel, "\u200B**IRC:** `<{}> {}`".format(nick, message))
+    await output(channel, "\u200B**IRC:** `<{}>` {}".format(nick, content))
 
 
 @irc_client.on('PING')
@@ -107,7 +108,7 @@ def prevent_ping(name: str):
 @irc_transform
 def convert_disc_mention(message, author, irc_client, discord_server):
     try:
-        return MENTION_RE.sub(lambda match: "@{}".format(prevent_ping(discord_server.get_member(match.group(1)).name)), content)
+        return MENTION_RE.sub(lambda match: "@{}".format(prevent_ping(discord_server.get_member(match.group(1)).name)), message)
     except:
         logger.exception("shit")
         return message
@@ -115,7 +116,7 @@ def convert_disc_mention(message, author, irc_client, discord_server):
 @discord_transform
 def convert_irc_mention(message, author, discord_server, irc_client):
     try:
-        return IRC_MENTION_RE.sub(lambda match: "<@{}>".format(discord_server.get_member(match.group(1)).id), content)
+        return IRC_MENTION_RE.sub(lambda match: "<@{}>".format(discord_server.get_member_named(match.group(1)).id), message)
     except:
         logger.exception("Unable to convert mention to user ID")
         return message
