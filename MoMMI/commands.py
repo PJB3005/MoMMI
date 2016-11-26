@@ -90,7 +90,10 @@ async def on_message(message):
                     elif function.role_requirement and not isrole(message.author, function.role_requirement):
                         await output(message.channel, "You do not have permission to execute that command.")
                     else:
-                        await function(command, match, message)
+                        try:
+                            await function(command, match, message)
+                        except:
+                            logger.exception("Caught exception inside command.")
 
     for function in always_commands:
         if function.no_other_commands and matched_anything:

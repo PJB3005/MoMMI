@@ -1,4 +1,5 @@
 from discord import Server, Member
+from typing import List
 from ..commands import unsafe_always_command, command, command_help
 from ..util import output
 from ..config import get_config
@@ -9,9 +10,14 @@ import asyncio
 import bottom
 import re
 
+
+# List of messages relayed to IRC. Prevent getting kicked for repeated messages.
+last_messages = [None] * 3  # type: List[str]
+
 # Functions that do message modification before sending to IRC
 # Take message, author, discord server, irc client
 irc_transforms = []
+
 
 def irc_transform(func):
     irc_transforms.append(func)
@@ -20,6 +26,7 @@ def irc_transform(func):
 # Functions that do message modification before sending to Discord
 # Take message, author, irc client, discord server
 discord_transforms = []
+
 
 def discord_transform(func):
     discord_transforms.append(func)
@@ -84,10 +91,20 @@ async def ircrelay(message):
 
     content = message.content
 
+    # Yes, I could use a loop.
+    # Know what a loop would do? Bloat this line count way too bloody much.
+    if content == last_messages[0] == last_messages[1] == last_messages[2]:
+        return
+
+    if len(last_messages) == 3:
+        last_messages.pop(0)
+
+    last_messages.append(content)
+
     for func in irc_transforms:
         content = func(content, message.author, irc_client, message.server)
 
-       # Insert a zero-width space so people with the same name on IRC don't get pinged.
+    # Insert a zero-width space so people with the same name on IRC don't get pinged.
     author = prevent_ping(message.author.name)
 
     try:
@@ -105,6 +122,7 @@ async def irc_command(content, match, message):
 def prevent_ping(name: str):
     return name[:1] + "\u200B" + name[1:]
 
+
 @irc_transform
 def convert_disc_mention(message, author, irc_client, discord_server):
     try:
@@ -112,6 +130,7 @@ def convert_disc_mention(message, author, irc_client, discord_server):
     except:
         logger.exception("shit")
         return message
+
 
 @discord_transform
 def convert_irc_mention(message, author, discord_server, irc_client):
