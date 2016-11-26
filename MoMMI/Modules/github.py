@@ -1,14 +1,23 @@
+import aiohttp
+import asyncio
+import json
+import logging
+import re
+from discord import Colour, Embed
 from ..commloop import comm_event
 from ..client import client
 from ..util import getchannel, getserver
 from ..config import get_config
-import logging
-import asyncio
-import aiohttp
-import json
+
 
 logger = logging.getLogger(__name__)
 event_handlers = {}
+
+COLOR_GITHUB_RED = Colour(0xFF4444)
+COLOR_GITHUB_GREEN = Colour(0x6CC644)
+COLOR_GITHUB_PURPLE = Colour(0x6E5494)
+MAX_BODY_LENGTH = 200
+MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
 
 
 @comm_event
@@ -27,24 +36,36 @@ async def github_event(msg, address):
 invalid_actions = {"labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize"}
 async def issues(msg):
     if msg["action"] in invalid_actions:
-        logger.error("invalid")
         return
 
     issue = msg["issue"]
     sender = msg["sender"]
+    repository = msg["repository"]
     pre = None
+    embed = Embed()
     if msg["action"] == "closed":
         pre = "<:ISSclosed:246037286322569216>"
+        embed.colour = COLOR_GITHUB_RED
     else:
         pre = "<:ISSopened:246037149873340416>"
+        embed.colour = COLOR_GITHUB_GREEN
 
-    message = "\u200B%s Issue #%s **%s** by %s: %s" % (pre, issue["number"], msg["action"], sender["login"], issue["html_url"])
+    embed.title = pre + issue["title"]
+    embed.url = issue["html_url"]
+    embed.set_author(name=sender["login"], url=sender["url"], icon_url=sender["avatar_url"])
+    embed.set_footer(text="{}#{} by {}".format(repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
+    if len(issue["body"]) > MAX_BODY_LENGTH:
+        embed.description = issue["body"][:MAX_BODY_LENGTH] + "..."
+    else:
+        embed.description = issue["body"]
+
+    embed.description += "\n\u200B"
 
     channel = client.get_channel(str(get_config("mainserver.channels.code")))
     if not channel:
         logger.error("No channel.")
 
-    await client.send_message(channel, message)
+    await client.send_message(channel, embed=embed)
 
 
 event_handlers["issues"] = issues
@@ -58,23 +79,38 @@ async def pr(msg):
 
     pull_request = msg["pull_request"]
     sender = msg["sender"]
-    action = msg["action"]
+    repository = msg["repository"]
+    pre = None
+    embed = Embed()
     if msg["action"] == "closed":
         pre = "<:PRclosed:246037149839917056>"
+        embed.colour = COLOR_GITHUB_RED
+
     else:
         pre = "<:PRopened:245910125041287168>"
+        embed.colour = COLOR_GITHUB_GREEN
 
-    if action == "closed" and pull_request["merged"]:
-        action = "merged"
+    if msg["action"] == "closed" and pull_request["merged"]:
         pre = "<:PRmerged:245910124781240321>"
+        embed.colour = COLOR_GITHUB_PURPLE
 
-    message = "\u200B%s Pull Request #%s **%s** by %s: %s" % (pre, pull_request["number"], action, sender["login"], pull_request["html_url"])
+    embed.title = pre + pull_request["title"]
+    embed.url = pull_request["html_url"]
+    embed.set_author(name=sender["login"], url=sender["url"], icon_url=sender["avatar_url"])
+    embed.set_footer(text="{}#{} by {}".format(repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
+
+    new_body = MD_COMMENT_RE.sub("", pull_request["body"])  # type: str
+    if len(new_body) > MAX_BODY_LENGTH:
+        embed.description = new_body[:MAX_BODY_LENGTH] + "..."
+    else:
+        embed.description = new_body
+    embed.description += "\n\u200B"
 
     channel = client.get_channel(str(get_config("mainserver.channels.code")))
     if not channel:
         logger.error("No channel.")
 
-    await client.send_message(channel, message)
+    await client.send_message(channel, embed=embed)
 
 async def secret_repo_check(probject):
     headers = {"Authorization": "token %s" % (get_config("github.login.token"))}
