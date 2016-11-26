@@ -17,8 +17,4 @@ if get_config("token") == "UNSET":
     exit()
 
 logger.info("Starting client.")
-try:
-    asyncio.ensure_future(client.start(get_config("token")))
-    loop.run_forever()
-except KeyboardInterrupt:
-    pass
+client.run(get_config("token"))
