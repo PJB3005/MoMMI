@@ -5,7 +5,7 @@ import aiofiles
 
 @always_command(True)
 async def worksonmymachine(message):
-    match = re.search(r"w(e|o)rks\s*((for|4) me|((at|on|in)\s*m(y|ine)\s*.*))", message.content, re.IGNORECASE)
+    match = re.search(r"w(e|o)rks\s*((for|4) me|((at|on|in|with)\s*m(y|ine)\s*.*))", message.content, re.IGNORECASE)
     if match is None:
         return
 
