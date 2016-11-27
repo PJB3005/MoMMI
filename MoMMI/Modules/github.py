@@ -256,7 +256,6 @@ def replace_brackets(match: re_type.Match) -> str:
 
 
 def filter_issue_brackets(message, author, discord_server, irc_client):
-    logger.info("yes")
     return REG_BRACKETS.sub(replace_brackets, message)
 
 

@@ -2,6 +2,7 @@ import os
 import time
 import shutil
 import logging
+from discord import User
 from typing import Any
 from .codeoutput import CodeHandlerState, CodeOutput
 
@@ -13,7 +14,7 @@ class CodeHandler(object):
     def __init__(self):
         self.projectpath = ""  # type: str
 
-    async def execute(self, code: str) -> CodeOutput:
+    async def execute(self, code: str, user: User) -> CodeOutput:
         pass
 
     async def make_project_folder(self) -> str:

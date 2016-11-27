@@ -3,6 +3,7 @@ import aiofiles
 import logging
 import os
 import asyncio
+from discord import Message
 from typing import List
 from asyncio.subprocess import create_subprocess_exec
 from .codehandler import CodeHandler, code_handler, CodeHandlerState
@@ -48,7 +49,7 @@ var/c/d=new
 
         return dmepath
 
-    async def execute(self, code: str) -> CodeOutput:
+    async def execute(self, code: str, message: Message) -> CodeOutput:
         dmepath = await self.make_project(code)
 
         proc = await create_subprocess_exec("DreamMaker", dmepath, stdout=asyncio.subprocess.PIPE)  # type: asyncio.Process

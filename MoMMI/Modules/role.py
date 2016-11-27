@@ -11,4 +11,6 @@ async def reload(content, match, message):
     logger.info(str(get_config("mainserver.id")))
     server = message.server
     for role in server.roles:
+        if role.name[0] == "@":
+            continue
         await client.send_message(message.channel, "%s: %s" % (role.name, role.id))
