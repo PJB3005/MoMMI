@@ -53,13 +53,18 @@ async def reload_modules():
         try:
             filenames.append(module.__file__)
             importlib.reload(module)
-            if hasattr(module, "load"):
-                await module.load()
-
             count += 1
+
         except:
             logger.exception("Exception while trying to reload a module.")
             errored += 1
+
+    for module in modules:
+        try:
+            if hasattr(module, "load"):
+                await module.load()
+        except:
+            logger.exception("Hit error while doing load() callback on module %s" % module.__name__)
 
     directory = os.path.join("MoMMI", "Modules")
     for file in os.listdir(directory):

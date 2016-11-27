@@ -3,21 +3,31 @@ import asyncio
 import json
 import logging
 import re
-from discord import Colour, Embed
+from colorhash import ColorHash
+from discord import Colour, Embed, Message
+from typing import re as re_type, List
+from urllib.parse import quote
 from ..commloop import comm_event
 from ..client import client
 from ..util import getchannel, getserver
 from ..config import get_config
-
+from ..commands import always_command
+from .irc import irc_transform, prevent_ping
 
 logger = logging.getLogger(__name__)
 event_handlers = {}
+
+# Taken from https://github.com/d3athrow/vgstation13/blob/Bleeding-Edge/bot/plugins/GitHub.py
+REG_PATH = re.compile(r"\[([a-zA-Z\-_/][a-zA-Z0-9\- _/]*\.[a-zA-Z]+)(#L\d+(?:-L\d+)?)?\]", re.I)
+REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
+REG_BRACKETS = re.compile(r"\[(.+?)\]")
 
 COLOR_GITHUB_RED = Colour(0xFF4444)
 COLOR_GITHUB_GREEN = Colour(0x6CC644)
 COLOR_GITHUB_PURPLE = Colour(0x6E5494)
 MAX_BODY_LENGTH = 200
 MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
+HEADERS = {"Authorization": "token %s" % (get_config("github.login.token"))}
 
 
 @comm_event
@@ -113,10 +123,9 @@ async def pr(msg):
     await client.send_message(channel, embed=embed)
 
 async def secret_repo_check(probject):
-    headers = {"Authorization": "token %s" % (get_config("github.login.token"))}
     async with aiohttp.ClientSession() as session:
         url = probject["pull_request"]["url"] + "/files"
-        async with session.get(url, headers=headers) as resp:
+        async with session.get(url, headers=HEADERS) as resp:
             if resp.status != 200:
                 logger.error("Query to GitHub for PR file list returned status code %s!")
                 return
@@ -133,7 +142,123 @@ async def secret_repo_check(probject):
             if found:
                 url = probject["pull_request"]["issue_url"] + "/labels"
                 postdata = json.dumps([get_config("github.repo.labels.secret_conflict")])
-                async with session.post(url, data=postdata, headers=headers) as postresp:
+                async with session.post(url, data=postdata, headers=HEADERS) as postresp:
                     logger.info("Setting label %s on PR #%s returned status code %s!", get_config("github.repo.secret_repo_files"), probject["number"], postresp.status)
 
 event_handlers["pull_request"] = pr
+
+
+# handling of stuff like [2000] and [world.dm]
+def github_url(sub: str) -> str:
+    return "https://api.github.com" + sub
+
+
+def colour_extension(filename: str) -> Colour:
+    ext = filename.split(".")[-1]
+    c = ColorHash(ext)
+    return Colour(int(c.hex[1:], 16))
+
+
+# Indent 2: the indent
+@always_command()
+async def issue(message: Message):
+    async with aiohttp.ClientSession() as session:
+        for match in REG_ISSUE.finditer(message.content):
+            id = int(match.group(1))
+            if id < 1000:
+                continue
+
+            url = github_url("/repos/{}/{}/issues/{}".format(get_config("github.repo.owner"), get_config("github.repo.name"), id))
+            async with session.get(url, headers=HEADERS) as resp:
+                content = json.loads(await resp.text())
+
+            # God forgive me.
+            embed = Embed()
+            emoji = ""
+            if content.get("pull_request") is not None:
+                if content["state"] == "open":
+                    emoji = "<:PRopened:245910125041287168>"
+                    embed.colour = COLOR_GITHUB_GREEN
+                else:
+                    url = github_url("/repos/{}/{}/pulls/{}".format(get_config("github.repo.owner"), get_config("github.repo.name"), id))
+                    async with session.get(url, headers=HEADERS) as resp:
+                        prcontent = json.loads(await resp.text())
+                        if prcontent["merged"]:
+                            emoji = "<:PRmerged:245910124781240321>"
+                            embed.colour = COLOR_GITHUB_PURPLE
+                        else:
+                            emoji = "<:PRclosed:246037149839917056>"
+                            embed.colour = COLOR_GITHUB_RED
+
+            else:
+                if content["state"] == "open":
+                    emoji = "<:ISSopened:246037149873340416>"
+                    embed.colour = COLOR_GITHUB_GREEN
+                else:
+                    emoji = "<:ISSclosed:246037286322569216>"
+                    embed.colour = COLOR_GITHUB_RED
+
+            embed.title = emoji + content["title"]
+            embed.url = content["html_url"]
+            embed.set_footer(text="{}/{}#{} by {}".format(get_config("github.repo.owner"), get_config("github.repo.name"), content["number"], content["user"]["login"]), icon_url=content["user"]["avatar_url"])
+            if len(content["body"]) > MAX_BODY_LENGTH:
+                embed.description = content["body"][:MAX_BODY_LENGTH] + "..."
+            else:
+                embed.description = content["body"]
+            embed.description += "\n\u200B"
+
+            await client.send_message(message.channel, embed=embed)
+
+        if REG_PATH.search(message.content):
+            url = github_url("/repos/{}/{}/branches/{}".format(get_config("github.repo.owner"), get_config("github.repo.name"), get_config("github.repo.branch")))
+            async with session.get(url, headers=HEADERS) as resp:
+                branch = json.loads(await resp.text())
+
+            url = github_url("/repos/{}/{}/git/trees/{}".format(get_config("github.repo.owner"), get_config("github.repo.name"), branch["commit"]["sha"]))
+            async with session.get(url, headers=HEADERS, params={"recursive": 1}) as resp:
+                tree = json.loads(await resp.text())
+
+            paths = []  # type: List[str]
+            for match in REG_PATH.finditer(message.content):
+                path = match.group(1).lower()
+                logger.info(path)
+                paths.append(path)
+
+            for hash in tree["tree"]:
+                # logger.debug(hash["path"])
+
+                for path in paths:
+                    if hash["path"].lower().endswith(path):
+                        thepath = hash["path"]  # type: str
+                        html_url = "https://github.com/{}/{}".format(get_config("github.repo.owner"), get_config("github.repo.name"))
+                        logger.info(html_url)
+                        logger.info(get_config("github.repo.branch"))
+                        logger.info(quote(thepath))
+                        logger.info(match.group(2))
+                        url = "%s/blob/%s/%s" % (html_url, get_config("github.repo.branch"), quote(thepath)) + (match.group(2) or "")
+
+                        embed = Embed()
+                        embed.colour = colour_extension(thepath)
+                        embed.set_footer(text="{}/{}".format(get_config("github.repo.owner"), get_config("github.repo.name")))
+                        embed.url = url
+                        embed.title = thepath.split("/")[-1]
+                        embed.description = "`{}`".format(thepath)
+                        await client.send_message(message.channel, embed=embed)
+
+                        paths.remove(path)
+
+
+def replace_brackets(match: re_type.Match) -> str:
+    if len(match.group(1)) < 2:
+        return "[{}]".format(match.group(1))
+
+    return "[{}]".format(prevent_ping(match.group(1)))
+
+
+def filter_issue_brackets(message, author, discord_server, irc_client):
+    logger.info("yes")
+    return REG_BRACKETS.sub(replace_brackets, message)
+
+
+async def load():
+    irc_transform(filter_issue_brackets)

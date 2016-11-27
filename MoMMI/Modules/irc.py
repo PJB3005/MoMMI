@@ -21,6 +21,7 @@ irc_transforms = []
 
 def irc_transform(func):
     irc_transforms.append(func)
+    logger.debug(func.__name__)
     return func
 
 # Functions that do message modification before sending to Discord
