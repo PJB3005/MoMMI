@@ -62,7 +62,7 @@ async def issues(msg):
 
     embed.title = pre + issue["title"]
     embed.url = issue["html_url"]
-    embed.set_author(name=sender["login"], url=sender["url"], icon_url=sender["avatar_url"])
+    embed.set_author(name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
     embed.set_footer(text="{}#{} by {}".format(repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
     if len(issue["body"]) > MAX_BODY_LENGTH:
         embed.description = issue["body"][:MAX_BODY_LENGTH] + "..."
@@ -106,7 +106,7 @@ async def pr(msg):
 
     embed.title = pre + pull_request["title"]
     embed.url = pull_request["html_url"]
-    embed.set_author(name=sender["login"], url=sender["url"], icon_url=sender["avatar_url"])
+    embed.set_author(name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
     embed.set_footer(text="{}#{} by {}".format(repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
 
     new_body = MD_COMMENT_RE.sub("", pull_request["body"])  # type: str
@@ -243,6 +243,8 @@ async def issue(message: Message):
                         embed.url = url
                         embed.title = thepath.split("/")[-1]
                         embed.description = "`{}`".format(thepath)
+
+
                         await client.send_message(message.channel, embed=embed)
 
                         paths.remove(path)
