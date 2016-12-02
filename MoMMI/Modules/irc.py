@@ -1,7 +1,7 @@
 from discord import Server, Member
 from typing import List
 from ..commands import unsafe_always_command, command, command_help
-from ..util import output
+from ..util import output, getrole
 from ..config import get_config
 from ..client import client
 from ..permissions import isbanned, bantypes
@@ -42,6 +42,8 @@ irc_client = irc_client = bottom.Client(
 logger = logging.getLogger(__name__)
 messagelogger = logging.getLogger("IRC")
 MENTION_RE = re.compile(r"<@!?(\d+)>")
+ROLE_RE = re.compile(r"<@&(\d+)>")
+CHANNEL_RE = re.compile(r"<#(\d+)>")
 IRC_MENTION_RE = re.compile(r"@([^@]+?)@")
 IGNORED_NAMES = {"travis-ci", "vg-bot", "py-ctcp"}
 
@@ -129,7 +131,24 @@ def convert_disc_mention(message, author, irc_client, discord_server):
     try:
         return MENTION_RE.sub(lambda match: "@{}".format(prevent_ping(discord_server.get_member(match.group(1)).name)), message)
     except:
-        logger.exception("shit")
+        return message
+
+
+@irc_transform
+def convert_disc_channel(message, author, irc_client, discord_server: Server):
+    try:
+        return CHANNEL_RE.sub(lambda match: "#{}".format(discord_server.get_channel(match.group(1)).name), message)
+
+    except:
+        return message
+
+
+@irc_transform
+def convert_role_mention(message, author, irc_client, discord_server: Server):
+    try:
+        return ROLE_RE.sub(lambda match: "@{}".format(getrole(discord_server, match.group(1)).name), message)
+
+    except:
         return message
 
 
@@ -138,5 +157,4 @@ def convert_irc_mention(message, author, discord_server, irc_client):
     try:
         return IRC_MENTION_RE.sub(lambda match: "<@{}>".format(discord_server.get_member_named(match.group(1)).id), message)
     except:
-        logger.exception("Unable to convert mention to user ID")
         return message

@@ -244,9 +244,7 @@ async def issue(message: Message):
                         embed.title = thepath.split("/")[-1]
                         embed.description = "`{}`".format(thepath)
 
-
                         await client.send_message(message.channel, embed=embed)
-
                         paths.remove(path)
 
 
