@@ -44,6 +44,7 @@ messagelogger = logging.getLogger("IRC")
 MENTION_RE = re.compile(r"<@!?(\d+)>")
 ROLE_RE = re.compile(r"<@&(\d+)>")
 CHANNEL_RE = re.compile(r"<#(\d+)>")
+EMOJI_RE = re.compile(r"<:(.+):(\d+)>")
 IRC_MENTION_RE = re.compile(r"@([^@]+?)@")
 IGNORED_NAMES = {"travis-ci", "vg-bot", "py-ctcp"}
 
@@ -147,6 +148,15 @@ def convert_disc_channel(message, author, irc_client, discord_server: Server):
 def convert_role_mention(message, author, irc_client, discord_server: Server):
     try:
         return ROLE_RE.sub(lambda match: "@{}".format(getrole(discord_server, match.group(1)).name), message)
+
+    except:
+        return message
+
+
+@irc_transform
+def convert_custom_emoji(message, author, irc_client, discord_server: Server):
+    try:
+        return EMOJI_RE.sub(lambda match: ":{}:".format(match.group(1)), message)
 
     except:
         return message
