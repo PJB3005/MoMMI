@@ -1,0 +1,16 @@
+# This config file is for global configuration settings.
+
+[bot]
+token = ""
+owner = 0
+
+# Commloop settings for communication with the MoMMI.
+[commloop]
+address = "localhost"
+port = 1679
+password = ""
+
+# Settings for where to route commloop messages based on message type
+# and other identifying info such as repo in github webhooks.
+[commloop.route.github]
+"PJB3005/MoMMI" = ["unknown"]

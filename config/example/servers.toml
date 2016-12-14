@@ -1,0 +1,10 @@
+# Server specific settings and module overrides.
+
+[servers.unknown]
+id = 0
+
+[servers.unknown.roles]
+admin = 0
+coder = 0
+
+# [servers.unknown.modules.xxx] for module overrides.

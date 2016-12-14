@@ -97,3 +97,6 @@ pingdb
 bandb
 override.yml
 logs/*
+
+/config/*
+!/config/example/
