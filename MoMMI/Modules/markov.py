@@ -124,10 +124,15 @@ async def markov_reader(message):
 @command("markov\s*(?:\((\S*)\))?")
 async def markov(content, match, message):
     msg = ""
-    if match.group(1):
-        msg = markov_chain.generate(match.group(1).lower())
-    else:
-        msg = markov_chain.generate()
+    word = match.group(1)
+    for x in range(5):
+        if word:
+            msg = markov_chain.generate(match.group(1).lower())
+        else:
+            msg = markov_chain.generate()
+
+        if len(msg.split(" ")) > 5:
+            break
 
     await output(message.channel, msg)
 
