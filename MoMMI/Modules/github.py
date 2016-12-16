@@ -31,9 +31,10 @@ HEADERS = {"Authorization": "token %s" % (get_config("github.login.token"))}
 
 
 @comm_event
-async def github_event(msg, address):
-    if msg["id"] != "github":
+async def github_event(msg):
+    if msg["type"] != "github":
         return
+    msg = msg["cont"]
 
     logger.info("Handling message from GitHub.")
     logger.info(msg["event"])
