@@ -13,7 +13,7 @@ Being a direct TCP socket, I need a protocol for fanciness reasons!
 `0...2`    | Identifier bytes. If this doesn't match `\x30\x05` then MoMMI instantly drops connection.
 `3...23`   | The HMAC digest, must be SHA-1.
 `23...27`  | Big-endian unsigned 32 bit integer representing the length of the JSON message. This length is n.
-`27...n+7` | UTF-8 encoded JSON as the message.
+`27...27+n` | UTF-8 encoded JSON as the message.
 
 ## JSON
  key    |  meaning
