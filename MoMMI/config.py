@@ -7,6 +7,7 @@ logger = logging.getLogger("config")
 config = {}
 overrides = {}
 
+
 async def parse(filename, safe=False, override=False):
     global config
     global overrides
@@ -32,8 +33,9 @@ async def parse(filename, safe=False, override=False):
         logger.exception("Failed to load config file %s due to exception.")
         return
 
+
 def get_config(value, default=None, dictionary=None):
-    if dictionary == None:
+    if dictionary is None:
         override = get_config(value, None, overrides)
         if override:
             return override
@@ -45,19 +47,9 @@ def get_config(value, default=None, dictionary=None):
     for node in tree:
         if type(current) == dict and node in current:
             current = current[node]
-        
+
         else:
             current = default
             break
 
     return current
-
-logger.info("Doing initial config file load.")
-loop = asyncio.get_event_loop()
-
-# TODO: Unhardcode base config file, somehow, probably argparse.
-loop.run_until_complete(parse("config.yml"))
-loop.run_until_complete(parse("override.yml", override=True))
-logger.info("Successfully loaded config.yml.")
-logger.debug("Config is %s" % (config))
-
