@@ -3,4 +3,4 @@ colorhash
 aiofiles
 aiohttp
 bottom
-pyyaml
+toml
