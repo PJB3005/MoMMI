@@ -2,43 +2,37 @@
 import argparse
 import asyncio
 import logging
-import MoMMI.config
-import MoMMI.exceptions
 import MoMMI.logsetup
-import MoMMI.permissions
-from MoMMI.client import client
+import sys
+from MoMMI.master import master
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
 def main():
+    version = sys.version_info
+    if version.major < 3 or (version.major == 3 and version.minor < 6):
+        logger.critical("You need at least Python 3.6 to run MoMMI.")
+        sys.exit(1)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--config-dir", "-c",
                         default="./config",
                         help="The directory to read config files from.",
-                        dest="config")
+                        dest="config",
+                        type=Path)
 
-    parser.add_argument("--server-dir", "-s",
-                        default="./servers",
+    parser.add_argument("--storage-dir", "-s",
+                        default="./data",
                         help="The directory to use for server data storage.",
-                        dest="servers")
+                        dest="data",
+                        type=Path)
 
-    namespace = parser.parse_args()
+    args = parser.parse_args()
 
-    logger.info("Loading config files.")
-    loop = asyncio.get_event_loop()
-    task = asyncio.gather(
-        MoMMI.config.parse("config.yml"),
-        MoMMI.config.parse("override.yml", override=True)
-    )
-    loop.run_until_complete(task)
+    master.start(args.config, args.data)
 
-    if not MoMMI.config.get_config("token"):
-        logger.critical("Discord auth token is unset, aborting.")
-        exit(1)
-
-    logger.info("Starting client.")
-    client.run(MoMMI.config.get_config("token"))
 
 if __name__ == "__main__":
     main()

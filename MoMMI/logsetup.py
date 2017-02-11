@@ -16,7 +16,7 @@ formatter = logging.Formatter("[%(levelname)s] %(name)s: %(message)s")
 
 # StreamHandler for console output.
 handler = logging.StreamHandler()
-handler.setLevel(logging.INFO)
+handler.setLevel(logging.DEBUG)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
@@ -31,8 +31,8 @@ try:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-except Exception as e:
-    logging.exception("Unable to create ALL log handler for file %s.", path)
+except:
+    logging.exception(f"Unable to create ALL log handler for file {path}.")
 
 
 # FileHandler to log errors.
@@ -45,8 +45,8 @@ try:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-except Exception as e:
-    logging.exception("Unable to create ERROR log handler for file %s.", path)
+except:
+    logging.exception(f"Unable to create ERROR log handler for file {path}.")
 
 
 path = os.path.join(outdir, "chat.log")
@@ -60,8 +60,8 @@ try:
     chatlogger.propogate = False
     chatlogger.addHandler(handler)
 
-except Exception as e:
-    logging.exception("Unable to create CHAT log handler for file %s.", path)
+except:
+    logging.exception(f"Unable to create CHAT log handler for file {path}.")
 
 
 logging.getLogger("websockets").setLevel(logging.WARNING)

@@ -18,9 +18,6 @@ PORT: int = get_config("commloop.port", 1679)
 AUTHKEY: str = get_config("commloop.auth", "UNSET!!!").encode("utf-8")
 
 logger = logging.getLogger(__name__)
-connection = None
-processing = True
-events = []
 
 
 class commloop(object):
@@ -52,18 +49,21 @@ class commloop(object):
             writer.write(ERROR_ID)
             return
 
-        logger.info(f"Got ID packets: {data}.")
+        logger.debug(f"Got ID packets: {data}.")
 
         auth: bytes = await reader.read(20)  # 20 is the length of an SHA-1 hash.
-        logger.info(f"Got digest: {auth}.")
+        logger.debug(f"Got digest: {auth}.")
 
         length: int = struct.unpack("!I", await reader.read(4))[0]
-        data = await reader.read(length)
-        logger.info(f"Got message ength: {length}, data: {data}.")
+        data = b""
+        while len(data) < length:
+            data += await reader.read(length - len(data))
+
+        logger.debug(f"Got message length: {length}, data: {data}.")
         try:
-            logger.info(f"Decoded: {data.decode('UTF-8')}")
+            logger.debug(f"Decoded: {data.decode('UTF-8')}")
             message: Dict[str, Any] = json.loads(data.decode("UTF-8"))
-            logger.info(f"Loaded: {message}")
+            logger.debug(f"Loaded: {message}")
             # Any of these will throw a KeyError with broken packets.
             message["type"], message["meta"], message["cont"]
         except:

@@ -1,26 +1,18 @@
-from .client import client
-from .util import output
-from .permissions import isrole, isbanned, bantypes
-import re
-import logging
 import asyncio
+import logging
+import random
+import re
+from discord import Message
+from typing import Callable, re as typing_re, Awaitable, Optional, List
+from .permissions import bantypes
 
 logger = logging.getLogger(__name__)
 chatlogger = logging.getLogger("chat")
 
-commands = {}
-help_cache = {}
-always_commands = []
-unsafe_always_commands = []
-is_command_re = None
+# is_command_re: typing_re.Pattern = re.compile(fr"^<@\!?{client.user.id}>\s*")
 
 
-def setup_commands():
-    global is_command_re
-    is_command_re = re.compile(r"^<@\!?%s>\s*" % (client.user.id))
-
-
-def command(command, flags=re.IGNORECASE, role=None, ban_groups=[]):
+def command(name: str, regex: str, flags: re.RegexFlag = re.IGNORECASE, **kwargs):
     """
     Decorator that registers a function as a command.
     This is regex.
@@ -28,33 +20,17 @@ def command(command, flags=re.IGNORECASE, role=None, ban_groups=[]):
 
     def inner(function):
         if not asyncio.iscoroutinefunction(function):
-            logger.warning("Attempted to register non-coroutine %s!", function)
-            function = asyncio.coroutine(function)
+            logger.error(f"Attempted to register non-coroutine {function}!")
+            return
 
-        pattern = re.compile(command, flags)
-        commands[pattern] = function
-        function.role_requirement = role
-        function.ban_groups = ban_groups
+        pattern = re.compile(regex, flags)
+        command = MCommand(name, function, pattern, **kwargs)
+        command.register()
         return function
 
     return inner
 
-
-def always_command(no_other_commands=False):
-    def inner(function):
-        global always_commands
-        if not asyncio.iscoroutinefunction(function):
-            logger.warning("Attempted to register non-coroutine %s!", function)
-            function = asyncio.coroutine(function)
-
-        function.no_other_commands = no_other_commands
-        always_commands.append(function)
-
-        return function
-
-    return inner
-
-
+"""
 @client.event
 async def on_message(message):
     for function in unsafe_always_commands:
@@ -100,6 +76,7 @@ async def on_message(message):
             continue
 
         await function(message)
+"""
 
 
 def command_help(key, shortdesc, usage, longdesc=None):
@@ -116,16 +93,65 @@ def command_help(key, shortdesc, usage, longdesc=None):
 
     return inner
 
+class MCommand(object):
+    from .server import MChannel
 
-def unsafe_always_command():
-    def inner(function):
-        global unsafe_always_commands
-        if not asyncio.iscoroutinefunction(function):
-            logger.warning("Attempted to register non-coroutine %s!", function)
-            function = asyncio.coroutine(function)
+    prefix_re: typing_re.Pattern
 
-        unsafe_always_commands.append(function)
+    def __init__(self,
+                 name: str,
+                 func: Callable[[MChannel, typing_re.Match, Message], Awaitable[None]],
+                 regex: Optional[typing_re.Pattern],
+                 unsafe: bool = False,
+                 prefix: bool = True,
+                 help: Optional[str] = None,
+                 roles: Optional[List[str]] = [],
+                 bans: Optional[List[bantypes]] = []):
 
-        return function
+        self.name: str = name
+        self.module: str = func.__module__
 
-    return inner
+        self.func: Callable[[MChannel, Message, typing_re.Match], Awaitable[None]]
+        self.func = func
+
+        self.regex: typing_re.Pattern = regex
+
+        self.unsafe: bool = unsafe
+        self.prefix: bool = prefix
+
+        self.help: Optional[str] = help
+        self.roles = roles
+
+    def register(self):
+        from .master import master
+        master.register_command(self)
+
+    # Gets ran over the message. If it returns True other commands don't run.
+    async def try_execute(self, channel: MChannel, message: Message) -> bool:
+        message_start = 0
+
+        if self.prefix:
+            match = MCommand.prefix_re.match(message.content)
+            if not match:
+                return
+
+            message_start = match.end()
+
+        if self.regex:
+            content = message.content[message_start:]
+            if not self.regex.match(content):
+                return
+
+        if len(self.roles):
+            found = False
+            for role in self.roles:
+                if channel.isrole(message.author, role):
+                    found = True
+                    break
+
+            if not found:
+                choice = random.choice(channel.main_config("bot.deny-messages", ["*buzz*"]))
+                await channel.send(choice)
+                return
+
+        await self.func(channel, None, message)
