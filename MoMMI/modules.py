@@ -9,11 +9,11 @@ modules = []
 
 class MModule(object):
     def __init__(self, name: str):
-        from .commands import MCommand
+        from .handler import MHandler
 
         self.name: str = name
         self.config: Dict[str, Any] = {}
-        self.commands: Dict[str, MCommand] = {}
+        self.handlers: Dict[str, MHandler] = {}
         self.loaded: bool = False
         # The actual module
         self.module = None

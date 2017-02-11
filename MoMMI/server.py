@@ -5,7 +5,7 @@ import os
 import pickle
 from collections import defaultdict
 from discord import Server, Channel, Member
-from typing import Dict, Any, List, DefaultDict, TYPE_CHECKING, TypeVar, Optional
+from typing import Dict, Any, List, DefaultDict, TYPE_CHECKING, TypeVar, Optional, Type
 from pathlib import Path
 
 logger = logging.getLogger()
@@ -144,3 +144,7 @@ class MChannel(object):
                 return True
 
         return False
+
+    def iter_handlers(self, type: Type[T]):
+        for module in self.server.modules.values():
+            yield from module.handlers.values()

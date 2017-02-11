@@ -4,12 +4,11 @@ import random
 import re
 from discord import Message
 from typing import Callable, re as typing_re, Awaitable, Optional, List
+from .handler import MHandler
 from .permissions import bantypes
 
 logger = logging.getLogger(__name__)
 chatlogger = logging.getLogger("chat")
-
-# is_command_re: typing_re.Pattern = re.compile(fr"^<@\!?{client.user.id}>\s*")
 
 
 def command(name: str, regex: str, flags: re.RegexFlag = re.IGNORECASE, **kwargs):
@@ -19,13 +18,14 @@ def command(name: str, regex: str, flags: re.RegexFlag = re.IGNORECASE, **kwargs
     """
 
     def inner(function):
+        from .master import master
         if not asyncio.iscoroutinefunction(function):
             logger.error(f"Attempted to register non-coroutine {function}!")
             return
 
         pattern = re.compile(regex, flags)
-        command = MCommand(name, function, pattern, **kwargs)
-        command.register()
+        command = MCommand(name, function.__module__, function, pattern, **kwargs)
+        command.register(master)
         return function
 
     return inner
@@ -93,13 +93,14 @@ def command_help(key, shortdesc, usage, longdesc=None):
 
     return inner
 
-class MCommand(object):
+class MCommand(MHandler):
     from .server import MChannel
 
     prefix_re: typing_re.Pattern
 
     def __init__(self,
                  name: str,
+                 module: str,
                  func: Callable[[MChannel, typing_re.Match, Message], Awaitable[None]],
                  regex: Optional[typing_re.Pattern],
                  unsafe: bool = False,
@@ -108,8 +109,7 @@ class MCommand(object):
                  roles: Optional[List[str]] = [],
                  bans: Optional[List[bantypes]] = []):
 
-        self.name: str = name
-        self.module: str = func.__module__
+        super().__init__(name, module)
 
         self.func: Callable[[MChannel, Message, typing_re.Match], Awaitable[None]]
         self.func = func
@@ -121,10 +121,6 @@ class MCommand(object):
 
         self.help: Optional[str] = help
         self.roles = roles
-
-    def register(self):
-        from .master import master
-        master.register_command(self)
 
     # Gets ran over the message. If it returns True other commands don't run.
     async def try_execute(self, channel: MChannel, message: Message) -> bool:

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 from .commands import MCommand
 from .config import ConfigManager
+from .handler import MHandler
 from .modules import MModule
 from .server import MServer
 
@@ -156,9 +157,16 @@ class MoMMI(object):
                 server.modules[name] = newmod
             logger.info(f"Successfully loaded module {name}.")
 
-    def register_command(self, command: MCommand):
-        module = self.modules[command.module]
-        module.commands[command.name] = command
+        for module in todrop:
+            for server in self.servers:
+                if module.name in server.modules:
+                    del server.modules[module.name]
+
+            del self.modules[module.name]
+
+    def register_handler(self, handler: MHandler):
+        module = self.get_module(handler.module)
+        module.handlers[handler.name] = handler
 
     async def on_message(self, message: discord.Message):
         if not self.initialized:
@@ -167,9 +175,8 @@ class MoMMI(object):
         server = self.get_server(int(message.server.id))
         channel = server.get_channel(int(message.channel.id))
 
-        for module in server.modules.values():
-            for command in module.commands.values():
-                await command.try_execute(channel, message)
+        for command in channel.iter_handlers(MCommand):
+            await command.try_execute(channel, message)
 
     def get_server(self, id: int) -> MServer:
         return self.servers[id]
