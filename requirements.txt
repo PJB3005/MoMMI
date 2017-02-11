@@ -1,0 +1,6 @@
+discord.py[voice]
+colorhash
+aiofiles
+aiohttp
+bottom
+pyyaml
