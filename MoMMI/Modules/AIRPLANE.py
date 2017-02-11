@@ -6,7 +6,7 @@ from ..commands import command
 #from ..server import MChannel
 
 
-@command("airplane", "\u2708", flags=re.UNICODE|re.IGNORECASE, roles=["bot"])
+@command("airplane", "\u2708", flags=re.UNICODE|re.IGNORECASE)
 async def plane(channel: "MChannel", match: typing_re.Match, message: Message):
     await channel.send(random.choice(channel.module_config(__name__, "responses")))
 
