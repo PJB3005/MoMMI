@@ -11,10 +11,10 @@ class MModule(object):
     def __init__(self, name: str):
         from .handler import MHandler
 
-        self.name: str = name
-        self.config: Dict[str, Any] = {}
-        self.handlers: Dict[str, MHandler] = {}
-        self.loaded: bool = False
+        self.name = name  # type: str
+        self.config = {}  # type: Dict[str, Any]
+        self.handlers = {}  # type: Dict[str, MHandler]
+        self.loaded= False  # type: bool
         # The actual module
         self.module = None
 

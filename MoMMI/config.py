@@ -12,11 +12,11 @@ T = TypeVar(Any)
 
 class ConfigManager(object):
     def __init__(self):
-        self.path: Path = None
+        self.path = None  # type: Path
 
-        self.main: Dict[str, Any] = None
-        self.modules: Dict[str, Any] = None
-        self.servers: Dict[str, Any] = None
+        self.main = None  # type: Dict[str, Any]
+        self.modules = None  # type: Dict[str, Any]
+        self.servers = None  # type: Dict[str, Any]
 
     def get_main(self, key: str, default: Optional[T] = None) -> T:
         """

@@ -9,6 +9,7 @@ import signal
 from pathlib import Path
 from typing import List, Dict, Tuple
 from .commands import MCommand
+from .commloop import commloop
 from .config import ConfigManager
 from .handler import MHandler
 from .modules import MModule
@@ -21,14 +22,15 @@ logger = logging.getLogger()
 # Dear god.
 class MoMMI(object):
     def __init__(self):
-        self.config: ConfigManager = ConfigManager()
-        self.modules: Dict[str, MModule] = {}
-        self.servers: Dict[int, MServer] = {}
-        self.servers_name: Dict[str, MServer] = {}
+        self.config = ConfigManager()  # type: ConfigManager
+        self.modules = {}  # type: Dict[str, MModule]
+        self.servers = {}  # type: Dict[int, MServer]
+        self.servers_name = {}  # type: Dict[str, MServer]
         # We do all init as soon as discord.py is ready,
         # so we need to prevent double init.
-        self.initialized: bool = False
-        self.client: discord.Client = discord.Client()
+        self.initialized = False  # type: bool
+        self.client = discord.Client()  # type: discord.Client
+        self.commloop = None  # type: commloop
 
         # Find all on_xxx attributes and register them to the client.
         for x in (getattr(self, x) for x in dir(self) if x.startswith("on_")):
@@ -51,6 +53,9 @@ class MoMMI(object):
             return
 
         self.register_signals()
+
+        self.commloop = commloop(self)
+        await self.commloop.start(self.client.loop)
 
         logger.info(f"Logged in as {self.client.user.name} ({self.client.user.id})")
         logger.info("Connected servers:")
@@ -219,6 +224,11 @@ class MoMMI(object):
 
     async def shutdown(self):
         logger.info("Shutting down!")
+        if self.commloop:
+            logger.debug(f"sockets: {self.commloop.server.sockets}")
+            logger.debug("Closing commloop.")
+            self.commloop.server.close()
+            await self.commloop.stop()
         tasks = [module.unload() for module in self.modules if hasattr(module, "unload")]
         await asyncio.gather(*tasks)
 
@@ -233,5 +243,32 @@ class MoMMI(object):
 
     def get_module(self, name: str) -> MModule:
         return self.modules[name]
+
+    def iter_channels(self):
+        """
+        Iterate over all MChannels.
+        """
+        for server in self.servers.values():
+            yield from server.channels.values()
+
+    async def on_channel_delete(self, channel: discord.Channel):
+        if channel.is_private:
+            return
+
+        server_id = int(channel.server.id)
+        mserver = self.get_server(server_id)
+        mserver.remove_channel(channel)
+
+    async def on_channel_create(self, channel: discord.Channel):
+        # TODO: support for PMs.
+        # Probably longs ways off shit.
+        logger.debug(f"Got new channel! {channel.is_private}, {channel.id}")
+        if channel.is_private:
+            return
+
+        server_id = int(channel.server.id)
+        mserver = self.get_server(server_id)
+        mserver.add_channel(channel)
+
 
 master: MoMMI = MoMMI()

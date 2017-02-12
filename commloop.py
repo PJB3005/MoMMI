@@ -24,6 +24,9 @@ def MoMMI(address, key, type, meta, content):
         s.settimeout(5)
         s.connect(address)
         s.sendall(packet)
-        ret = struct.unpack("!B", s.recv(1))  # type: int
+        ret = struct.unpack("!B", s.recv(1))[0]  # type: int
         if ret != 0:
-            raise IOError("MoMMI returned non-zero code %s".format(ret))
+            raise IOError(f"MoMMI returned non-zero code {ret}")
+
+def derp():
+    pass

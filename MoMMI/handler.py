@@ -12,8 +12,8 @@ class MHandler(object):
         from .master import MoMMI
 
     def __init__(self, name: str, module: str):
-        self.name: str = name
-        self.module: str = module
+        self.name = name  # type: str
+        self.module = module  # type: str
 
     def register(self, master: "MoMMI"):
         master.register_handler(self)

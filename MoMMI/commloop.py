@@ -5,32 +5,44 @@ import json
 import logging
 import struct
 from hashlib import sha1
-from typing import Dict, Tuple, Any
-from .config import get_config
+from typing import Dict, Tuple, Any, TYPE_CHECKING, Callable, Awaitable
+from .handler import MHandler
+from .server import MChannel
 
 ERROR_OK = struct.pack("!B", 0)
 ERROR_ID = struct.pack("!B", 1)
 ERROR_PACK = struct.pack("!B", 2)
 ERROR_HMAC = struct.pack("!B", 3)
 
-ADDRESS: str = get_config("commloop.address", "localhost")
-PORT: int = get_config("commloop.port", 1679)
-AUTHKEY: str = get_config("commloop.auth", "UNSET!!!").encode("utf-8")
-
 logger = logging.getLogger(__name__)
 
 
 class commloop(object):
-    def __init__(self):
-        self.server: asyncio.Server = None
-        self.clients: Dict[asyncio.Task, Tuple[asyncio.StreamReader, asyncio.StreamWriter]] = {}
+    if TYPE_CHECKING:
+        from .master import MoMMI
+
+    def __init__(self, master: "MoMMI"):
+        self.server = None  # type: asyncio.Server
+        self.clients = {}  # type:  Dict[asyncio.Task, Tuple[asyncio.StreamReader, asyncio.StreamWriter]]
+
+        self.master = master  # type: MoMMI
+
+        self.routing = master.config.get_main("commloop.route", {})  # type: Dict[str, Any]
+        self.address = master.config.get_main("commloop.address", "localhost")  # type: str
+        self.port = master.config.get_main("commloop.port", "localhost")  # type: int
+        self.authkey = master.config.get_main("commloop.password", "localhost")  # type: str
 
     async def start(self, loop: asyncio.AbstractEventLoop):
-        self.server = await asyncio.start_server(self.accept_client,
-                                                 ADDRESS,
-                                                 PORT,
-                                                 loop=loop)
+        self.server = await asyncio.start_server(
+            self.accept_client,
+            self.address,
+            self.port,
+            loop=loop
+        )
         logger.info("Started the commloop server.")
+
+    async def stop(self):
+        await self.server.wait_closed()
 
     def accept_client(self, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter):
         logger.info("Accepting new client!")
@@ -44,57 +56,95 @@ class commloop(object):
         task.add_done_callback(client_done)
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        data: bytes = await reader.read(2)  # Read ID.
-        if data != b"\x30\x05":
-            writer.write(ERROR_ID)
-            return
-
-        logger.debug(f"Got ID packets: {data}.")
-
-        auth: bytes = await reader.read(20)  # 20 is the length of an SHA-1 hash.
-        logger.debug(f"Got digest: {auth}.")
-
-        length: int = struct.unpack("!I", await reader.read(4))[0]
-        data = b""
-        while len(data) < length:
-            data += await reader.read(length - len(data))
-
-        logger.debug(f"Got message length: {length}, data: {data}.")
         try:
-            logger.debug(f"Decoded: {data.decode('UTF-8')}")
-            message: Dict[str, Any] = json.loads(data.decode("UTF-8"))
-            logger.debug(f"Loaded: {message}")
-            # Any of these will throw a KeyError with broken packets.
-            message["type"], message["meta"], message["cont"]
-        except:
-            logger.exception("hrrm")
-            writer.write(ERROR_PACK)
-            return
+            data: bytes = await reader.read(2)  # Read ID.
+            if data != b"\x30\x05":
+                writer.write(ERROR_ID)
+                return
 
-        stomach: hmac.HMAC = hmac.new(AUTHKEY, data, sha1)
-        if not hmac.compare_digest(stomach.digest(), auth):
-            writer.write(ERROR_HMAC)
-            return
+            logger.debug(f"Got ID packets: {data}.")
 
-        logger.info(message)
-        writer.write(ERROR_OK)
+            auth: bytes = await reader.read(20)  # 20 is the length of an SHA-1 hash.
+            logger.debug(f"Got digest: {auth}.")
 
-        for event in events:
+            length: int = struct.unpack("!I", await reader.read(4))[0]
+            data = b""
+            while len(data) < length:
+                data += await reader.read(length - len(data))
+
+            logger.debug(f"Got message length: {length}, data: {data}.")
             try:
-                await event(message)
+                logger.debug(f"Decoded: {data.decode('UTF-8')}")
+                message: Dict[str, Any] = json.loads(data.decode("UTF-8"))
+                logger.debug(f"Loaded: {message}")
+                # Any of these will throw a KeyError with broken packets.
+                message["type"], message["meta"], message["cont"]
+            except:
+                logger.exception("hrrm")
+                writer.write(ERROR_PACK)
+                return
+
+            stomach: hmac.HMAC = hmac.new(self.authkey.encode("UTF-8"), data, sha1)
+            if not hmac.compare_digest(stomach.digest(), auth):
+                writer.write(ERROR_HMAC)
+                return
+
+            logger.info(message)
+            writer.write(ERROR_OK)
+
+            await self.route(message)
+        except:
+            logger.exception("Got exception inside main commloop handler. Uh oh!")
+
+    async def route(self, message: Dict[str, Any]):
+        if message["type"] not in self.routing:
+            logger.debug("No routing info for type")
+            return
+
+        handler = None  # type: MCommEvent
+
+        for module in self.master.modules.values():
+            for p_handler in filter(lambda x: isinstance(x, MCommEvent), module.handlers.values()):
+                if p_handler.name == message["type"]:
+                    handler = p_handler
+                    break
+
+        if handler is None:
+            logger.error(f"Found routing information for nonexistant handler \"{message['type']}\".")
+            return
+
+        channel_ids = self.routing[message["type"]].get(message["meta"], [])  # type: List[int]
+        if len(channel_ids) == 0:
+            logger.debug("Got message without ability to find routing info. Ignoring.")
+            return
+
+        channels = [x for x in self.master.iter_channels() if x.id in channel_ids]
+
+        for channel in channels:
+            try:
+                await handler.execute(channel, message["cont"])
             except:
                 logger.exception("Caught exception inside commloop event handler.")
 
 
-def comm_event(function):
-    global events
-    if not asyncio.iscoroutinefunction(function):
-        logger.warning("Attempted to register non-coroutine %s as comm_event!", function)
-        function = asyncio.coroutine(function)
+def comm_event(name):
+    def inner(function: Callable[[MChannel, Any], Awaitable[None]]):
+        from .master import master
+        event = MCommEvent(name, function.__module__, function)
+        event.register(master)
 
-    events.append(function)
-    return function
+    return inner
 
-loop = commloop()
-event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-asyncio.ensure_future(loop.start(event_loop))
+
+class MCommEvent(MHandler):
+    def __init__(self,
+                 name: str,
+                 module: str,
+                 func: Callable[[MChannel, Any], Awaitable[None]]):
+
+        super().__init__(name, module)
+
+        self.func = func
+
+    async def execute(self, channel: MChannel, message: Any):
+        await self.func(channel, message)

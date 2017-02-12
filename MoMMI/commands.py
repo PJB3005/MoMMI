@@ -106,21 +106,20 @@ class MCommand(MHandler):
                  unsafe: bool = False,
                  prefix: bool = True,
                  help: Optional[str] = None,
-                 roles: Optional[List[str]] = [],
-                 bans: Optional[List[bantypes]] = []):
+                 roles: List[str] = [],
+                 bans: List[bantypes] = []):
 
         super().__init__(name, module)
 
-        self.func: Callable[[MChannel, Message, typing_re.Match], Awaitable[None]]
-        self.func = func
+        self.func = func  # type: Callable[[MChannel, Message, typing_re.Match], Awaitable[None]]
 
-        self.regex: typing_re.Pattern = regex
+        self.regex = regex  # type: typing_re.Pattern
 
-        self.unsafe: bool = unsafe
-        self.prefix: bool = prefix
+        self.unsafe = unsafe  # type: bool
+        self.prefix = prefix  # type: bool
 
-        self.help: Optional[str] = help
-        self.roles = roles
+        self.help = help  # type: Optional[str]
+        self.roles = roles  # type: List[str]
 
     # Gets ran over the message. If it returns True other commands don't run.
     async def try_execute(self, channel: MChannel, message: Message) -> bool:
