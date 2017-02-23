@@ -3,6 +3,8 @@ import asyncio
 import json
 import logging
 import re
+import os
+import subprocess
 from colorhash import ColorHash
 from discord import Colour, Embed, Message
 from typing import re as re_type, List
@@ -11,7 +13,7 @@ from ..commloop import comm_event
 from ..client import client
 from ..util import getchannel, getserver
 from ..config import get_config
-from ..commands import always_command
+from ..commands import always_command, command
 from .irc import irc_transform, prevent_ping
 
 logger = logging.getLogger(__name__)
@@ -262,3 +264,67 @@ def filter_issue_brackets(message, author, discord_server, irc_client):
 
 async def load():
     irc_transform(filter_issue_brackets)
+
+
+@command(r"testmerge\s*\[?(\d+)\]?", role=get_config("mainserver.roles.collab"))
+async def test_merger(content, match, message):
+    from asyncio import create_subprocess_exec
+    logger.info("I did not break!")
+    id = int(match.group(1))
+    async with aiohttp.ClientSession() as session:
+        # GET /repos/:owner/:repo/pulls/:number
+        url = github_url(f"/repos/{get_config('github.repo.owner')}/{get_config('github.repo.name')}/pulls/{id}")
+
+        async with session.get(url, headers=HEADERS) as resp:
+            if resp.status != 200:
+                await client.send_message(message.channel, f"❌ Unable to fetch information for PR {id}.")
+                return
+
+            content = json.loads(await resp.text())
+
+        if content["merged"] == True:
+            await client.send_message(message.channel, "❌ This PR has already been merged!")
+            return
+
+        if content["mergeable"] != True:
+            await client.send_message(message.channel, "❌ This PR is conflicting and cannot be test merged.")
+            return
+
+        origin_uri = f"git@github.com:{get_config('github.repo.owner')}/{get_config('github.repo.name')}.git"
+        HEAD_URI = content['head']['repo']['git_url']
+        BRANCH = content['head']['ref']
+
+        env = os.environ.copy()
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        env["GIT_SSH_COMMAND"] = f"ssh -i {get_config('github.ssh-key')}"
+
+        kwargs = {
+            "cwd": get_config("github.testmerge"),
+            "env": env,
+            "stdout": asyncio.subprocess.PIPE,
+            "stderr": asyncio.subprocess.PIPE
+        }
+
+        commands = [
+            create_subprocess_exec("git", "fetch", "origin", **kwargs),
+            create_subprocess_exec("git", "reset", "--hard",  **kwargs),
+            create_subprocess_exec("git", "checkout", "-B", "testserver", "origin/Bleeding-Edge",  **kwargs),
+            create_subprocess_exec("git", "pull", HEAD_URI, BRANCH, "--no-edit", **kwargs),
+            create_subprocess_exec("git", "push", "-f", origin_uri, "testserver",  **kwargs)
+        ]
+
+        index = 1
+        for command in commands:
+            logger.info(f"fuck: {index}")
+            process = await command
+            await process.wait()
+            if process.returncode != 0:
+                out = (await process.stdout.read()).decode("UTF-8")
+                err = (await process.stderr.read()).decode("UTF-8")
+                await client.send_message(message.channel, f"❌ Git command #{index} returned bad status code `{process.returncode}`. Uh oh!")
+                logger.error(f"Git command #{index} failed: {process.returncode}.\nstdout:\n{out}\nstderr:\n{err}")
+                return
+            
+            index += 1
+
+        await client.send_message(message.channel, f"✅ PR testmerge success. `{get_config('github.testmerge-address')}` will be up soon.")

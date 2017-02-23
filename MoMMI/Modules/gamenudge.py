@@ -14,6 +14,7 @@ async def gamenudge(msg):
         return
 
     logger.info("Receiving a game message!")
+    meta = msg["meta"]
     msg = msg["cont"]
 
     if msg["pass"] != get_config("nudges.password"):
@@ -24,7 +25,11 @@ async def gamenudge(msg):
     if msg.get("admin", False):
         channelid = get_config("mainserver.channels.admin")
     else:
-        channelid = get_config("mainserver.channels.main")
+        # I can't be bothered to modularize this when routing is in for a rework soooo.
+        if meta == "ivory/server":
+            channelid = 245878501532499969
+        else:
+            channelid = get_config("mainserver.channels.main")
 
     channel = client.get_channel(str(channelid))
     if not channel:

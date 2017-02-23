@@ -59,6 +59,17 @@ async def connect(**kwargs):
     logger.info("Connected")
     irc_client.send("NICK", nick=get_config("mainserver.irc.irc.user.nick"))
     irc_client.send("USER", user=get_config("mainserver.irc.irc.user.name"), realname=get_config("mainserver.irc.irc.user.realname"))
+
+    done, pending = await asyncio.wait(
+        [irc_client.wait("RPL_ENDOFMOTD"),
+         irc_client.wait("ERR_NOMOTD")],
+        loop=irc_client.loop,
+        return_when=asyncio.FIRST_COMPLETED
+    )
+
+    for future in pending:
+        future.cancel()
+
     irc_client.send('JOIN', channel=get_config("mainserver.irc.irc.channel"))
 
 asyncio.ensure_future(irc_client.connect(), loop=irc_client.loop)
