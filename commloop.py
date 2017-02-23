@@ -7,14 +7,14 @@ def MoMMI(address, key, type, meta, content):
     import json
     import struct
     from socket import socket, AF_INET, SOCK_STREAM
-    from hashlib import sha1
+    from hashlib import sha512
 
     msg = json.dumps({
         "type": type,
         "meta": meta,
         "cont": content
     }).encode("UTF-8")  # type: bytes
-    h = hmac.new(key, msg, sha1)
+    h = hmac.new(key, msg, sha512)
     packet = b"\x30\x05"  # type: bytes
     packet += h.digest()
     packet += struct.pack("!I", len(msg))
@@ -26,4 +26,4 @@ def MoMMI(address, key, type, meta, content):
         s.sendall(packet)
         ret = struct.unpack("!B", s.recv(1))  # type: int
         if ret != 0:
-            raise IOError("MoMMI returned non-zero code %s".format(ret))
+            raise IOError("MoMMI returned non-zero code {}".format(ret))
