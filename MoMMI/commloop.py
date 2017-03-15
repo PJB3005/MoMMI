@@ -4,15 +4,19 @@ import hmac
 import json
 import logging
 import struct
-from hashlib import sha1
+from hashlib import sha512
 from typing import Dict, Tuple, Any, TYPE_CHECKING, Callable, Awaitable
 from .handler import MHandler
 from .server import MChannel
+
+
+DIGEST_SIZE = sha512().digest_size
 
 ERROR_OK = struct.pack("!B", 0)
 ERROR_ID = struct.pack("!B", 1)
 ERROR_PACK = struct.pack("!B", 2)
 ERROR_HMAC = struct.pack("!B", 3)
+ERROR_UNKNOWN = struct.pack("!B", 4)
 
 logger = logging.getLogger(__name__)
 
@@ -57,20 +61,28 @@ class commloop(object):
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         try:
-            data: bytes = await reader.read(2)  # Read ID.
+            data = await reader.read(2)  # Read ID.
             if data != b"\x30\x05":
                 writer.write(ERROR_ID)
                 return
 
             logger.debug(f"Got ID packets: {data}.")
 
-            auth: bytes = await reader.read(20)  # 20 is the length of an SHA-1 hash.
+            auth = await reader.read(DIGEST_SIZE)
             logger.debug(f"Got digest: {auth}.")
 
-            length: int = struct.unpack("!I", await reader.read(4))[0]
+            length= struct.unpack("!I", await reader.read(4))[0]
             data = b""
             while len(data) < length:
-                data += await reader.read(length - len(data))
+                newdata = await reader.read(length - len(data))
+                if len(newdata) == 0:
+                    break
+                data += newdata
+
+            stomach = hmac.new(self.authkey.encode("UTF-8"), data, sha512)
+            if not hmac.compare_digest(stomach.digest(), auth):
+                writer.write(ERROR_HMAC)
+                return
 
             logger.debug(f"Got message length: {length}, data: {data}.")
             try:
@@ -84,17 +96,14 @@ class commloop(object):
                 writer.write(ERROR_PACK)
                 return
 
-            stomach: hmac.HMAC = hmac.new(self.authkey.encode("UTF-8"), data, sha1)
-            if not hmac.compare_digest(stomach.digest(), auth):
-                writer.write(ERROR_HMAC)
-                return
-
             logger.info(message)
             writer.write(ERROR_OK)
 
             await self.route(message)
         except:
             logger.exception("Got exception inside main commloop handler. Uh oh!")
+            writer.write(ERROR_UNKNOWN)
+
 
     async def route(self, message: Dict[str, Any]):
         if message["type"] not in self.routing:

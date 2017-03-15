@@ -44,3 +44,4 @@ The code is passed in the lone byte of the return message. Endianness is big-end
 `1`      | You didn't send the identifying bytes correctly.
 `2`      | Packet structure is wrong or JSON decode failed.
 `3`      | HMAC authentication failed.
+`4`      | Unknown Error. Probably still means it's your fault though!

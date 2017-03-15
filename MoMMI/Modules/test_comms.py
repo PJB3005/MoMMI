@@ -1,4 +1,4 @@
-from ..commloop import comm_event
+from MoMMI.commloop import comm_event
 
 
 @comm_event("testing")

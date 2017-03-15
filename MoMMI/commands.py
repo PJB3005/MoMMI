@@ -4,8 +4,8 @@ import random
 import re
 from discord import Message
 from typing import Callable, re as typing_re, Awaitable, Optional, List
-from .handler import MHandler
-from .permissions import bantypes
+from MoMMI.handler import MHandler
+from MoMMI.permissions import bantypes
 
 logger = logging.getLogger(__name__)
 chatlogger = logging.getLogger("chat")
@@ -18,13 +18,26 @@ def command(name: str, regex: str, flags: re.RegexFlag = re.IGNORECASE, **kwargs
     """
 
     def inner(function):
-        from .master import master
+        from MoMMI.master import master
         if not asyncio.iscoroutinefunction(function):
             logger.error(f"Attempted to register non-coroutine {function}!")
             return
 
         pattern = re.compile(regex, flags)
         command = MCommand(name, function.__module__, function, pattern, **kwargs)
+        command.register(master)
+        return function
+
+    return inner
+
+def always_command(name: str, **kwargs):
+    def inner(function):
+        from .master import master
+        if not asyncio.iscoroutinefunction(function):
+            logger.error(f"Attempted to register non-coroutine {function}!")
+            return
+
+        command = MCommand(name, function.__module__, function, prefix=False)
         command.register(master)
         return function
 
@@ -94,7 +107,7 @@ def command_help(key, shortdesc, usage, longdesc=None):
     return inner
 
 class MCommand(MHandler):
-    from .server import MChannel
+    from MoMMI.server import MChannel
 
     prefix_re: typing_re.Pattern
 
@@ -102,7 +115,7 @@ class MCommand(MHandler):
                  name: str,
                  module: str,
                  func: Callable[[MChannel, typing_re.Match, Message], Awaitable[None]],
-                 regex: Optional[typing_re.Pattern],
+                 regex: Optional[typing_re.Pattern] = None,
                  unsafe: bool = False,
                  prefix: bool = True,
                  help: Optional[str] = None,
@@ -124,6 +137,10 @@ class MCommand(MHandler):
     # Gets ran over the message. If it returns True other commands don't run.
     async def try_execute(self, channel: MChannel, message: Message) -> bool:
         message_start = 0
+        match = None
+
+        if message.author.id == channel.server.master.client.user.id and not self.unsafe:
+            return
 
         if self.prefix:
             match = MCommand.prefix_re.match(message.content)
@@ -134,7 +151,8 @@ class MCommand(MHandler):
 
         if self.regex:
             content = message.content[message_start:]
-            if not self.regex.match(content):
+            match = self.regex.match(content)
+            if match is None:
                 return
 
         if len(self.roles):
@@ -149,4 +167,4 @@ class MCommand(MHandler):
                 await channel.send(choice)
                 return
 
-        await self.func(channel, None, message)
+        await self.func(channel, match, message)

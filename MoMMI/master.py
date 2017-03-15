@@ -26,17 +26,19 @@ class MoMMI(object):
         self.modules = {}  # type: Dict[str, MModule]
         self.servers = {}  # type: Dict[int, MServer]
         self.servers_name = {}  # type: Dict[str, MServer]
+        self.cache = {}  # type: Dict[str, Any]
         # We do all init as soon as discord.py is ready,
         # so we need to prevent double init.
         self.initialized = False  # type: bool
         self.client = discord.Client()  # type: discord.Client
         self.commloop = None  # type: commloop
+        self.storagedir = None  # type: Path
 
         # Find all on_xxx attributes and register them to the client.
-        for x in (getattr(self, x) for x in dir(self) if x.startswith("on_")):
-            self.client.event(x)
+        [self.client.event(getattr(self, x)) for x in dir(self) if x.startswith("on_")]
 
     def start(self, configdir: Path, storagedir: Path):
+        self.storagedir = storagedir
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.config.load_from(configdir))
 
@@ -58,20 +60,20 @@ class MoMMI(object):
         await self.commloop.start(self.client.loop)
 
         logger.info(f"Logged in as {self.client.user.name} ({self.client.user.id})")
-        logger.info("Connected servers:")
 
         MCommand.prefix_re = re.compile(rf"^<@\!?{self.client.user.id}>\s*")
 
-        tasks = []
+        await self.reload_modules()
+        logger.info(f"Loaded {len(self.modules)} modules.")
 
+        tasks = []
+        logger.info("Connected servers:")
         for server in self.client.servers:
             logger.info(f"  {server.name}")
             tasks.append(self.add_server(server))
 
         await asyncio.gather(*tasks)
 
-        await self.reload_modules()
-        logger.info(f"Loaded {len(self.modules)} modules.")
         logger.info("Initializations complete, *buzz*!")
         self.initialized = True
 
@@ -163,7 +165,7 @@ class MoMMI(object):
             logger.info(f"Successfully loaded module {name}.")
 
         for module in todrop:
-            for server in self.servers:
+            for server in self.servers.values():
                 if module.name in server.modules:
                     del server.modules[module.name]
 
@@ -203,10 +205,17 @@ class MoMMI(object):
                 break
 
         if not cfg:
-            logger.warning(f"No configuration present for server {server.name} ({server.id})!")
+            logger.error(f"No configuration present for server {server.name} ({server.id})!")
+            return
 
         new.load_server_config(cfg)
-
+        data_path = self.storagedir.joinpath(new.name)
+        if not data_path.exists():
+            logger.debug(f"Data directory for server {new.name} does not exist, creating.")
+            data_path.mkdir(parents=True)
+        elif not data_path.is_dir():
+            logger.error(f"Data storage directory for {new.name} exists but is not a file!")
+        await new.load_data_storages(data_path)
 
     async def on_server_remove(self, server: discord.Server):
         logger.info(f"Left server {server.name}.")
@@ -229,6 +238,8 @@ class MoMMI(object):
             logger.debug("Closing commloop.")
             self.commloop.server.close()
             await self.commloop.stop()
+
+        await asyncio.gather(*(server.save_all_storages() for server in self.servers.values()))
         tasks = [module.unload() for module in self.modules if hasattr(module, "unload")]
         await asyncio.gather(*tasks)
 

@@ -1,4 +1,4 @@
-from ..commands import command
+from MoMMI.commands import command
 
 @command("shutdown", "shutdown", roles=["owner"])
 async def shutdown(channel, match, message):

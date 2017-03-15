@@ -104,3 +104,6 @@ logs/*
 codeprojects/*
 data*
 pyvenv.cfg
+
+# I blame OSX for this:
+*.DS_Store
