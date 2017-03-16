@@ -10,4 +10,4 @@ if TYPE_CHECKING:
 
 @command("airplane", "\u2708", flags=re.UNICODE|re.IGNORECASE)
 async def plane(channel: "MChannel", match: typing_re.Match, message: Message):
-    await channel.send(random.choice(channel.module_config(__name__, "responses")))
+    await channel.send(random.choice(channel.module_config("AIRPLANE.responses")))

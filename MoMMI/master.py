@@ -8,12 +8,12 @@ import re
 import signal
 from pathlib import Path
 from typing import List, Dict, Tuple
-from .commands import MCommand
-from .commloop import commloop
-from .config import ConfigManager
-from .handler import MHandler
-from .modules import MModule
-from .server import MServer
+from MoMMI.commands import MCommand
+from MoMMI.commloop import commloop
+from MoMMI.config import ConfigManager
+from MoMMI.handler import MHandler
+from MoMMI.modules import MModule
+from MoMMI.server import MServer
 
 logger = logging.getLogger()
 
@@ -43,10 +43,10 @@ class MoMMI(object):
         loop.run_until_complete(self.config.load_from(configdir))
 
         if not self.config.get_main("bot.token"):
-            logger.critical("Discord auth token is unset, aborting.")
+            logger.critical("$REDiscord auth token is unset, aborting.")
             exit(1)
 
-        logger.info("Starting client.")
+        logger.info("$GREENMoMMI starting!")
         self.client.run(self.config.get_main("bot.token"))
 
     async def on_ready(self):
@@ -59,22 +59,22 @@ class MoMMI(object):
         self.commloop = commloop(self)
         await self.commloop.start(self.client.loop)
 
-        logger.info(f"Logged in as {self.client.user.name} ({self.client.user.id})")
+        logger.info(f"$BLUELogged in as $WHITE{self.client.user.name}$RESET ($YELLOW{self.client.user.id}$RESET)")
 
         MCommand.prefix_re = re.compile(rf"^<@\!?{self.client.user.id}>\s*")
 
         await self.reload_modules()
-        logger.info(f"Loaded {len(self.modules)} modules.")
+        logger.info(f"$BLUELoaded $WHITE{len(self.modules)}$BLUE modules.")
 
         tasks = []
-        logger.info("Connected servers:")
+        logger.info("$BLUEConnected servers:")
         for server in self.client.servers:
-            logger.info(f"  {server.name}")
+            logger.info(f"  $WHITE{server.name}")
             tasks.append(self.add_server(server))
 
         await asyncio.gather(*tasks)
 
-        logger.info("Initializations complete, *buzz*!")
+        logger.info("$GREENInitializations complete, *buzz*!")
         self.initialized = True
 
     async def detect_modules(self) -> List[str]:
@@ -140,8 +140,6 @@ class MoMMI(object):
             # Get module name without the MoMMI.Modules for figuring out config.
             # Config also needs to be loaded into the MModule before the import is done.
             shortname = name[len("MoMMI.Modules")+1:]
-            if shortname in self.config.modules:
-                await newmod.load_config(self.config.modules[shortname])
 
             try:
                 mod = importlib.import_module(name)
@@ -162,7 +160,7 @@ class MoMMI(object):
             newmod.loaded = True
             for server in self.servers.values():
                 server.modules[name] = newmod
-            logger.info(f"Successfully loaded module {name}.")
+            logger.info(f"$BLUESuccessfully loaded module $WHITE{name}$BLUE.")
 
         for module in todrop:
             for server in self.servers.values():
@@ -232,7 +230,7 @@ class MoMMI(object):
         del self.servers[mserver.id]
 
     async def shutdown(self):
-        logger.info("Shutting down!")
+        logger.info("$REDShutting down!")
         if self.commloop:
             logger.debug(f"sockets: {self.commloop.server.sockets}")
             logger.debug("Closing commloop.")

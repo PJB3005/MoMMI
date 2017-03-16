@@ -146,14 +146,13 @@ class MChannel(object):
         channel = self.get_channel()
         await self.server.master.client.send_message(channel, message)
 
-    def module_config(self, module: str, key: str, default: Optional[T] = None) -> T:
-        from .config import get_nested_dict_value
+    def module_config(self, key: str, default: Optional[T] = None) -> T:
+        from MoMMI.config import get_nested_dict_value
         """
         Get global (module level) config data. That means it's from `modules.toml`
         """
 
-        mod = self.server.master.get_module(module)
-        ret = get_nested_dict_value(mod.config, key)
+        ret = get_nested_dict_value(self.server.master.config.modules, key)
         if ret is None:
             return default
 

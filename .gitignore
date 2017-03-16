@@ -105,5 +105,5 @@ codeprojects/*
 data*
 pyvenv.cfg
 
-# I blame OSX for this:
+# I blame MacOS for this:
 *.DS_Store

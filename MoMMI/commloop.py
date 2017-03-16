@@ -43,18 +43,18 @@ class commloop(object):
             self.port,
             loop=loop
         )
-        logger.info("Started the commloop server.")
+        logger.debug("Started the commloop server.")
 
     async def stop(self):
         await self.server.wait_closed()
 
     def accept_client(self, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter):
-        logger.info("Accepting new client!")
+        logger.debug("Accepting new client!")
         task: asyncio.Task = asyncio.Task(self.handle_client(client_reader, client_writer))
         self.clients[task] = (client_reader, client_writer)
 
         def client_done(task):
-            logger.info("Dropping client connection.")
+            logger.debug("Dropping client connection.")
             del self.clients[task]
 
         task.add_done_callback(client_done)
@@ -96,7 +96,7 @@ class commloop(object):
                 writer.write(ERROR_PACK)
                 return
 
-            logger.info(message)
+            logger.debug(message)
             writer.write(ERROR_OK)
 
             await self.route(message)
