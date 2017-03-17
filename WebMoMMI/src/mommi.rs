@@ -123,6 +123,11 @@ pub fn get_nudge(nudge: Nudge) -> Result<&'static str, MoMMIError> {
         _ => "foobar"
     };
 
-    commloop(address, password, "gamenudge", &nudge.meta, &nudge.content)?;
+    let message = json!({
+        "password": nudge.pass.clone(),
+        "message": nudge.content.clone()
+    });
+
+    commloop(address, password, "gamenudge", &nudge.meta, &message)?;
     Ok("MoMMI successfully received the message.")
 }

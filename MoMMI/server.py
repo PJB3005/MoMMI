@@ -4,9 +4,10 @@ import logging
 import os
 import pickle
 from collections import defaultdict
-from discord import Server, Channel, Member
+from discord import Server, Channel, Member, Role
 from typing import Dict, Any, List, DefaultDict, TYPE_CHECKING, TypeVar, Optional, Type
 from pathlib import Path
+from MoMMI.config import get_nested_dict_value
 
 logger = logging.getLogger()
 T = TypeVar(Any)
@@ -147,7 +148,6 @@ class MChannel(object):
         await self.server.master.client.send_message(channel, message)
 
     def module_config(self, key: str, default: Optional[T] = None) -> T:
-        from MoMMI.config import get_nested_dict_value
         """
         Get global (module level) config data. That means it's from `modules.toml`
         """
@@ -160,6 +160,12 @@ class MChannel(object):
 
     def main_config(self, key: str, default: Optional[T] = None) -> T:
         return self.server.master.config.get_main(key, default)
+
+    def server_config(self, key: str, default: Optional[T] = None) -> T:
+        ret = get_nested_dict_value(self.server.config, key)
+        if ret is None:
+            return default
+        return ret
 
     def isrole(self, member: Member, role: str) -> bool:
         if role == "owner":
@@ -204,3 +210,14 @@ class MChannel(object):
 
     def set_global_cache(self, name: str, value: Any):
         self.server.master.cache[name] = value
+
+    def get_role(self, name: str) -> Role:
+        try:
+            id = self.server.roles[name]
+        except KeyError:
+            logger.warning(f"Attempted to get unknown role '$YELLOW{name}$RESET' on server '$YELLOW{self.server.name}$RESET'.")
+
+        server = self.server.get_server()
+        for role in server.roles:
+            if role.id == str(id):
+                return role

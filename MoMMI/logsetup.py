@@ -33,14 +33,16 @@ class ColorFormatter(logging.Formatter):
             record.levelname = LEVELNAME_COLORS[record.levelname] + record.levelname + RESET
 
         record.name = f"{GREEN}{record.name}{RESET}"
-        record.msg = COLOR_ESCAPE.sub(lambda x: globals()[x.group(1)], record.msg) + RESET
+        if isinstance(record.msg, str):
+            record.msg = COLOR_ESCAPE.sub(lambda x: globals()[x.group(1)], record.msg) + RESET
 
         return super().format(record)
 
 class NotColorFormatter(logging.Formatter):
     def format(self, record):
         record = copy.copy(record)
-        record.msg = COLOR_ESCAPE.sub("", record.msg)
+        if isinstance(record.msg, str):
+            record.msg = COLOR_ESCAPE.sub("", record.msg)
         return super().format(record)
 
 colorformatter = ColorFormatter("[%(levelname)s] %(name)s: %(message)s")

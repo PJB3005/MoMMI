@@ -66,10 +66,10 @@ class commloop(object):
                 writer.write(ERROR_ID)
                 return
 
-            logger.debug(f"Got ID packets: {data}.")
+            #logger.debug(f"Got ID packets: {data}.")
 
             auth = await reader.read(DIGEST_SIZE)
-            logger.debug(f"Got digest: {auth}.")
+            #logger.debug(f"Got digest: {auth}.")
 
             length= struct.unpack("!I", await reader.read(4))[0]
             data = b""
@@ -84,19 +84,19 @@ class commloop(object):
                 writer.write(ERROR_HMAC)
                 return
 
-            logger.debug(f"Got message length: {length}, data: {data}.")
+            #logger.debug(f"Got message length: {length}, data: {data}.")
             try:
-                logger.debug(f"Decoded: {data.decode('UTF-8')}")
+            #    logger.debug(f"Decoded: {data.decode('UTF-8')}")
                 message: Dict[str, Any] = json.loads(data.decode("UTF-8"))
-                logger.debug(f"Loaded: {message}")
+            #    logger.debug(f"Loaded: {message}")
                 # Any of these will throw a KeyError with broken packets.
                 message["type"], message["meta"], message["cont"]
             except:
-                logger.exception("hrrm")
+                # logger.exception("hrrm")
                 writer.write(ERROR_PACK)
                 return
 
-            logger.debug(message)
+            #logger.debug(message)
             writer.write(ERROR_OK)
 
             await self.route(message)
@@ -107,7 +107,7 @@ class commloop(object):
 
     async def route(self, message: Dict[str, Any]):
         if message["type"] not in self.routing:
-            logger.debug("No routing info for type")
+            logger.warning("No routing info for type")
             return
 
         handler = None  # type: MCommEvent
@@ -131,13 +131,13 @@ class commloop(object):
 
         for channel in channels:
             try:
-                await handler.execute(channel, message["cont"])
+                await handler.execute(channel, message["cont"], message["meta"])
             except:
                 logger.exception("Caught exception inside commloop event handler.")
 
 
 def comm_event(name):
-    def inner(function: Callable[[MChannel, Any], Awaitable[None]]):
+    def inner(function: Callable[[MChannel, Any, str], Awaitable[None]]):
         from .master import master
         event = MCommEvent(name, function.__module__, function)
         event.register(master)
@@ -149,11 +149,11 @@ class MCommEvent(MHandler):
     def __init__(self,
                  name: str,
                  module: str,
-                 func: Callable[[MChannel, Any], Awaitable[None]]):
+                 func: Callable[[MChannel, Any, str], Awaitable[None]]):
 
         super().__init__(name, module)
 
         self.func = func
 
-    async def execute(self, channel: MChannel, message: Any):
-        await self.func(channel, message)
+    async def execute(self, channel: MChannel, message: Any, meta: str):
+        await self.func(channel, message, meta)
