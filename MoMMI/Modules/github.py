@@ -28,7 +28,7 @@ COLOR_GITHUB_RED = Colour(0xFF4444)
 COLOR_GITHUB_GREEN = Colour(0x6CC644)
 COLOR_GITHUB_PURPLE = Colour(0x6E5494)
 MAX_BODY_LENGTH = 200
-MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
+MD_COMMENT_RE = re.compile(r"<!--.*?-->", flags=re.DOTALL)
 HEADERS = {"Authorization": "token %s" % (get_config("github.login.token"))}
 
 
