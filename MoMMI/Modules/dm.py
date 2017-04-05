@@ -21,24 +21,34 @@ class DMCodeHandler(CodeHandler):
         code = code.replace("\r", "\n").replace("    ", "\t")
         lines = code.split("\n")  # type: List[str]
 
-        # Create a global variable and make it new the dummy type, so it instantly executes on world start.
-        output = """var/a/b=new
+        output = ""
+
+        if code.find("/proc/main") == -1:
+            # Create a global variable and make it new the dummy type, so it instantly executes on world start.
+            output = """var/a/b=new
 /a/New()
 """
 
-        # Indent each line by one so we can put it as a datum's New().s
-        for index, line in enumerate(lines):
-            if not line.strip():
-                continue
+            # Indent each line by one so we can put it as a datum's New().s
+            for index, line in enumerate(lines):
+                if not line.strip():
+                    continue
 
-            lines[index] = "\t" + line
+                lines[index] = "\t" + line
 
-        output += "\n".join(lines)
+            output += "\n".join(lines)
 
-        output += """
+            output += """
 var/c/d=new
 /c/New()
 \tshutdown()"""
+
+        else:
+            output = f"""
+{code}
+var/ZZZZZ/zzzzz=new
+ZZZZZ/New()
+\tmain()"""
 
         dmepath = os.path.join(path, "code.dm")  # type: str
 

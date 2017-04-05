@@ -56,11 +56,16 @@ class commloop(object):
 
         logger.info(f"Got ID packets: {data}.")
 
-        auth: bytes = await reader.read(DIGEST_SIZE)  # 20 is the length of an SHA-1 hash.
+        auth: bytes = await reader.read(DIGEST_SIZE)
         logger.info(f"Got digest: {auth}.")
 
         length: int = struct.unpack("!I", await reader.read(4))[0]
-        data = await reader.read(length)
+        data = b""
+        while len(data) < length:
+            newdata = await reader.read(length - len(data))
+            if len(newdata) == 0:
+                break
+            data += newdata
         logger.info(f"Got message ength: {length}, data: {data}.")
         try:
             logger.info(f"Decoded: {data.decode('UTF-8')}")

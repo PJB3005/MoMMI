@@ -290,6 +290,8 @@ async def test_merger(content, match, message):
             await client.send_message(message.channel, "❌ This PR is conflicting and cannot be test merged.")
             return
 
+        await client.send_message(message.channel, "⌛ Test merging PR...")
+
         origin_uri = f"git@github.com:{get_config('github.repo.owner')}/{get_config('github.repo.name')}.git"
         HEAD_URI = content['head']['repo']['git_url']
         BRANCH = content['head']['ref']
@@ -324,7 +326,7 @@ async def test_merger(content, match, message):
                 await client.send_message(message.channel, f"❌ Git command #{index} returned bad status code `{process.returncode}`. Uh oh!")
                 logger.error(f"Git command #{index} failed: {process.returncode}.\nstdout:\n{out}\nstderr:\n{err}")
                 return
-            
+
             index += 1
 
         await client.send_message(message.channel, f"✅ PR testmerge success. `{get_config('github.testmerge-address')}` will be up soon.")
