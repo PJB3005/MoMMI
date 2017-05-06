@@ -107,7 +107,7 @@ class commloop(object):
 
     async def route(self, message: Dict[str, Any]):
         if message["type"] not in self.routing:
-            logger.warning("No routing info for type")
+            logger.warning(f"No routing info for type '$YELLOW{message['type']}$RESET'")
             return
 
         handler = None  # type: MCommEvent

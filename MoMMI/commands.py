@@ -37,7 +37,7 @@ def always_command(name: str, **kwargs):
             logger.error(f"Attempted to register non-coroutine {function}!")
             return
 
-        command = MCommand(name, function.__module__, function, prefix=False)
+        command = MCommand(name, function.__module__, function, prefix=False, **kwargs)
         command.register(master)
         return function
 

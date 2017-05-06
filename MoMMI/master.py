@@ -40,10 +40,15 @@ class MoMMI(object):
     def start(self, configdir: Path, storagedir: Path):
         self.storagedir = storagedir
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.config.load_from(configdir))
+        try:
+            loop.run_until_complete(self.config.load_from(configdir))
+        except:
+            logger.exception("$REDError in the config files")
+            logger.critical("$REDCannot start MoMMI due to broken config files.")
+            exit(1)
 
         if not self.config.get_main("bot.token"):
-            logger.critical("$REDiscord auth token is unset, aborting.")
+            logger.critical("$REDDiscord auth token is unset, aborting.")
             exit(1)
 
         logger.info("$GREENMoMMI starting!")

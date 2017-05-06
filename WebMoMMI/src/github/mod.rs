@@ -16,12 +16,16 @@ use rustc_serialize::hex::FromHex;
 use rocket::config;
 use std::io::Read;
 
+pub mod changelog;
+
+#[allow(dead_code)]
 pub struct GitHubData {
     event: String,
     signature: String,
     delivery: String
 }
 
+#[allow(dead_code)]
 impl GitHubData {
     pub fn get_event(&self) -> &str {
         &self.event
@@ -33,11 +37,8 @@ impl GitHubData {
 
     pub fn verify_signature(&self, data: Data) -> Result<Value, Failure> {
         let mut buffer = Vec::new();
-        data.open().read_to_end(&mut buffer).map_err(|_| Failure(Status::InternalServerError));
-        let password = match config::active().unwrap().extras.get("github-key").map(|x| x.as_str()) {
-            Some(Some(pass)) => pass,
-            _ => "foobar"
-        };
+        data.open().read_to_end(&mut buffer).map_err(|_| Failure(Status::InternalServerError))?;
+        let password = config::active().unwrap().extras.get("github-key").and_then(|x| x.as_str()).unwrap_or("foobar");
         let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
         hmac.input(&buffer);
         let result = hmac.result();
@@ -60,6 +61,10 @@ impl GitHubData {
             Ok(x) => Ok(x),
             Err(_) => Err(Failure(Status::BadRequest))
         }
+    }
+
+    pub fn get_delivery(&self) -> &str {
+        &self.delivery
     }
 }
 
@@ -93,6 +98,28 @@ impl<'a, 'r> FromRequest<'a, 'r> for GitHubData {
 #[post("/changelog", data = "<body>")]
 pub fn post_github(github: GitHubData, body: Data) -> Result<String, Failure> {
     let data = github.verify_signature(body)?;
+    let event = github.get_event();
+    match event {
+        "ping" => return Ok("pong".into()),
+        //"pull_request" => {},
+        _ => {}
+    };
+
+
+    // Code for relaying each event to MoMMI.
+    let config = config::active().unwrap();
+    let address = config.extras.get("commloop-address").and_then(|x| x.as_str()).unwrap_or("127.0.0.1:1680");
+    let password = config.extras.get("commloop-password").and_then(|x| x.as_str()).unwrap_or("foobar");
+    let meta = data.pointer("/repository/full_name").and_then(|x| x.as_str()).unwrap_or("");
+
+    let json = json!({
+        "event": event,
+        "data": data
+    });
+
+    commloop(address, password, "github_event", meta, &json).map_err(|_| Failure(Status::InternalServerError))?;
+
+
 
     Ok("Worked!".into())
 }
@@ -106,10 +133,9 @@ mod tests {
         use rocket::testing::MockRequest;
         use rocket::http::Method::*;
         use rocket::http::{Header, ContentType, Status};
-        use std::collections::HashMap;
         use crypto::sha1::Sha1;
         use crypto::hmac::Hmac;
-        use crypto::mac::{Mac, MacResult};
+        use crypto::mac::Mac;
         use rustc_serialize::hex::ToHex;
         use serde_json;
 
@@ -136,7 +162,9 @@ mod tests {
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
         request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
-        assert_eq!(request.dispatch_with(&rocket).status(), Status::Ok);
+        let mut response = request.dispatch_with(&rocket);
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.body().and_then(|f| f.into_string()), Some("pong".into()));
 
         let mut request = MockRequest::new(Post, "/changelogs").body(&json);
         request.add_header(ContentType::JSON);

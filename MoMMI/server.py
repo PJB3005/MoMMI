@@ -4,7 +4,7 @@ import logging
 import os
 import pickle
 from collections import defaultdict
-from discord import Server, Channel, Member, Role
+from discord import Server, Channel, Member, Role, Embed
 from typing import Dict, Any, List, DefaultDict, TYPE_CHECKING, TypeVar, Optional, Type
 from pathlib import Path
 from MoMMI.config import get_nested_dict_value
@@ -140,12 +140,12 @@ class MChannel(object):
         """
         return self.server.master.client.get_channel(str(self.id))
 
-    async def send(self, message: str):
+    async def send(self, message: str, **kwargs):
         """
         Send a message on this channel.
         """
         channel = self.get_channel()
-        await self.server.master.client.send_message(channel, message)
+        await self.server.master.client.send_message(channel, message, **kwargs)
 
     def module_config(self, key: str, default: Optional[T] = None) -> T:
         """

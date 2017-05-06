@@ -2,17 +2,20 @@
 name = "webmommi"
 version = "0.1.0"
 authors = ["PJB3005 <pieterjan.briers+bot@gmail.com>"]
+publish = false
 
 [dependencies]
-rocket = "0.2.2"
-rocket_codegen = "0.2.2"
+rocket = "0.2.4"
+rocket_codegen = "0.2.4"
 serde = "0.9"
 serde_derive = "0.9"
 serde_json = "0.9"
 rust-crypto = "0.2.36"
 byteorder = "1.0.0"
-rocket_contrib = "0.2.2"
+rocket_contrib = "0.2.4"
 rustc-serialize = "0.3.23"
+lazy_static = "0.2.8"
+yaml-rust = "0.3.5"
 
 [dev-dependencies]
-rocket = { version = "*", features = ["testing"] }
+rocket = { version = "0.2.4", features = ["testing"] }

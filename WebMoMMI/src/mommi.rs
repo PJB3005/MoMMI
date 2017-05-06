@@ -113,15 +113,8 @@ pub fn get_nudgeold(nudge: NudgeOld) -> Result<&'static str, MoMMIError> {
 #[get("/mommi?<nudge>", rank = 2)]
 pub fn get_nudge(nudge: Nudge) -> Result<&'static str, MoMMIError> {
     let config = config::active().unwrap();
-    let address = match config.extras.get("commloop-address").map(|x| x.as_str()) {
-        Some(Some(addr)) => addr,
-        _ => "127.0.0.1:1680"
-    };
-
-    let password = match config.extras.get("commloop-password").map(|x| x.as_str()) {
-        Some(Some(addr)) => addr,
-        _ => "foobar"
-    };
+    let address = config.extras.get("commloop-address").and_then(|x| x.as_str()).unwrap_or("127.0.0.1:1680");
+    let password = config.extras.get("commloop-password").and_then(|x| x.as_str()).unwrap_or("foobar");
 
     let message = json!({
         "password": nudge.pass.clone(),
