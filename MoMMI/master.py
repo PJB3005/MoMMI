@@ -33,6 +33,7 @@ class MoMMI(object):
         self.client = discord.Client()  # type: discord.Client
         self.commloop = None  # type: commloop
         self.storagedir = None  # type: Path
+        self.disable_modules = []  # type: List[str]
 
         # Find all on_xxx attributes and register them to the client.
         [self.client.event(getattr(self, x)) for x in dir(self) if x.startswith("on_")]
@@ -50,6 +51,8 @@ class MoMMI(object):
         if not self.config.get_main("bot.token"):
             logger.critical("$REDDiscord auth token is unset, aborting.")
             exit(1)
+
+        self.disable_modules = self.config.get_main("modules.disable")
 
         logger.info("$GREENMoMMI starting!")
         self.client.run(self.config.get_main("bot.token"))
@@ -140,11 +143,14 @@ class MoMMI(object):
 
         # Loops over NEW modules. Because we can't just reload them.
         for name in newmodules:
+            shortname = name[len("MoMMI.Modules")+1:]
+            if self.disable_modules and shortname in self.disable_modules:
+                logger.debug(f"Ignoring module {name} as it is disabled.")
+                continue
+
             newmod = MModule(name)
             self.modules[name] = newmod
-            # Get module name without the MoMMI.Modules for figuring out config.
-            # Config also needs to be loaded into the MModule before the import is done.
-            shortname = name[len("MoMMI.Modules")+1:]
+
 
             try:
                 mod = importlib.import_module(name)
@@ -202,7 +208,7 @@ class MoMMI(object):
 
         # TODO: Figure out a better way for this.
         cfg = None
-        for serverconfig in self.config.servers["servers"]:
+        for serverconfig in self.config.servers["servers"].values():
             if serverconfig["id"] == int(new.id):
                 cfg = serverconfig
                 break
