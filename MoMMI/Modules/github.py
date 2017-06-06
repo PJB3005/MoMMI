@@ -29,7 +29,7 @@ COLOR_GITHUB_GREEN = Colour(0x6CC644)
 COLOR_GITHUB_PURPLE = Colour(0x6E5494)
 MAX_BODY_LENGTH = 200
 MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
-DISCORD_CODEBLOCK_RE = re.compile(r"```([^\n]*)\n(.*)```", flags=re.DOTALL)
+DISCORD_CODEBLOCK_RE = re.compile(r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
 REQUEST_HEADERS = {"Authorization": f"token {master.config.modules['github']['token']}"}
 
@@ -173,17 +173,17 @@ async def convert_code_blocks(message: str, author: User, irc_client, discord_se
             extension = "txt"
             # Has a space on first line of code block (the ``` line).
             # Read first line as part of the contents.
-            stripped = match.group(1).strip()
-            if stripped == "":
+            language = match.group(1)
+            if language is None or language == "":
                 pass
 
-            elif " " in stripped:
+            elif " " in language.strip() or match.group(2).strip() == "":
                 gist_contents = match.group(1)
 
             else:
-                extension = stripped
+                extension = language.strip()
 
-            gist_contents += match.group(2)
+            gist_contents += match.group(2).strip()
 
             url = await make_gist(gist_contents, f"file.{extension}", f"Code snippet from Discord -> IRC relay.")
 
