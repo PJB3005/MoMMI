@@ -119,8 +119,6 @@ pub fn post_github(github: GitHubData, body: Data) -> Result<String, Failure> {
 
     commloop(address, password, "github_event", meta, &json).map_err(|_| Failure(Status::InternalServerError))?;
 
-
-
     Ok("Worked!".into())
 }
 

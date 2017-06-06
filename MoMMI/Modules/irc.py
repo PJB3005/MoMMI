@@ -15,7 +15,7 @@ import logging
 import bottom
 import re
 import asyncio
-from discord import Server, Member
+from discord import Server, Member, Message
 from MoMMI.handler import MHandler
 from MoMMI.master import master
 from MoMMI.commands import always_command
@@ -175,11 +175,15 @@ async def unload(loop=None):
     del master.cache["irc_client_list"]
 
 @always_command("irc_relay", unsafe=True)
-async def ircrelay(channel, match, message):
+async def ircrelay(channel, match, message: Message):
     #if isbanned(message.author, bantypes.irc):
     #    return
 
-    if len(message.content) == 0 or message.content[0] == "\u200B":
+    content = message.content
+    for attachment in message.attachments:
+        content += " " + attachment["url"]
+
+    if len(content) == 0 or content[0] == "\u200B":
         return
 
     target_connection = None
@@ -195,7 +199,7 @@ async def ircrelay(channel, match, message):
     if target_connection is None:
         return
 
-    content = message.content
+    
 
     for handler in channel.iter_handlers(MIrcTransform):
         content = await handler.transform(content, message.author, target_connection.client, message.server)
@@ -204,16 +208,18 @@ async def ircrelay(channel, match, message):
     author = prevent_ping(message.author.name)
 
     try:
-        for split_message in content.split("\n"):
-            # Yes, I could use a loop.
-            # Know what a loop would do? Bloat this line count way too bloody much.
-            if split_message == last_messages[0] == last_messages[1] == last_messages[2]:
-                return
+        # Newlines disabled because it just gets the bot kicked
+        # Whenever somebody pastes a large code block.
+        #for split_message in content.split("\n"):
+        # Yes, I could use a loop.
+        # Know what a loop would do? Bloat this line count way too bloody much.
+        if content == last_messages[0] == last_messages[1] == last_messages[2]:
+            return
 
-            last_messages.pop(0)
-            last_messages.append(split_message)
+        last_messages.pop(0)
+        last_messages.append(content)
 
-            target_connection.client.send("PRIVMSG", target=target_channel, message="<{}> {}".format(author, split_message))
+        target_connection.client.send("PRIVMSG", target=target_channel, message="<{}> {}".format(author, content))
     except RuntimeError:
         pass
 
