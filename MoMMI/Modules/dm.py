@@ -48,7 +48,8 @@ var/c/d=new
 {code}
 var/ZZZZZ/zzzzz=new
 ZZZZZ/New()
-\tmain()"""
+\tmain()
+\tshutdown()"""
 
         dmepath = os.path.join(path, "code.dm")  # type: str
 

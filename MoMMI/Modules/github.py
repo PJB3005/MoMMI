@@ -94,6 +94,10 @@ async def pr(msg):
     sender = msg["sender"]
     repository = msg["repository"]
     pre = None
+
+    if msg["action"] == "opened":
+        asyncio.ensure_future(self_reaction_check(pull_request["number"], 120)) # 2 minutes.
+
     embed = Embed()
     if msg["action"] == "closed":
         pre = "<:PRclosed:246037149839917056>"
@@ -330,3 +334,41 @@ async def test_merger(content, match, message):
             index += 1
 
         await client.send_message(message.channel, f"✅ PR testmerge success. `{get_config('github.testmerge-address')}` will be up soon.")
+
+async def self_reaction_check(number: int, wait: float):
+    await asyncio.sleep(wait)
+    OUR_HEADERS = {"Authorization": "token %s" % (get_config("github.login.token")), "Accept": "application/vnd.github.squirrel-girl-preview"}
+    async with aiohttp.ClientSession() as session:
+        # GET /repos/:owner/:repo/pulls/:number
+        pr_url = github_url(f"/repos/{get_config('github.repo.owner')}/{get_config('github.repo.name')}/pulls/{number}")
+        pr_author = None
+        async with session.get(pr_url, headers=HEADERS) as resp:
+            pr_data = json.loads(await resp.text())
+            logger.warn(str(pr_data))
+            pr_author = pr_data["user"]["login"]
+            print(f"AUTHOR = {pr_author}")
+
+        # GET /repos/:owner/:repo/issues/:number/reactions
+        reactions_url = github_url(f"/repos/{get_config('github.repo.owner')}/{get_config('github.repo.name')}/issues/{number}/reactions")
+        for reactiontype in ["+1", "-1", "laugh", "confused", "heart", "hooray"]:
+            async with session.get(reactions_url, headers=OUR_HEADERS, params={"content": reactiontype}) as resp:
+                data = json.loads(await resp.text())
+                logger.warn(str(data))
+                for reaction in data:
+                    print(f"REACTION AUTHOR = {reaction['user']['login']}")
+                    if reaction["user"]["login"] == pr_author:
+                        print("GOTTEM")
+                        await close_self_reaction_pr(number, session)
+                        return
+
+
+async def close_self_reaction_pr(number: int, session: aiohttp.ClientSession):
+    # PATCH /repos/:owner/:repo/pulls/:number
+    pr_url = github_url(f"/repos/{get_config('github.repo.owner')}/{get_config('github.repo.name')}/pulls/{number}")
+    await session.patch(pr_url, headers=HEADERS, data=b'{"state": "closed"}')
+
+    # POST /repos/:owner/:repo/issues/:number/comments
+    comment_url = github_url(f"/repos/{get_config('github.repo.owner')}/{get_config('github.repo.name')}/issues/{number}/comments")
+    async with session.post(comment_url, headers=HEADERS, data=json.dumps({"body": "\> Reacting to your own PR"})) as resp:
+        content = await resp.text()
+        print(f"RESPONSE: {resp.status}, CONTENT: {content}")
