@@ -164,9 +164,9 @@ async def convert_code_blocks(message: str, author: User, irc_client, discord_se
     try:
         last = 0
         out = ""
-        print("yes!")
+        # print("yes!")
         for match in DISCORD_CODEBLOCK_RE.finditer(message):
-            print("my man!")
+            # print("my man!")
             out += message[last:match.start()]
 
             gist_contents = ""
