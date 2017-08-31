@@ -140,7 +140,7 @@ class MChannel(object):
         """
         return self.server.master.client.get_channel(str(self.id))
 
-    async def send(self, message: str = None, **kwargs):
+    async def send(self, message: str = "", **kwargs):
         """
         Send a message on this channel.
         """

@@ -16,6 +16,7 @@ from MoMMI.modules import MModule
 from MoMMI.server import MServer
 
 logger = logging.getLogger()
+chat_logger = logging.getLogger("chat")
 
 # TODO: Reorganize this.
 # All of it.
@@ -188,6 +189,8 @@ class MoMMI(object):
         if not self.initialized:
             return
 
+        chat_logger.info(f"({message.channel.name}) {message.author.name}: {message.content}")
+
         server = self.get_server(int(message.server.id))
         channel = server.get_channel(int(message.channel.id))
 
@@ -208,7 +211,7 @@ class MoMMI(object):
 
         # TODO: Figure out a better way for this.
         cfg = None
-        for serverconfig in self.config.servers["servers"].values():
+        for serverconfig in self.config.servers["servers"]:
             if serverconfig["id"] == int(new.id):
                 cfg = serverconfig
                 break

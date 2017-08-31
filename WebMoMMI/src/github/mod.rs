@@ -138,8 +138,6 @@ pub fn post_github(
         &json,
     ).map_err(|_| Failure(Status::InternalServerError))?;
 
-
-
     Ok("Worked!".into())
 }
 

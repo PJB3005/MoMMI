@@ -15,7 +15,7 @@ import logging
 import bottom
 import re
 import asyncio
-from discord import Server, Member
+from discord import Server, Member, Message
 from MoMMI.handler import MHandler
 from MoMMI.master import master
 from MoMMI.commands import always_command
@@ -175,11 +175,15 @@ async def unload(loop=None):
     del master.cache["irc_client_list"]
 
 @always_command("irc_relay", unsafe=True)
-async def ircrelay(channel, match, message):
+async def ircrelay(channel, match, message: Message):
     #if isbanned(message.author, bantypes.irc):
     #    return
 
-    if len(message.content) == 0 or message.content[0] == "\u200B":
+    content = message.content
+    for attachment in message.attachments:
+        content += " " + attachment["url"]
+
+    if len(content) == 0 or content[0] == "\u200B":
         return
 
     target_connection = None
@@ -195,7 +199,7 @@ async def ircrelay(channel, match, message):
     if target_connection is None:
         return
 
-    content = message.content
+
 
     for handler in channel.iter_handlers(MIrcTransform):
         content = await handler.transform(content, message.author, target_connection.client, message.server)
@@ -214,6 +218,7 @@ async def ircrelay(channel, match, message):
             last_messages.append(split_message)
 
             target_connection.client.send("PRIVMSG", target=target_channel, message="<{}> {}".format(author, split_message))
+
     except RuntimeError:
         pass
 

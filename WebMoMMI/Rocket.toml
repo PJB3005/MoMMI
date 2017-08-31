@@ -1,0 +1,12 @@
+[development]
+address = "0.0.0.0"
+port = 40000
+commloop-address = "127.0.0.1:1680"
+commloop-password = "foobar"
+github-key = "removegrieflyREMOVEUNITY"
+changelog-delay = 5
+repo-path = "FUCK"
+
+[production]
+commloop-address = "127.0.0.1:1679"
+changelog-delay = 30
