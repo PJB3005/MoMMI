@@ -12,15 +12,11 @@ from colorhash import ColorHash
 from discord import Colour, Embed, Message, User
 from urllib.parse import quote
 from MoMMI.commloop import comm_event
-<<<<<<< HEAD
-from MoMMI.server import MChannel
 from typing import Dict, Any
-=======
 from MoMMI.commands import always_command
 from MoMMI.server import MServer, MChannel
 from MoMMI.master import master
 from MoMMI.Modules.irc import irc_transform
->>>>>>> origin/v2
 
 logger = logging.getLogger(__name__)
 
