@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 import argparse
-import asyncio
 import logging
 import sys
-
-version = sys.version_info
-if version.major < 3 or (version.major == 3 and version.minor < 6):
-    logging.critical("You need at least Python 3.6 to run MoMMI.")
-    sys.exit(1)
-
-import MoMMI.logsetup
-from MoMMI.master import master
 from pathlib import Path
-
+from MoMMI.logsetup import setup_logs
+from MoMMI.master import master
 
 def main():
+    version = sys.version_info
+    if version.major < 3 or (version.major == 3 and version.minor < 6):
+        logging.critical("You need at least Python 3.6 to run MoMMI.")
+        sys.exit(1)
+
+    setup_logs()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--config-dir", "-c",
                         default="./config",

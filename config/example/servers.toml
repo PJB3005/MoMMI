@@ -1,9 +1,10 @@
 # Server specific settings and module overrides.
 
-[servers.unknown]
+[[servers]]
 id = 0
+name = "unknown"
 
-[servers.unknown.roles]
+[servers.roles]
 admin = 0
 coder = 0
 

@@ -2,17 +2,9 @@
 
 import logging
 import logging.handlers
-import os.path
-import os
 import re
 import copy
-
-outdir = "logs"
-if not os.path.isdir(outdir):
-    os.mkdir(outdir)
-
-logger = logging.getLogger()
-logger.setLevel(logging.NOTSET)
+from pathlib import Path
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -45,19 +37,25 @@ class NotColorFormatter(logging.Formatter):
             record.msg = COLOR_ESCAPE.sub("", record.msg)
         return super().format(record)
 
-colorformatter = ColorFormatter("[%(levelname)s] %(name)s: %(message)s")
-formatter = NotColorFormatter("[%(levelname)s] %(name)s: %(message)s")
+def setup_logs():
+    outdir = Path("logs")
+    if not outdir.is_dir():
+        outdir.mkdir(parents=True)
 
-# StreamHandler for console output.
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-handler.setFormatter(colorformatter)
-logger.addHandler(handler)
+    logger = logging.getLogger()
+    logger.setLevel(logging.NOTSET)
 
+    colorformatter = ColorFormatter("[%(levelname)s] %(name)s: %(message)s")
+    formatter = NotColorFormatter("[%(levelname)s] %(name)s: %(message)s")
 
-# FileHandler to log EVERYTHING.
-path = os.path.join(outdir, "all.log")
-try:
+    # StreamHandler for console output.
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(colorformatter)
+    logger.addHandler(handler)
+
+    # FileHandler to log EVERYTHING.
+    path = outdir/"all.log"
     open(path, "a").close()
 
     handler = logging.FileHandler(path)
@@ -65,13 +63,8 @@ try:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-except:
-    logging.exception(f"Unable to create ALL log handler for file {path}.")
-
-
-# FileHandler to log errors.
-path = os.path.join(outdir, "error.log")
-try:
+    # FileHandler to log errors.
+    path = outdir/"error.log"
     open(path, "a").close()
 
     handler = logging.FileHandler(path)
@@ -79,12 +72,7 @@ try:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-except:
-    logging.exception(f"Unable to create ERROR log handler for file {path}.")
-
-
-path = os.path.join(outdir, "chat.log")
-try:
+    path = outdir/"chat.log"
     open(path, "a").close()
 
     handler = logging.FileHandler(path)
@@ -94,13 +82,9 @@ try:
     chatlogger.propogate = False
     chatlogger.addHandler(handler)
 
-except:
-    logging.exception(f"Unable to create CHAT log handler for file {path}.")
-
-
-logging.getLogger("websockets").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("bottom").setLevel(logging.WARNING)
-logging.getLogger("github3").setLevel(logging.WARNING)
-logging.getLogger("discord").setLevel(logging.WARNING)
-logging.getLogger("asyncio").setLevel(logging.INFO)
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("bottom").setLevel(logging.WARNING)
+    logging.getLogger("github3").setLevel(logging.WARNING)
+    logging.getLogger("discord").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.INFO)

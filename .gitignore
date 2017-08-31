@@ -107,3 +107,5 @@ pyvenv.cfg
 
 # I blame MacOS for this:
 *.DS_Store
+
+.mypy_cache/
