@@ -8,6 +8,8 @@ import subprocess
 from colorhash import ColorHash
 from discord import Colour, Embed, Message
 from MoMMI.commloop import comm_event
+from MoMMI.server import MChannel
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
 
 
 @comm_event("github_event")
-async def github_event(channel, message, meta):
+async def github_event(channel: MChannel, message, meta):
     event = message['event']
     logger.debug(f"Handling GitHub event '$YELLOW{event}$RESET' to '$YELLOW{meta}$RESET'")
 
@@ -38,5 +40,20 @@ async def github_event(channel, message, meta):
     await func(channel, message["data"], meta)
 
 
-async def on_github_issues(channel, message, repo):
-    logger.debug("yes")
+async def on_github_push(channel: MChannel, message, repo):
+    embed = Embed()
+    embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
+    embed.set_footer(text=repo)
+    embed.title = "New commits"
+
+    content = ""
+    for commit in message["commits"]:
+        message = commit["message"]
+        if len(message) > 67:
+            message = message[:67] + "..."
+        content += f"`{commit['id'][:7]}` {message}\n"
+
+    embed.description = content
+
+    await channel.send(embed=embed)
+
