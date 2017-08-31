@@ -7,7 +7,7 @@ from typing import Dict, Any, TypeVar, Optional
 from pathlib import Path
 
 logger = logging.getLogger("config")
-T = TypeVar(Any)
+T = TypeVar("T")
 
 
 class ConfigManager(object):
@@ -26,6 +26,13 @@ class ConfigManager(object):
         out: T = get_nested_dict_value(self.main, key)
         if out is None and default is not None:
             out = default
+
+        return out
+
+    def get_module(self, module: str, key: str, default: Optional[T] = None) -> T:
+        out: T = get_nested_dict_value(self.modules, f"{module}.{key}")
+        if out is None:
+            return default
 
         return out
 

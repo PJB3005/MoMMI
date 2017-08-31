@@ -26,6 +26,12 @@ class MoMMI(object):
     def __init__(self):
         self.config = ConfigManager()
         self.modules: Dict[str, MModule] = {}
+        # If a handler attempts to register to an unknown module,
+        # it gets temporarily stored in here,
+        # to prevent race conditions related to load order.
+        self.temp_module_handlers: List[MHandler] = []
+        # True if we're reloading modules right now.
+        self.reloading_modules = False
         self.servers: Dict[int, MServer] = {}
         self.servers_name: Dict[str, MServer] = {}
         self.cache: Dict[str, Any] = {}
@@ -35,7 +41,6 @@ class MoMMI(object):
         self.client = discord.Client()
         self.commloop: commloop = None
         self.storagedir: Path = None
-        self.disable_modules: List[str] = []
 
         # Find all on_xxx attributes and register them to the client.
         for member in dir(self):
@@ -55,8 +60,6 @@ class MoMMI(object):
         if not self.config.get_main("bot.token"):
             LOGGER.critical("$REDDiscord auth token is unset, aborting.")
             exit(1)
-
-        self.disable_modules = self.config.get_main("modules.disable")
 
         LOGGER.info("$GREENMoMMI starting!")
         self.client.run(self.config.get_main("bot.token"))
@@ -112,6 +115,7 @@ class MoMMI(object):
         return out
 
     async def reload_modules(self):
+        self.reloading_modules = True
         newmodules = await self.detect_modules()
         todrop = []
         for name, module in self.modules.items():
@@ -128,6 +132,7 @@ class MoMMI(object):
                 continue
 
             newmodules.remove(name)
+            module.handlers = {}
             try:
                 importlib.reload(module.module)
 
@@ -147,11 +152,6 @@ class MoMMI(object):
 
         # Loops over NEW modules. Because we can't just reload them.
         for name in newmodules:
-            shortname = name[len("MoMMI.Modules")+1:]
-            if self.disable_modules and shortname in self.disable_modules:
-                LOGGER.debug(f"Ignoring module {name} as it is disabled.")
-                continue
-
             newmod = MModule(name)
             self.modules[name] = newmod
 
@@ -184,7 +184,22 @@ class MoMMI(object):
 
             del self.modules[module.name]
 
+        self.reloading_modules = False
+
+        for handler in self.temp_module_handlers:
+            try:
+                self.register_handler(handler)
+
+            except:
+                LOGGER.exception(f"Exception while registering handler {handler}!")
+
+
+
     def register_handler(self, handler: MHandler):
+        if self.reloading_modules:
+            self.temp_module_handlers.append(handler)
+            return
+
         module = self.get_module(handler.module)
         module.handlers[handler.name] = handler
 

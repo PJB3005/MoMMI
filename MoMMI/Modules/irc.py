@@ -162,8 +162,10 @@ async def load(loop=None):
         return
 
     cache = {}
-    for name in master.config.modules["irc"]["servers"].keys():
-        cache[name] = IrcConnection(name)
+    servers = master.config.get_module("irc", "servers")
+    if servers is not None:
+        for name in servers.keys():
+            cache[name] = IrcConnection(name)
 
     master.cache["irc_client_list"] = cache
 
