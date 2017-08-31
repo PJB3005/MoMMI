@@ -17,6 +17,9 @@ extern crate yaml_rust;
 
 mod mommi;
 mod github;
+mod config;
+
+use config::MoMMIConfig;
 
 #[get("/twohundred")]
 fn twohundred() -> &'static str {
@@ -24,5 +27,15 @@ fn twohundred() -> &'static str {
 }
 
 fn main() {
-    rocket::ignite().mount("/", routes![twohundred, mommi::get_nudgeold, mommi::get_nudge, github::post_github]).launch();
+    let rocket = rocket::ignite().mount(
+        "/",
+        routes![
+            twohundred,
+            mommi::get_nudgeold,
+            mommi::get_nudge,
+            github::post_github,
+        ],
+    );
+    let config = MoMMIConfig::new(rocket.config());
+    rocket.manage(config).launch();
 }

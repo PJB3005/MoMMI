@@ -4,7 +4,7 @@ use std::time::{Instant, Duration};
 use std::collections::HashMap;
 use rocket::config;
 
-
+/*
 lazy_static! {
     pub static ref CHANGELOG_MANAGER: Mutex<ChangelogManager> = {
         Mutex::new(ChangelogManager {pending: Vec::new(), last_time: None})
@@ -87,6 +87,7 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>) {
     lock.last_time = None;
     drop(lock);
 
-    
+
 
 }
+*/

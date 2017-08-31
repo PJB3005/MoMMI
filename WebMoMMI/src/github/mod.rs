@@ -2,8 +2,9 @@
 
 // use rocket_contrib::{JSON, Value}
 use super::mommi::commloop;
+use config::MoMMIConfig;
 use rocket::data::Data;
-use rocket::{request, Outcome};
+use rocket::{request, Outcome, State};
 use rocket::request::{FromRequest, Request};
 use rocket::http::Status;
 use rocket::response::Failure;
@@ -22,7 +23,7 @@ pub mod changelog;
 pub struct GitHubData {
     event: String,
     signature: String,
-    delivery: String
+    delivery: String,
 }
 
 #[allow(dead_code)]
@@ -35,10 +36,12 @@ impl GitHubData {
         &self.signature
     }
 
-    pub fn verify_signature(&self, data: Data) -> Result<Value, Failure> {
+    pub fn verify_signature(&self, data: Data, config: &MoMMIConfig) -> Result<Value, Failure> {
         let mut buffer = Vec::new();
-        data.open().read_to_end(&mut buffer).map_err(|_| Failure(Status::InternalServerError))?;
-        let password = config::active().unwrap().extras.get("github-key").and_then(|x| x.as_str()).unwrap_or("foobar");
+        data.open().read_to_end(&mut buffer).map_err(|_| {
+            Failure(Status::InternalServerError)
+        })?;
+        let password = config.get_github_key();
         let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
         hmac.input(&buffer);
         let result = hmac.result();
@@ -47,7 +50,7 @@ impl GitHubData {
             Ok(bytes) => bytes,
             Err(x) => {
                 println!("{:?}", x);
-                return Err(Failure(Status::BadRequest))
+                return Err(Failure(Status::BadRequest));
             }
         };
 
@@ -59,7 +62,7 @@ impl GitHubData {
         // Now we can parse the JSON and return it.
         match serde_json::from_slice::<Value>(&buffer) {
             Ok(x) => Ok(x),
-            Err(_) => Err(Failure(Status::BadRequest))
+            Err(_) => Err(Failure(Status::BadRequest)),
         }
     }
 
@@ -73,31 +76,42 @@ impl<'a, 'r> FromRequest<'a, 'r> for GitHubData {
     fn from_request(request: &'a Request<'r>) -> request::Outcome<GitHubData, ()> {
         let event = match request.headers().get_one("X-GitHub-Event") {
             Some(t) => t.to_owned(),
-            _ => return Outcome::Failure((Status::BadRequest, ()))
+            _ => return Outcome::Failure((Status::BadRequest, ())),
         };
 
         // This is both the most beautiful and ugly section of code I have written yet.
-        let signature = match request.headers().get_one("X-Hub-Signature")
-            .map(|x| x.split('=')).map(|mut x| (x.next(), x.next())) {
+        let signature = match request
+            .headers()
+            .get_one("X-Hub-Signature")
+            .map(|x| x.split('='))
+            .map(|mut x| (x.next(), x.next())) {
             Some((Some("sha1"), Some(hex))) => hex.to_owned(),
             Some((Some(_), Some(_))) => return Outcome::Failure((Status::NotImplemented, ())),
-            _ => return Outcome::Failure((Status::BadRequest, ()))
+            _ => return Outcome::Failure((Status::BadRequest, ())),
         };
 
         let delivery = match request.headers().get_one("X-GitHub-Delivery") {
             Some(t) => t.to_owned(),
-            _ => return Outcome::Failure((Status::BadRequest, ()))
+            _ => return Outcome::Failure((Status::BadRequest, ())),
         };
 
-        Outcome::Success(GitHubData {event: event, signature: signature, delivery: delivery})
+        Outcome::Success(GitHubData {
+            event: event,
+            signature: signature,
+            delivery: delivery,
+        })
     }
 }
 
 // `/changelog` due to legacy reasons.
 #[allow(unmounted_route)]
 #[post("/changelog", data = "<body>")]
-pub fn post_github(github: GitHubData, body: Data) -> Result<String, Failure> {
-    let data = github.verify_signature(body)?;
+pub fn post_github(
+    github: GitHubData,
+    body: Data,
+    config: State<MoMMIConfig>,
+) -> Result<String, Failure> {
+    let data = github.verify_signature(body, &config)?;
     let event = github.get_event();
     match event {
         "ping" => return Ok("pong".into()),
@@ -107,17 +121,22 @@ pub fn post_github(github: GitHubData, body: Data) -> Result<String, Failure> {
 
 
     // Code for relaying each event to MoMMI.
-    let config = config::active().unwrap();
-    let address = config.extras.get("commloop-address").and_then(|x| x.as_str()).unwrap_or("127.0.0.1:1680");
-    let password = config.extras.get("commloop-password").and_then(|x| x.as_str()).unwrap_or("foobar");
-    let meta = data.pointer("/repository/full_name").and_then(|x| x.as_str()).unwrap_or("");
+    let meta = data.pointer("/repository/full_name")
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
 
     let json = json!({
         "event": event,
         "data": data
     });
 
-    commloop(address, password, "github_event", meta, &json).map_err(|_| Failure(Status::InternalServerError))?;
+    commloop(
+        config.get_commloop_address(),
+        config.get_commloop_password(),
+        "github_event",
+        meta,
+        &json,
+    ).map_err(|_| Failure(Status::InternalServerError))?;
 
 
 
@@ -146,8 +165,7 @@ mod tests {
             .extra("github-key", GITHUB_KEY)
             .unwrap();
 
-        let rocket = rocket::custom(config, false)
-            .mount("/", routes![super::post_github]);
+        let rocket = rocket::custom(config, false).mount("/", routes![super::post_github]);
 
         let json = serde_json::to_string(&json!({
             "zen": "Non-blocking is better than blocking."
@@ -184,7 +202,10 @@ mod tests {
         request.add_header(ContentType::JSON);
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
-        request.add_header(Header::new("X-Hub-Signature", "sha1=0000000000000000000000000000000000000000"));
+        request.add_header(Header::new(
+            "X-Hub-Signature",
+            "sha1=0000000000000000000000000000000000000000",
+        ));
         assert_eq!(request.dispatch_with(&rocket).status(), Status::Forbidden);
 
         let mut request = MockRequest::new(Post, "/changelog").body(&json);
@@ -194,7 +215,7 @@ mod tests {
         request.add_header(Header::new("X-Hub-Signature", "sha1=00000"));
         assert_eq!(request.dispatch_with(&rocket).status(), Status::BadRequest);
 
-        let mut request = MockRequest::new(Post, "/changelog").body(&  json);
+        let mut request = MockRequest::new(Post, "/changelog").body(&json);
         request.add_header(ContentType::JSON);
         assert_eq!(request.dispatch_with(&rocket).status(), Status::BadRequest);
     }
