@@ -22,7 +22,7 @@ class MServer(object):
     if TYPE_CHECKING:
         from .master import MoMMI
 
-    def __init__(self, server: Server, master: "MoMMI"):
+    def __init__(self, server: Server, master: "MoMMI") -> None:
         from .permissions import bantypes
         from .modules import MModule
         from .commands import MCommand

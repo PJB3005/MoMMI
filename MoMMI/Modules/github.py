@@ -84,7 +84,7 @@ async def on_github_issues(channel, message, repo):
 # handling of stuff like [2000] and [world.dm]
 @always_command("github_issue")
 async def issue(channel: MChannel, match: typing_re.Match, message: Message):
-    if "github" not in channel.server.config["modules"]:
+    if channel.server_config("modules.github") is None:
         return
 
     repo = channel.server.config["modules"]["github"]["repo"]
