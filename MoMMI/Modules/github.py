@@ -21,7 +21,7 @@ from MoMMI.Modules.irc import irc_transform
 logger = logging.getLogger(__name__)
 
 # Taken from https://github.com/d3athrow/vgstation13/blob/Bleeding-Edge/bot/plugins/GitHub.py
-REG_PATH = re.compile(r"\[([a-zA-Z\-_/][a-zA-Z0-9\- _/]*\.[a-zA-Z]+)(#L\d+(?:-L\d+)?)?\]", re.I)
+REG_PATH = re.compile(r"\[(.+?)(#L\d+(?:-L\d+)?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
 REG_BRACKETS = re.compile(r"\[(.+?)\]")
 
@@ -149,7 +149,7 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
             paths = []  # type: List[str]
             for match in REG_PATH.finditer(message.content):
                 path = match.group(1).lower()
-                logger.info(path)
+                # logger.info(path)
                 paths.append(path)
 
             for hash in tree["tree"]:
@@ -159,10 +159,10 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
                     if hash["path"].lower().endswith(path):
                         thepath = hash["path"]  # type: str
                         html_url = f"https://github.com/{repo}"
-                        logger.info(html_url)
-                        logger.info(branchname)
-                        logger.info(quote(thepath))
-                        logger.info(match.group(2))
+                        # logger.info(html_url)
+                        # logger.info(branchname)
+                        # logger.info(quote(thepath))
+                        # logger.info(match.group(2))
                         file_url_part = quote(thepath) + (match.group(2) or '')
                         url = f"{html_url}/blob/{branchname}/{file_url_part}"
 
