@@ -167,14 +167,17 @@ async def load(loop=None):
         for name in servers.keys():
             cache[name] = IrcConnection(name)
 
-    master.cache["irc_client_list"] = cache
+    master.set_cache("irc_client_list", cache)
 
 async def unload(loop=None):
+    if not master.has_cache("irc_client_list"):
+        return
+
     logger.info("Dropping IRC connection.")
-    for connection in master.cache.get("irc_client_list", {}).values():
+    for connection in master.get_cache("irc_client_list").values():
         await connection.client.disconnect()
 
-    del master.cache["irc_client_list"]
+    master.del_cache("irc_client_list")
 
 @always_command("irc_relay", unsafe=True)
 async def ircrelay(channel, match, message: Message):

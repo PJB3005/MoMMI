@@ -1,7 +1,7 @@
 from MoMMI.commands import command
 
 @command("shutdown", "shutdown", roles=["owner"])
-async def shutdown(channel, match, message):
+async def shutdown_command(channel, match, message):
     await channel.send("Shutting down!")
     await channel.server.master.shutdown()
 

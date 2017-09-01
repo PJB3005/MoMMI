@@ -128,6 +128,12 @@ class MoMMI(object):
 
             if name not in newmodules:
                 LOGGER.debug(f"Dropping removed module {name}.")
+                if hasattr(module.module, "shutdown"):
+                    try:
+                        await module.module.shutdown()
+                    except:
+                        LOGGER.exception(f"Hit an exception while shutting down module {name}.")
+
                 todrop.append(module)
                 continue
 
@@ -270,8 +276,14 @@ class MoMMI(object):
             await self.commloop.stop()
 
         await asyncio.gather(*(server.save_all_storages() for server in self.servers.values()))
-        tasks = [module.unload() for module in self.modules if hasattr(module, "unload")]
+
+        tasks = [module.module.unload() for module in self.modules.values() if hasattr(module.module, "unload")]
         await asyncio.gather(*tasks)
+
+        tasks = [module.module.shutdown() for module in self.modules.values() if hasattr(module.module, "shutdown")]
+        await asyncio.gather(*tasks)
+
+        LOGGER.info("Goodbye.")
 
         await self.client.logout()
 
@@ -311,5 +323,16 @@ class MoMMI(object):
         mserver = self.get_server(server_id)
         mserver.add_channel(channel)
 
+    def set_cache(self, key: str, value: Any):
+        self.cache[key] = value
+
+    def get_cache(self, key: str) -> Any:
+        return self.cache[key]
+
+    def del_cache(self, key: str):
+        del self.cache[key]
+
+    def has_cache(self, key: str) -> bool:
+        return key in self.cache
 
 master = MoMMI()
