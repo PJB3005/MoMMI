@@ -109,3 +109,5 @@ pyvenv.cfg
 *.DS_Store
 
 .mypy_cache/
+
+.vscode/
