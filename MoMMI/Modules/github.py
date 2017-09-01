@@ -153,9 +153,9 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
             linestart = None
             lineend = None
             if match.group(2):
-                linestart = int(match.group(2))
+                linestart = match.group(2)
                 if match.group(3):
-                    lineend = int(match.group(3))
+                    lineend = match.group(3)
 
             paths.append((path, linestart, lineend))
 
