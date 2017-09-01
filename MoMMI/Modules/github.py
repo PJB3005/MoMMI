@@ -20,7 +20,6 @@ from MoMMI.Modules.irc import irc_transform
 
 logger = logging.getLogger(__name__)
 
-# Taken from https://github.com/d3athrow/vgstation13/blob/Bleeding-Edge/bot/plugins/GitHub.py
 REG_PATH = re.compile(r"\[(.+?)(#L\d+(?:-L\d+)?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
 REG_BRACKETS = re.compile(r"\[(.+?)\]")
