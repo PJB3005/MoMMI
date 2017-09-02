@@ -2,22 +2,20 @@ import logging
 import random
 import re
 from collections import defaultdict
+from typing import DefaultDict, Match
 from discord import Message
-from functools import partial
-from typing import DefaultDict, re as typing_re
 from MoMMI.commands import command, always_command
-from MoMMI.server import MChannel, MServer
+from MoMMI.server import MChannel
 
 SENTENCE_RE = re.compile(r"([.,?\n]|(?<!@)!)")
 PARENT_RE = re.compile(r"[[\]{}()\"']")
 CHAIN_TYPE = DefaultDict[str, DefaultDict[str, int]]
 
 logger = logging.getLogger(__name__)
-zero_dict = partial(defaultdict, int)
 
 
 @always_command("markov_read")
-async def markov_reader(channel: MChannel, match: typing_re.Match, message: Message):
+async def markov_reader(channel: MChannel, match: Match, message: Message):
     # if not isbanned(message.author, bantypes.markov):
 
     content = PARENT_RE.sub("", message.content.lower())
@@ -27,7 +25,7 @@ async def markov_reader(channel: MChannel, match: typing_re.Match, message: Mess
     try:
         chain = channel.get_storage("markov")
     except KeyError:
-        chain = defaultdict(zero_dict)
+        chain = defaultdict(lambda: defaultdict(int))
         channel.set_storage("markov", chain)
 
     for sentence in sentences(content):
@@ -47,7 +45,7 @@ async def markov_reader(channel: MChannel, match: typing_re.Match, message: Mess
 
 
 @command("markov", r"markov\s*(?:\((\S*)\))?")
-async def markov(channel: MChannel, match: typing_re.Match, message: Message):
+async def markov(channel: MChannel, match: Match, message: Message):
     try:
         chain = channel.get_storage("markov")
     except:
@@ -60,11 +58,11 @@ async def markov(channel: MChannel, match: typing_re.Match, message: Message):
         return
 
     # Repeat to try to prevent short chains.
-    for x in range(5):
+    for _ in range(5):
         message = [seed]
 
         # Prevent infinite loop.
-        for i in range(100):
+        for _ in range(100):
             # Basic pickweight based on https://stackoverflow.com/questions/3679694/a-weighted-version-of-random-choice
             wordchain = chain[seed]
             # logger.info(chain)
