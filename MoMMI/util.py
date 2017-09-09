@@ -1,15 +1,10 @@
-import aiofiles
-import discord
-import logging
 import os
 import pickle
-import re
 from typing import Any
+import aiofiles
 
-logger = logging.getLogger(__name__)
 
-
-async def pickle_dump(obj: Any, file: os.PathLike):
+async def pickle_dump(obj: Any, filename: os.PathLike):
     """
     Async pickle dump.
     """

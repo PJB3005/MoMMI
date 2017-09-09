@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import asyncio
 from typing import re as typing_re, Dict, Any, Tuple, List, Optional
 from urllib.parse import quote
 import aiohttp
@@ -27,14 +28,14 @@ DISCORD_CODEBLOCK_RE = re.compile(r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
 GITHUB_SESSION = "github_session"
 
-async def load(loop=None):
+async def load(loop: asyncio.AbstractEventLoop):
     if not master.has_cache(GITHUB_SESSION):
         headers = {"Authorization": f"token {master.config.get_module('github', 'token')}"}
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
 
 
-async def shutdown():
+async def shutdown(loop: asyncio.AbstractEventLoop):
     master.get_cache(GITHUB_SESSION).close()
     master.del_cache(GITHUB_SESSION)
 

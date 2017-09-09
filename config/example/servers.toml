@@ -5,7 +5,7 @@ id = 0
 name = "unknown"
 
 [servers.roles]
-admin = 0
-coder = 0
+ADMIN = 0
+CODER = 0
 
 # [servers.unknown.modules.xxx] for module overrides.

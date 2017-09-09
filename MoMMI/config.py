@@ -1,40 +1,45 @@
-import aiofiles
 import asyncio
 import logging
-import toml
-from enum import Enum
-from typing import Dict, Any, TypeVar, Optional
+from typing import Dict, Any, TypeVar, Optional, cast
 from pathlib import Path
+import aiofiles
+import toml
+
 
 logger = logging.getLogger("config")
 T = TypeVar("T")
 
 
 class ConfigManager(object):
-    def __init__(self):
-        self.path = None  # type: Path
+    def __init__(self) -> None:
+        self.path: Optional[Path] = None
 
-        self.main = None  # type: Dict[str, Any]
-        self.modules = None  # type: Dict[str, Any]
-        self.servers = None  # type: Dict[str, Any]
+        self.main: Dict[str, Any] = {}
+        self.modules: Dict[str, Any] = {}
+        self.servers: Dict[str, Any] = {}
 
     def get_main(self, key: str, default: Optional[T] = None) -> T:
         """
         Get a config for the *main* config file. That is `main.toml`.
         """
+        out = cast(Optional[T], get_nested_dict_value(self.main, key))
+        if out is not None:
+            return out
 
-        out: T = get_nested_dict_value(self.main, key)
-        if out is None and default is not None:
-            out = default
+        if default is None:
+            raise ValueError("Unable to find key and no default specified.")
 
-        return out
+        return default
 
-    def get_module(self, module: str, key: str, default: Optional[T] = None) -> T:
-        out: T = get_nested_dict_value(self.modules, f"{module}.{key}")
-        if out is None:
-            return default
+    def get_module(self, key: str, default: Optional[T] = None) -> T:
+        out = cast(Optional[T], get_nested_dict_value(self.modules, key))
+        if out is not None:
+            return out
 
-        return out
+        if default is None:
+            raise ValueError("Unable to find key and no default specified.")
+
+        return default
 
     async def load_from(self, path: Path):
         self.path = path
@@ -44,26 +49,25 @@ class ConfigManager(object):
             self.load_modules(path)
         )
 
-    # I absolutely cannot think of a better way.
-    async def load_main(self, path: Path):
+    async def load_main(self, path: Path) -> None:
         async with aiofiles.open(path.joinpath("main.toml"), "r") as f:
             self.main = toml.loads(await f.read())
 
-    async def load_servers(self, path: Path):
+    async def load_servers(self, path: Path) -> None:
         async with aiofiles.open(path.joinpath("servers.toml"), "r") as f:
             self.servers = toml.loads(await f.read())
 
-    async def load_modules(self, path: Path):
+    async def load_modules(self, path: Path) -> None:
         async with aiofiles.open(path.joinpath("modules.toml"), "r") as f:
             self.modules = toml.loads(await f.read())
 
-# I really can't think of a better name.
+
 def get_nested_dict_value(dictionary: Dict[str, Any], key: str) -> Any:
     tree = key.split(".")
 
     current = dictionary
     for node in tree:
-        if type(current) == dict:
+        if isinstance(current, dict):
             if node in current:
                 current = current[node]
 
@@ -72,3 +76,10 @@ def get_nested_dict_value(dictionary: Dict[str, Any], key: str) -> Any:
                 return None
 
     return current
+
+
+class ConfigError(Exception):
+    """
+    An exception caused by broken configuration files.
+    """
+    pass

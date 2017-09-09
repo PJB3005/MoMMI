@@ -6,15 +6,11 @@ import os
 import re
 import signal
 from pathlib import Path
-from typing import List, Dict, Any
-
+from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING
 import discord
-from MoMMI.commands import MCommand
-from MoMMI.commloop import commloop
 from MoMMI.config import ConfigManager
-from MoMMI.handler import MHandler
-from MoMMI.modules import MModule
-from MoMMI.server import MServer
+from MoMMI.module import MModule
+from MoMMI.types import SnowflakeID
 
 LOGGER = logging.getLogger("master")
 CHAT_LOGGER = logging.getLogger("chat")
@@ -23,7 +19,16 @@ CHAT_LOGGER = logging.getLogger("chat")
 # All of it.
 # Dear god.
 class MoMMI(object):
-    def __init__(self):
+    if TYPE_CHECKING:
+        from MoMMI.handler import MHandler
+        from MoMMI.server import MServer
+        from MoMMI.channel import MChannel
+
+    def __init__(self) -> None:
+        from MoMMI.commloop import commloop
+        from MoMMI.handler import MHandler
+        from MoMMI.server import MServer
+
         self.config = ConfigManager()
         self.modules: Dict[str, MModule] = {}
         # If a handler attempts to register to an unknown module,
@@ -32,22 +37,22 @@ class MoMMI(object):
         self.temp_module_handlers: List[MHandler] = []
         # True if we're reloading modules right now.
         self.reloading_modules = False
-        self.servers: Dict[int, MServer] = {}
+        self.servers: Dict[SnowflakeID, MServer] = {}
         self.servers_name: Dict[str, MServer] = {}
         self.cache: Dict[str, Any] = {}
         # We do all init as soon as discord.py is ready,
         # so we need to prevent double init.
         self.initialized = False
         self.client = discord.Client()
-        self.commloop: commloop = None
-        self.storagedir: Path = None
+        self.commloop: Optional[commloop] = None
+        self.storagedir: Optional[Path] = None
 
         # Find all on_xxx attributes and register them to the client.
         for member in dir(self):
             if member.startswith("on_"):
                 self.client.event(getattr(self, member))
 
-    def start(self, configdir: Path, storagedir: Path):
+    def start(self, configdir: Path, storagedir: Path) -> None:
         self.storagedir = storagedir
         loop = asyncio.get_event_loop()
         try:
@@ -64,7 +69,9 @@ class MoMMI(object):
         LOGGER.info("$GREENMoMMI starting!")
         self.client.run(self.config.get_main("bot.token"))
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
+        from MoMMI.commloop import commloop
+        from MoMMI.commands import MCommand
         if self.initialized:
             LOGGER.debug("on_ready called again, ignoring.")
             return
@@ -114,7 +121,7 @@ class MoMMI(object):
 
         return out
 
-    async def reload_modules(self):
+    async def reload_modules(self) -> None:
         self.reloading_modules = True
         newmodules = await self.detect_modules()
         todrop = []
@@ -122,7 +129,7 @@ class MoMMI(object):
             if module.loaded:
                 if hasattr(module.module, "unload"):
                     try:
-                        await module.module.unload()
+                        await module.module.unload(self.client.loop)
                     except:
                         LOGGER.exception(f"Hit an exception while unloading module {name}.")
 
@@ -130,7 +137,7 @@ class MoMMI(object):
                 LOGGER.debug(f"Dropping removed module {name}.")
                 if hasattr(module.module, "shutdown"):
                     try:
-                        await module.module.shutdown()
+                        await module.module.shutdown(self.client.loop)
                     except:
                         LOGGER.exception(f"Hit an exception while shutting down module {name}.")
 
@@ -149,7 +156,7 @@ class MoMMI(object):
 
             if hasattr(module.module, "load"):
                 try:
-                    await module.module.load()
+                    await module.module.load(self.client.loop)
 
                 except:
                     LOGGER.exception(f"Hit an exception while load()ing module {name}.")
@@ -160,7 +167,6 @@ class MoMMI(object):
         for name in newmodules:
             newmod = MModule(name)
             self.modules[name] = newmod
-
 
             try:
                 mod = importlib.import_module(name)
@@ -174,7 +180,7 @@ class MoMMI(object):
 
             if hasattr(mod, "load"):
                 try:
-                    await mod.load()
+                    await mod.load(self.client.loop) # type: ignore
                 except:
                     LOGGER.exception(f"Hit an exception while load()ing module {name}.")
 
@@ -199,9 +205,7 @@ class MoMMI(object):
             except:
                 LOGGER.exception(f"Exception while registering handler {handler}!")
 
-
-
-    def register_handler(self, handler: MHandler):
+    def register_handler(self, handler: "MHandler") -> None:
         if self.reloading_modules:
             self.temp_module_handlers.append(handler)
             return
@@ -209,34 +213,39 @@ class MoMMI(object):
         module = self.get_module(handler.module)
         module.handlers[handler.name] = handler
 
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
+        from MoMMI.commands import MCommand
         if not self.initialized:
             return
 
         CHAT_LOGGER.info(f"({message.channel.name}) {message.author.name}: {message.content}")
 
-        server = self.get_server(int(message.server.id))
-        channel = server.get_channel(int(message.channel.id))
+        server = self.get_server(SnowflakeID(message.server.id))
+        channel = server.get_channel(SnowflakeID(message.channel.id))
 
         for command in channel.iter_handlers(MCommand):
             await command.try_execute(channel, message)
 
-    def get_server(self, serverid: int) -> MServer:
+    def get_server(self, serverid: SnowflakeID) -> "MServer":
         return self.servers[serverid]
 
-    async def on_server_join(self, server: discord.Server):
+    async def on_server_join(self, server: discord.Server) -> None:
         LOGGER.info(f"Joined new server {server.name}.")
         await self.add_server(server)
 
-    async def add_server(self, server: discord.Server):
+    async def add_server(self, server: discord.Server) -> None:
+        from MoMMI.server import MServer
+        if self.storagedir is None:
+            raise RuntimeError("No storage dir specified!")
+
         LOGGER.debug(f"Adding server {server.name}.")
-        new = self.servers[int(server.id)] = MServer(server, self)
+        new = self.servers[SnowflakeID(server.id)] = MServer(server, self)
         new.modules = self.modules.copy()
 
         # TODO: Figure out a better way for this.
         cfg = None
         for serverconfig in self.config.servers["servers"]:
-            if serverconfig["id"] == int(new.id):
+            if SnowflakeID(serverconfig["id"]) == int(new.id):
                 cfg = serverconfig
                 break
 
@@ -245,7 +254,7 @@ class MoMMI(object):
             return
 
         new.load_server_config(cfg)
-        data_path = self.storagedir.joinpath(new.name)
+        data_path: Path = self.storagedir.joinpath(new.name)
         if not data_path.exists():
             LOGGER.debug(f"Data directory for server {new.name} does not exist, creating.")
             data_path.mkdir(parents=True)
@@ -253,51 +262,49 @@ class MoMMI(object):
             LOGGER.error(f"Data storage directory for {new.name} exists but is not a file!")
         await new.load_data_storages(data_path)
 
-    async def on_server_remove(self, server: discord.Server):
+    async def on_server_remove(self, server: discord.Server) -> None:
         LOGGER.info(f"Left server {server.name}.")
         await self.remove_server(server)
 
-    async def remove_server(self, server: discord.Server):
+    async def remove_server(self, server: discord.Server) -> None:
         LOGGER.debug(f"Removing server {server.name}")
         # TODO: this probably won't GC correctly, due to circular references.
         # So technically this memleaks, but I don't give a damn because
         # leaving servers is so rare.
 
-        mserver = self.get_server(int(server.id))
+        mserver = self.get_server(SnowflakeID(server.id))
         del self.servers_name[mserver.name]
         del self.servers[mserver.id]
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         LOGGER.info("$REDShutting down!")
         if self.commloop:
-            LOGGER.debug(f"sockets: {self.commloop.server.sockets}")
             LOGGER.debug("Closing commloop.")
-            self.commloop.server.close()
             await self.commloop.stop()
 
         await asyncio.gather(*(server.save_all_storages() for server in self.servers.values()))
 
-        tasks = [module.module.unload() for module in self.modules.values() if hasattr(module.module, "unload")]
+        tasks = [module.module.unload(self.client.loop) for module in self.modules.values() if hasattr(module.module, "unload")]
         await asyncio.gather(*tasks)
 
-        tasks = [module.module.shutdown() for module in self.modules.values() if hasattr(module.module, "shutdown")]
+        tasks = [module.module.shutdown(self.client.loop) for module in self.modules.values() if hasattr(module.module, "shutdown")]
         await asyncio.gather(*tasks)
 
         LOGGER.info("Goodbye.")
 
         await self.client.logout()
 
-    def handle_signal(self):
+    def handle_signal(self) -> None:
         asyncio.ensure_future(self.shutdown(), loop=self.client.loop)
 
-    def register_signals(self):
+    def register_signals(self) -> None:
         self.client.loop.add_signal_handler(signal.SIGTERM, self.handle_signal)
         self.client.loop.add_signal_handler(signal.SIGINT, self.handle_signal)
 
     def get_module(self, name: str) -> MModule:
         return self.modules[name]
 
-    def iter_channels(self):
+    def iter_channels(self) -> Iterable["MChannel"]:
         """
         Iterate over all MChannels.
         """
@@ -308,7 +315,7 @@ class MoMMI(object):
         if channel.is_private:
             return
 
-        server_id = int(channel.server.id)
+        server_id = SnowflakeID(channel.server.id)
         mserver = self.get_server(server_id)
         mserver.remove_channel(channel)
 
@@ -319,17 +326,17 @@ class MoMMI(object):
         if channel.is_private:
             return
 
-        server_id = int(channel.server.id)
+        server_id = SnowflakeID(channel.server.id)
         mserver = self.get_server(server_id)
         mserver.add_channel(channel)
 
-    def set_cache(self, key: str, value: Any):
+    def set_cache(self, key: str, value: Any) -> None:
         self.cache[key] = value
 
     def get_cache(self, key: str) -> Any:
         return self.cache[key]
 
-    def del_cache(self, key: str):
+    def del_cache(self, key: str) -> None:
         del self.cache[key]
 
     def has_cache(self, key: str) -> bool:

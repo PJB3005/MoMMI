@@ -2,7 +2,7 @@ import logging
 import random
 import re
 from collections import defaultdict
-from typing import DefaultDict, Match
+from typing import DefaultDict, Match, Iterable
 from discord import Message
 from MoMMI.commands import command, always_command
 from MoMMI.server import MChannel
@@ -21,7 +21,7 @@ async def markov_reader(channel: MChannel, match: Match, message: Message):
     content = PARENT_RE.sub("", message.content.lower())
     # Because chain is a referenced object.
     # We do not need to reset it explicitly.
-    chain: CHAIN_TYPE = None
+    chain: CHAIN_TYPE
     try:
         chain = channel.get_storage("markov")
     except KeyError:
@@ -89,7 +89,7 @@ async def markov(channel: MChannel, match: Match, message: Message):
     await channel.send(" ".join(message) + ".")
 
 
-def sentences(words):
+def sentences(words: str) -> Iterable[str]:
     last = 0
     for match in SENTENCE_RE.finditer(words):
         string = words[last:match.start()].strip()
