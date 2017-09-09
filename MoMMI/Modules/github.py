@@ -30,7 +30,7 @@ GITHUB_SESSION = "github_session"
 
 async def load(loop: asyncio.AbstractEventLoop):
     if not master.has_cache(GITHUB_SESSION):
-        headers = {"Authorization": f"token {master.config.get_module('github', 'token')}"}
+        headers = {"Authorization": f"token {master.config.get_module('github.token')}"}
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
 
@@ -89,11 +89,14 @@ async def on_github_issues(channel, message, repo):
 # handling of stuff like [2000] and [world.dm]
 @always_command("github_issue")
 async def issue(channel: MChannel, match: typing_re.Match, message: Message):
-    if channel.server_config("modules.github") is None:
+    try:
+        cfg = channel.server_config("modules.github")
+    except:
+        # Server has no config settings for GitHub.
         return
 
-    repo = channel.server.config["modules"]["github"]["repo"]
-    branchname = channel.server.config["modules"]["github"]["branch"]
+    repo = cfg["repo"]
+    branchname = cfg["branch"]
     session = master.get_cache(GITHUB_SESSION)
 
     for match in REG_ISSUE.finditer(message.content):
