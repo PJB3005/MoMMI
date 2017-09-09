@@ -1,6 +1,7 @@
 import logging
 import random
 import re
+import functools
 from collections import defaultdict
 from typing import DefaultDict, Match, Iterable
 from discord import Message
@@ -12,7 +13,7 @@ PARENT_RE = re.compile(r"[[\]{}()\"']")
 CHAIN_TYPE = DefaultDict[str, DefaultDict[str, int]]
 
 logger = logging.getLogger(__name__)
-
+partial = functools.partial(defaultdict, int)
 
 @always_command("markov_read")
 async def markov_reader(channel: MChannel, match: Match, message: Message):
@@ -25,7 +26,7 @@ async def markov_reader(channel: MChannel, match: Match, message: Message):
     try:
         chain = channel.get_storage("markov")
     except KeyError:
-        chain = defaultdict(lambda: defaultdict(int))
+        chain = defaultdict(partial) # type: ignore
         channel.set_storage("markov", chain)
 
     for sentence in sentences(content):
