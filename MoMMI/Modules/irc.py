@@ -1,7 +1,7 @@
 import logging
 import re
 import asyncio
-from typing import Callable, List, Awaitable, Tuple, Any, cast, Match, Dict
+from typing import Callable, List, Awaitable, Tuple, Any, Match, Dict
 import bottom
 from discord import User, Message
 from MoMMI.handler import MHandler
@@ -55,7 +55,7 @@ class MDiscordTransform(MHandler):
         return await self.func(message, author, discord_server, irc_client)
 
 logger = logging.getLogger(__name__)
-messagelogger = logging.getLogger("IRC")
+messagelogger = logging.getLogger("chat")
 MENTION_RE = re.compile(r"<@!?(\d+)>")
 ROLE_RE = re.compile(r"<@&(\d+)>")
 CHANNEL_RE = re.compile(r"<#(\d+)>")
@@ -76,7 +76,7 @@ class IrcConnection:
         self.realname: str = config["user"]["realname"]
         self.nick: str = config["user"]["nick"]
 
-        self.channels: List[Tuple[str, int]] = []
+        self.channels: List[Tuple[str, SnowflakeID]] = []
         for server in master.config.servers["servers"]:
             if server.get("modules") and server["modules"].get("irc"):
                 cfg = server["modules"]["irc"]
@@ -84,8 +84,11 @@ class IrcConnection:
                     if channel["server"] != self.name:
                         continue
 
-                    logger.info(f"Registered {channel['irc_channel']} <-> {channel['discord_channel']} for IRC relaying.")
-                    self.channels.append((channel["irc_channel"], channel["discord_channel"]))
+                    irc_name = channel['irc_channel']
+                    discord_id = SnowflakeID(channel["discord_channel"])
+
+                    logger.info(f"Registered {irc_name} <-> {discord_id} for IRC relaying.")
+                    self.channels.append((irc_name, discord_id))
 
         self.client = bottom.Client(
             host=self.address,
@@ -106,6 +109,8 @@ class IrcConnection:
         self.client.send("NICK", nick=self.nick)
         self.client.send("USER", user=self.username, realname=self.realname)
 
+        logger.info("woop?")
+
         _: Any
         _, pending = await asyncio.wait(
             [self.client.wait("RPL_ENDOFMOTD"),
@@ -113,6 +118,8 @@ class IrcConnection:
             loop=self.client.loop,
             return_when=asyncio.FIRST_COMPLETED
         )
+
+        logger.info("woop")
 
         for future in pending:
             future.cancel()
@@ -135,7 +142,7 @@ class IrcConnection:
             # Channel we don't know about, probably a PM or something.
             return
 
-        messagelogger.info(message)
+        messagelogger.info(f"(IRC {target}) {nick}: {message}")
 
         for handler in discord_target.iter_handlers(MDiscordTransform):
             message = await handler.transform(message, nick, discord_target, self.client)
@@ -151,7 +158,7 @@ class IrcConnection:
             if channel == irc:
                 for server in master.servers.values():
                     if discord in server.channels:
-                        return cast(MChannel, server.channels[discord])
+                        return server.channels[SnowflakeID(discord)]
 
         raise KeyError(f"Unknown IRC channel: '{irc}'")
 
@@ -197,6 +204,7 @@ async def ircrelay(channel: MChannel, match: Match, message: Message):
 
 
     if target_connection is None:
+        logger.debug("nope")
         return
 
     for handler in channel.iter_handlers(MIrcTransform):

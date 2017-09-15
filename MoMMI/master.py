@@ -218,6 +218,10 @@ class MoMMI(object):
         if not self.initialized:
             return
 
+        # Ignore IRC messages.
+        if message.author.id == self.client.user.id and message.content.startswith("\u200B**IRC:**"):
+            return
+
         CHAT_LOGGER.info(f"({message.channel.name}) {message.author.name}: {message.content}")
 
         server = self.get_server(SnowflakeID(message.server.id))
