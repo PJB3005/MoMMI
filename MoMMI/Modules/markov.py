@@ -53,13 +53,14 @@ async def markov(channel: MChannel, match: Match, message: Message):
         return
 
     message = None
-    seed = match.group(1) or ""
-    if seed not in chain:
+    original_seed = match.group(1) or ""
+    if original_seed not in chain:
         await channel.send("Cannot make markov chain: unknown word.")
         return
 
     # Repeat to try to prevent short chains.
     for _ in range(5):
+        seed = original_seed
         message = [seed]
 
         # Prevent infinite loop.
