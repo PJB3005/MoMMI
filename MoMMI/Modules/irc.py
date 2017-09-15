@@ -109,8 +109,6 @@ class IrcConnection:
         self.client.send("NICK", nick=self.nick)
         self.client.send("USER", user=self.username, realname=self.realname)
 
-        logger.info("woop?")
-
         _: Any
         _, pending = await asyncio.wait(
             [self.client.wait("RPL_ENDOFMOTD"),
@@ -118,8 +116,6 @@ class IrcConnection:
             loop=self.client.loop,
             return_when=asyncio.FIRST_COMPLETED
         )
-
-        logger.info("woop")
 
         for future in pending:
             future.cancel()
@@ -204,7 +200,6 @@ async def ircrelay(channel: MChannel, match: Match, message: Message):
 
 
     if target_connection is None:
-        logger.debug("nope")
         return
 
     for handler in channel.iter_handlers(MIrcTransform):
