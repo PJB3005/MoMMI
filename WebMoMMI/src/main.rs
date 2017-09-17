@@ -2,7 +2,7 @@
 #![plugin(rocket_codegen)]
 
 extern crate rocket;
-extern crate rocket_contrib;
+// extern crate rocket_contrib;
 extern crate serde;
 // #[macro_use]
 // extern crate serde_derive;
@@ -11,9 +11,9 @@ extern crate serde_json;
 extern crate crypto;
 extern crate byteorder;
 extern crate rustc_serialize;
-#[macro_use]
-extern crate lazy_static;
-extern crate yaml_rust;
+// #[macro_use]
+// extern crate lazy_static;
+// extern crate yaml_rust;
 
 mod mommi;
 mod github;

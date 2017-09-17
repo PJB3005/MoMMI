@@ -14,7 +14,6 @@ use crypto::sha1::Sha1;
 use crypto::hmac::Hmac;
 use crypto::mac::{Mac, MacResult};
 use rustc_serialize::hex::FromHex;
-use rocket::config;
 use std::io::Read;
 
 pub mod changelog;
@@ -111,6 +110,7 @@ pub fn post_github(
     body: Data,
     config: State<MoMMIConfig>,
 ) -> Result<String, Failure> {
+    println!("WOOP");
     let data = github.verify_signature(body, &config)?;
     let event = github.get_event();
     match event {
@@ -145,9 +145,10 @@ pub fn post_github(
 mod tests {
     #[test]
     fn test_github_auth() {
+        use config::MoMMIConfig;
         use rocket;
-        use rocket::config::{Config, Environment};
-        use rocket::testing::MockRequest;
+        use rocket::config::{Environment, Config};
+        use rocket::local::Client;
         use rocket::http::Method::*;
         use rocket::http::{Header, ContentType, Status};
         use crypto::sha1::Sha1;
@@ -161,42 +162,49 @@ mod tests {
         let config = Config::build(Environment::Development)
             .workers(1)
             .extra("github-key", GITHUB_KEY)
+            .extra("commloop-address", "127.0.0.1:1679")
+            .extra("commloop-password", "foobar")
+            .extra("repo-path", "thisshouldneverexistseriously")
             .unwrap();
 
-        let rocket = rocket::custom(config, false).mount("/", routes![super::post_github]);
+        let mut rocket = rocket::custom(config, false).mount("/", routes![super::post_github]);
+        let config = MoMMIConfig::new(rocket.config());
+        rocket = rocket.manage(config);
 
         let json = serde_json::to_string(&json!({
             "zen": "Non-blocking is better than blocking."
         })).unwrap();
 
+        let client = Client::new(rocket).unwrap();
+
         let mut hmac = Hmac::new(Sha1::new(), GITHUB_KEY.as_bytes());
         hmac.input(json.as_bytes());
         let result = hmac.result().code().to_hex();
 
-        let mut request = MockRequest::new(Post, "/changelog").body(&json);
+        let mut request = client.post("/changelog").body(&json);
         request.add_header(ContentType::JSON);
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
         request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
-        let mut response = request.dispatch_with(&rocket);
+        let mut response = request.dispatch();
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.body().and_then(|f| f.into_string()), Some("pong".into()));
 
-        let mut request = MockRequest::new(Post, "/changelogs").body(&json);
+        let mut request = client.post("/changelogs").body(&json);
         request.add_header(ContentType::JSON);
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
         request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
-        assert_eq!(request.dispatch_with(&rocket).status(), Status::NotFound);
+        assert_eq!(request.dispatch().status(), Status::NotFound);
 
-        let mut request = MockRequest::new(Post, "/changelog").body(&json);
+        let mut request = client.post("/changelog").body(&json);
         request.add_header(ContentType::JSON);
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
         request.add_header(Header::new("X-Hub-Signature", format!("sha2={}", result)));
-        assert_eq!(request.dispatch_with(&rocket).status(), Status::NotImplemented);
+        assert_eq!(request.dispatch().status(), Status::NotImplemented);
 
-        let mut request = MockRequest::new(Post, "/changelog").body(&json);
+        let mut request = client.post("/changelog").body(&json);
         request.add_header(ContentType::JSON);
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
@@ -204,17 +212,17 @@ mod tests {
             "X-Hub-Signature",
             "sha1=0000000000000000000000000000000000000000",
         ));
-        assert_eq!(request.dispatch_with(&rocket).status(), Status::Forbidden);
+        assert_eq!(request.dispatch().status(), Status::Forbidden);
 
-        let mut request = MockRequest::new(Post, "/changelog").body(&json);
+        let mut request = client.post("/changelog").body(&json);
         request.add_header(ContentType::JSON);
         request.add_header(Header::new("X-GitHub-Event", "ping"));
         request.add_header(Header::new("X-GitHub-Delivery", "0000"));
         request.add_header(Header::new("X-Hub-Signature", "sha1=00000"));
-        assert_eq!(request.dispatch_with(&rocket).status(), Status::BadRequest);
+        assert_eq!(request.dispatch().status(), Status::BadRequest);
 
-        let mut request = MockRequest::new(Post, "/changelog").body(&json);
+        let mut request = client.post("/changelog").body(&json);
         request.add_header(ContentType::JSON);
-        assert_eq!(request.dispatch_with(&rocket).status(), Status::BadRequest);
+        assert_eq!(request.dispatch().status(), Status::BadRequest);
     }
 }

@@ -1,10 +1,10 @@
+/*
 use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::{Instant, Duration};
 use std::collections::HashMap;
 use rocket::config;
 
-/*
 lazy_static! {
     pub static ref CHANGELOG_MANAGER: Mutex<ChangelogManager> = {
         Mutex::new(ChangelogManager {pending: Vec::new(), last_time: None})
