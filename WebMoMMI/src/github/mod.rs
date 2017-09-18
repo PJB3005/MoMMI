@@ -102,15 +102,22 @@ impl<'a, 'r> FromRequest<'a, 'r> for GitHubData {
     }
 }
 
+#[post("/dev/git_hooks/webmommi", data = "<body>")]
+pub fn post_github_alt(
+    github: GitHubData,
+    body: Data,
+    config: State<MoMMIConfig>,
+) -> Result<String, Failure> {
+    post_github(github, body, config)
+}
+
 // `/changelog` due to legacy reasons.
-#[allow(unmounted_route)]
 #[post("/changelog", data = "<body>")]
 pub fn post_github(
     github: GitHubData,
     body: Data,
     config: State<MoMMIConfig>,
 ) -> Result<String, Failure> {
-    println!("WOOP");
     let data = github.verify_signature(body, &config)?;
     let event = github.get_event();
     match event {
@@ -167,7 +174,8 @@ mod tests {
             .extra("repo-path", "thisshouldneverexistseriously")
             .unwrap();
 
-        let mut rocket = rocket::custom(config, false).mount("/", routes![super::post_github]);
+        let mut rocket = rocket::custom(config, false).mount("/", routes![super::post_github, super::post_github_alt]);
+
         let config = MoMMIConfig::new(rocket.config());
         rocket = rocket.manage(config);
 
@@ -181,48 +189,43 @@ mod tests {
         hmac.input(json.as_bytes());
         let result = hmac.result().code().to_hex();
 
-        let mut request = client.post("/changelog").body(&json);
-        request.add_header(ContentType::JSON);
-        request.add_header(Header::new("X-GitHub-Event", "ping"));
-        request.add_header(Header::new("X-GitHub-Delivery", "0000"));
-        request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
-        let mut response = request.dispatch();
-        assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.body().and_then(|f| f.into_string()), Some("pong".into()));
+        for request_url in ["/changelog", "/dev/git_hooks/webmommi"].iter().map(|x| *x) {
+            let mut request = client.post(request_url).body(&json);
+            request.add_header(ContentType::JSON);
+            request.add_header(Header::new("X-GitHub-Event", "ping"));
+            request.add_header(Header::new("X-GitHub-Delivery", "0000"));
+            request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
+            let mut response = request.dispatch();
+            assert_eq!(response.status(), Status::Ok);
+            assert_eq!(response.body().and_then(|f| f.into_string()), Some("pong".into()));
 
-        let mut request = client.post("/changelogs").body(&json);
-        request.add_header(ContentType::JSON);
-        request.add_header(Header::new("X-GitHub-Event", "ping"));
-        request.add_header(Header::new("X-GitHub-Delivery", "0000"));
-        request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
-        assert_eq!(request.dispatch().status(), Status::NotFound);
+            let mut request = client.post(request_url).body(&json);
+            request.add_header(ContentType::JSON);
+            request.add_header(Header::new("X-GitHub-Event", "ping"));
+            request.add_header(Header::new("X-GitHub-Delivery", "0000"));
+            request.add_header(Header::new("X-Hub-Signature", format!("sha2={}", result)));
+            assert_eq!(request.dispatch().status(), Status::NotImplemented);
 
-        let mut request = client.post("/changelog").body(&json);
-        request.add_header(ContentType::JSON);
-        request.add_header(Header::new("X-GitHub-Event", "ping"));
-        request.add_header(Header::new("X-GitHub-Delivery", "0000"));
-        request.add_header(Header::new("X-Hub-Signature", format!("sha2={}", result)));
-        assert_eq!(request.dispatch().status(), Status::NotImplemented);
+            let mut request = client.post(request_url).body(&json);
+            request.add_header(ContentType::JSON);
+            request.add_header(Header::new("X-GitHub-Event", "ping"));
+            request.add_header(Header::new("X-GitHub-Delivery", "0000"));
+            request.add_header(Header::new(
+                "X-Hub-Signature",
+                "sha1=0000000000000000000000000000000000000000",
+            ));
+            assert_eq!(request.dispatch().status(), Status::Forbidden);
 
-        let mut request = client.post("/changelog").body(&json);
-        request.add_header(ContentType::JSON);
-        request.add_header(Header::new("X-GitHub-Event", "ping"));
-        request.add_header(Header::new("X-GitHub-Delivery", "0000"));
-        request.add_header(Header::new(
-            "X-Hub-Signature",
-            "sha1=0000000000000000000000000000000000000000",
-        ));
-        assert_eq!(request.dispatch().status(), Status::Forbidden);
+            let mut request = client.post(request_url).body(&json);
+            request.add_header(ContentType::JSON);
+            request.add_header(Header::new("X-GitHub-Event", "ping"));
+            request.add_header(Header::new("X-GitHub-Delivery", "0000"));
+            request.add_header(Header::new("X-Hub-Signature", "sha1=00000"));
+            assert_eq!(request.dispatch().status(), Status::BadRequest);
 
-        let mut request = client.post("/changelog").body(&json);
-        request.add_header(ContentType::JSON);
-        request.add_header(Header::new("X-GitHub-Event", "ping"));
-        request.add_header(Header::new("X-GitHub-Delivery", "0000"));
-        request.add_header(Header::new("X-Hub-Signature", "sha1=00000"));
-        assert_eq!(request.dispatch().status(), Status::BadRequest);
-
-        let mut request = client.post("/changelog").body(&json);
-        request.add_header(ContentType::JSON);
-        assert_eq!(request.dispatch().status(), Status::BadRequest);
+            let mut request = client.post(request_url).body(&json);
+            request.add_header(ContentType::JSON);
+            assert_eq!(request.dispatch().status(), Status::BadRequest);
+        }
     }
 }

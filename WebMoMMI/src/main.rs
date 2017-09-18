@@ -34,6 +34,7 @@ fn main() {
             mommi::get_nudgeold,
             mommi::get_nudge,
             github::post_github,
+            github::post_github_alt,
         ],
     );
     let config = MoMMIConfig::new(rocket.config());
