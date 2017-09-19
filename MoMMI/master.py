@@ -43,6 +43,7 @@ class MoMMI(object):
         # We do all init as soon as discord.py is ready,
         # so we need to prevent double init.
         self.initialized = False
+        self.shutting_down = False
         self.client = discord.Client()
         self.commloop: Optional[commloop] = None
         self.storagedir: Optional[Path] = None
@@ -215,7 +216,7 @@ class MoMMI(object):
 
     async def on_message(self, message: discord.Message) -> None:
         from MoMMI.commands import MCommand
-        if not self.initialized:
+        if not self.initialized or self.shutting_down:
             return
 
         # Ignore IRC messages.
@@ -282,6 +283,7 @@ class MoMMI(object):
 
     async def shutdown(self) -> None:
         LOGGER.info("$REDShutting down!")
+        self.shutting_down = True
         if self.commloop:
             LOGGER.debug("Closing commloop.")
             await self.commloop.stop()
