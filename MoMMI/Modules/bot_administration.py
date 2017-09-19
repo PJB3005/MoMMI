@@ -1,5 +1,6 @@
 import asyncio
 from typing import Match
+import aiohttp
 from discord import Message
 from MoMMI.commands import command
 from MoMMI.master import master
@@ -27,3 +28,21 @@ async def shutdown_command(channel: MChannel, match: Match, message: Message):
     await channel.send("Shutting down!")
     # Ensure future instead of awaiting to prevent code calling us exploding.
     asyncio.ensure_future(channel.server.master.shutdown())
+
+@command("name", r"name\s+(.+)", roles=[MRoleType.OWNER])
+async def name_command(channel: MChannel, match: Match, message: Message):
+    await master.client.edit_profile(username=match.group(1))
+
+@command("nick", r"nick\s+(.+)", roles=[MRoleType.OWNER])
+async def nick_command(channel: MChannel, match: Match, message: Message):
+    member = message.server.get_member(master.client.user.id)
+    await master.client.change_nickname(member, match.group(1))
+
+@command("avatar", r"avatar", roles=[MRoleType.OWNER])
+async def avatar_command(channel: MChannel, match: Match, message: Message):
+    attachment = message.attachments[0]["url"]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(attachment) as request:
+            data = await request.read()
+
+    await master.client.edit_profile(avatar=data)
