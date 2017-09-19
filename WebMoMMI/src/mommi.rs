@@ -8,6 +8,8 @@ use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use byteorder::{NetworkEndian, WriteBytesExt, ReadBytesExt};
 use rocket::State;
+use rocket::http::Status;
+use rocket::response::Failure;
 use config::MoMMIConfig;
 
 /// Sends a message to the MoMMI commloop.
@@ -112,7 +114,6 @@ impl From<NudgeOld> for Nudge {
 }
 
 // GET because >BYOND
-#[allow(unmounted_route)]
 #[get("/mommi?<nudge>")]
 pub fn get_nudgeold(
     nudge: NudgeOld,
@@ -121,17 +122,19 @@ pub fn get_nudgeold(
     get_nudge(nudge.into(), config)
 }
 
-#[allow(unmounted_route)]
 #[get("/mommi?<nudge>", rank = 2)]
 pub fn get_nudge(nudge: Nudge, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+    // This route does not get mounted when there's no commloop.
+    let (addr, pass) = config.get_commloop().expect("Nudge route requested without commloop config.");
+
     let message = json!({
         "password": nudge.pass.clone(),
         "message": nudge.content.clone()
     });
 
     commloop(
-        config.get_commloop_address(),
-        config.get_commloop_password(),
+        addr,
+        pass,
         "gamenudge",
         &nudge.meta,
         &message,

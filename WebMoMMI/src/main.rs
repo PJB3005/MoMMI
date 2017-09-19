@@ -27,16 +27,29 @@ fn twohundred() -> &'static str {
 }
 
 fn main() {
-    let rocket = rocket::ignite().mount(
+    let mut rocket = rocket::ignite().mount(
         "/",
         routes![
             twohundred,
-            mommi::get_nudgeold,
-            mommi::get_nudge,
             github::post_github,
             github::post_github_alt,
         ],
     );
-    let config = MoMMIConfig::new(rocket.config());
+    let config = match MoMMIConfig::new(rocket.config()) {
+        Ok(x) => x,
+        Err(x) => {
+            println!("Failed to launch, broken config: {}", x);
+            return
+        }
+    };
+    if config.has_commloop() {
+        rocket = rocket.mount(
+            "/",
+            routes![
+                mommi::get_nudgeold,
+                mommi::get_nudge,
+            ]
+        )
+    }
     rocket.manage(config).launch();
 }

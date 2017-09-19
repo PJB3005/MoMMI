@@ -126,6 +126,11 @@ pub fn post_github(
         _ => {}
     };
 
+    if !config.has_commloop() {
+        return Ok("Worked!".into())
+    }
+
+    let (addr, pass) = config.get_commloop().unwrap();
 
     // Code for relaying each event to MoMMI.
     let meta = data.pointer("/repository/full_name")
@@ -138,8 +143,8 @@ pub fn post_github(
     });
 
     commloop(
-        config.get_commloop_address(),
-        config.get_commloop_password(),
+        addr,
+        pass,
         "github_event",
         meta,
         &json,
@@ -169,14 +174,11 @@ mod tests {
         let config = Config::build(Environment::Development)
             .workers(1)
             .extra("github-key", GITHUB_KEY)
-            .extra("commloop-address", "127.0.0.1:1679")
-            .extra("commloop-password", "foobar")
-            .extra("repo-path", "thisshouldneverexistseriously")
             .unwrap();
 
         let mut rocket = rocket::custom(config, false).mount("/", routes![super::post_github, super::post_github_alt]);
 
-        let config = MoMMIConfig::new(rocket.config());
+        let config = MoMMIConfig::new(rocket.config()).unwrap();
         rocket = rocket.manage(config);
 
         let json = serde_json::to_string(&json!({

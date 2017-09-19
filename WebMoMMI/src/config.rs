@@ -1,59 +1,50 @@
-use rocket::Config;
-use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::{PathBuf, Path};
+use rocket::{Config};
+use rocket::config::ConfigError;
 
 pub struct MoMMIConfig {
-    commloop_address: SocketAddr,
-    commloop_password: String,
-    repo_path: PathBuf,
-    /// Seconds.
-    changelog_delay: f32,
+    /// Address, Password
+    commloop: Option<(String, String)>,
     github_key: String,
 }
 
 impl MoMMIConfig {
-    pub fn new(config: &Config) -> MoMMIConfig {
-        MoMMIConfig {
-            commloop_address: config
-                .get_str("commloop-address")
-                .unwrap_or("127.0.0.1:1679")
-                .to_socket_addrs()
-                .unwrap()
-                .next()
-                .unwrap(),
-            commloop_password: config
-                .get_str("commloop-password")
-                .expect("Must set commloop password for MoMMI.")
-                .to_owned(),
-            repo_path: config
-                .get_str("repo-path")
-                .expect("Must set repo path.")
-                .into(),
-            changelog_delay: config
-                .get_float("changelog-delay")
-                .map(|f| f as f32)
-                .unwrap_or(30.0),
+    pub fn new(config: &Config) -> Result<MoMMIConfig, String> {
+        let commloop_address = match config.get_str("commloop-address") {
+            Ok(x) => Some(x.to_owned()),
+            Err(ConfigError::UnknownKey(_)) | Err(ConfigError::NotFound) => None,
+            Err(x) => return Err(format!("Unable to fetch commloop address config: {}", x)),
+        };
+        let commloop_password = match config.get_str("commloop-password") {
+            Ok(x) => Some(x.to_owned()),
+            Err(ConfigError::UnknownKey(_)) | Err(ConfigError::NotFound) => None,
+            Err(x) => return Err(format!("Unable to fetch commloop password config: {}", x)),
+        };
+
+        let commloop = match (commloop_address, commloop_password) {
+            (Some(addr), Some(pass)) => Some((addr, pass)),
+            (None, None) => None,
+            _ => return Err("commloop-address and commloop-password must either both or neither be set.".to_owned())
+        };
+
+        Ok(MoMMIConfig {
+            commloop: commloop,
             github_key: config
                 .get_str("github-key")
                 .expect("Must set github key.")
                 .to_owned(),
+        })
+    }
+
+    // Order of the tuple is address, password.
+    pub fn get_commloop<'a>(&'a self) -> Option<(&'a str, &'a str)> {
+        match self.commloop {
+            None => None,
+            Some((ref addr, ref pass)) => Some((addr.as_str(), pass.as_str()))
         }
     }
 
-    pub fn get_commloop_address(&self) -> &SocketAddr {
-        &self.commloop_address
-    }
-
-    pub fn get_commloop_password(&self) -> &str {
-        &self.commloop_password
-    }
-
-    pub fn get_repo_path(&self) -> &Path {
-        &self.repo_path
-    }
-
-    pub fn get_changelog_delay(&self) -> f32 {
-        self.changelog_delay
+    pub fn has_commloop(&self) -> bool {
+        self.commloop.is_some()
     }
 
     pub fn get_github_key(&self) -> &str {
