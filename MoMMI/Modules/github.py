@@ -15,7 +15,7 @@ from MoMMI.Modules.irc import irc_transform
 
 logger = logging.getLogger(__name__)
 
-REG_PATH = re.compile(r"\[(.+?)(?::(\d+)(?:-(\d+))?)?\]", re.I)
+REG_PATH = re.compile(r"\[(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[([0-9a-f]{40})\]", re.I)
 
