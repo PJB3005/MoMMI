@@ -101,7 +101,7 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
 
     for match in REG_ISSUE.finditer(message.content):
         issueid = int(match.group(1))
-        if issueid < 10:
+        if issueid < 30:
             continue
 
         url = github_url(f"/repos/{repo}/issues/{issueid}")
@@ -154,6 +154,10 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
         paths = []
         for match in REG_PATH.finditer(message.content):
             path = match.group(1).lower()
+            # Ignore tiny paths, too common accidentally in code blocks.
+            if len(path) <= 3:
+                continue
+
             linestart = None
             lineend = None
             if match.group(2):
