@@ -112,7 +112,10 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
         embed = Embed()
         emoji = ""
         if content["state"] == "open":
-            emoji = "<:PRopened:245910125041287168>"
+            if content.get("pull_request") is not None:
+               emoji = "<:PRopened:245910125041287168>"
+            else:
+               emoji = "<:ISSopened:246037149873340416>"
             embed.colour = COLOR_GITHUB_GREEN
 
         elif content.get("pull_request") is not None:
