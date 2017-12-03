@@ -4,3 +4,4 @@ aiofiles
 aiohttp
 bottom
 toml
+colorama

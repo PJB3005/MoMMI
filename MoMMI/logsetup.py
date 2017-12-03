@@ -7,29 +7,7 @@ import copy
 from pathlib import Path
 from typing import cast
 
-RESET = "\033[0m"
-BOLD = "\033[1m"
-BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = (f"\033[1;{x}m" for x in range(30, 38))
-LEVELNAME_COLORS = {
-    "WARNING": YELLOW,
-    "INFO": WHITE,
-    "DEBUG": BLUE,
-    "CRITICAL": RED,
-    "ERROR": RED
-}
 COLOR_ESCAPE = re.compile(r"\$(BLACK|RED|GREEN|YELLOW|BLUE|MAGENTA|CYAN|WHITE|BOLD|RESET)")
-
-class ColorFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        record = copy.copy(record)
-        if record.levelname in LEVELNAME_COLORS:
-            record.levelname = LEVELNAME_COLORS[record.levelname] + record.levelname + RESET
-
-        record.name = f"{GREEN}{record.name}{RESET}"
-        if isinstance(record.msg, str):
-            record.msg = COLOR_ESCAPE.sub(lambda x: cast(str, globals()[x.group(1)]), record.msg) + RESET
-
-        return super().format(record)
 
 class NotColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -37,6 +15,44 @@ class NotColorFormatter(logging.Formatter):
         if isinstance(record.msg, str):
             record.msg = COLOR_ESCAPE.sub("", record.msg)
         return super().format(record)
+
+try:
+    import colorama
+
+    RESET = colorama.Style.RESET_ALL
+    BOLD = colorama.Style.BRIGHT
+    BLACK = colorama.Fore.BLACK
+    RED = colorama.Fore.RED
+    GREEN = colorama.Fore.GREEN
+    YELLOW = colorama.Fore.YELLOW
+    BLUE = colorama.Fore.BLUE
+    MAGENTA = colorama.Fore.MAGENTA
+    CYAN = colorama.Fore.CYAN
+    WHITE = colorama.Fore.WHITE
+    LEVELNAME_COLORS = {
+        "WARNING": YELLOW,
+        "INFO": WHITE,
+        "DEBUG": BLUE,
+        "CRITICAL": RED,
+        "ERROR": RED
+    }
+
+    colorama.init()
+
+    class ColorFormatter(logging.Formatter):
+        def format(self, record: logging.LogRecord) -> str:
+            record = copy.copy(record)
+            if record.levelname in LEVELNAME_COLORS:
+                record.levelname = LEVELNAME_COLORS[record.levelname] + record.levelname + RESET
+
+            record.name = f"{GREEN}{record.name}{RESET}"
+            if isinstance(record.msg, str):
+                record.msg = COLOR_ESCAPE.sub(lambda x: cast(str, globals()[x.group(1)]), record.msg) + RESET
+
+            return super().format(record)
+
+except ImportError:
+    ColorFormatter = NotColorFormatter
 
 def setup_logs() -> None:
     outdir = Path("logs")
