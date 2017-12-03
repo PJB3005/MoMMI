@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import signal
+import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING
 import discord
@@ -55,9 +56,16 @@ class MoMMI(object):
 
     def start(self, configdir: Path, storagedir: Path) -> None:
         self.storagedir = storagedir
-        loop = asyncio.get_event_loop()
+        if sys.platform == "win32":
+            print("yes!")
+            loop = asyncio.ProactorEventLoop()
+            asyncio.set_event_loop(loop)
+            LOGGER.debug(type(loop))
+        else:
+            loop = asyncio.get_event_loop()
         try:
             loop.run_until_complete(self.config.load_from(configdir))
+
         except:
             LOGGER.exception("$REDError in the config files")
             LOGGER.critical("$REDCannot start MoMMI due to broken config files.")
@@ -68,7 +76,7 @@ class MoMMI(object):
             exit(1)
 
         LOGGER.info("$GREENMoMMI starting!")
-        self.client.run(self.config.get_main("bot.token"))
+        self.client.run(self.config.get_main("bot.token"), loop=loop)
 
     async def on_ready(self) -> None:
         from MoMMI.commloop import commloop
@@ -77,7 +85,8 @@ class MoMMI(object):
             LOGGER.debug("on_ready called again, ignoring.")
             return
 
-        self.register_signals()
+        if sys.platform != "win32":
+            self.register_signals()
 
         self.commloop = commloop(self)
         await self.commloop.start(self.client.loop)
