@@ -57,10 +57,11 @@ class MoMMI(object):
     def start(self, configdir: Path, storagedir: Path) -> None:
         self.storagedir = storagedir
         if sys.platform == "win32":
-            print("yes!")
+            #print("yes!")
             loop = asyncio.ProactorEventLoop()
             asyncio.set_event_loop(loop)
-            LOGGER.debug(type(loop))
+            client = discord.Client(loop=loop)
+            #LOGGER.debug(type(loop))
         else:
             loop = asyncio.get_event_loop()
         try:

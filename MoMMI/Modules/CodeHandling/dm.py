@@ -84,8 +84,8 @@ class PythonCodeHandler(MCodeHandler):
         try:
             dmepath = await self.make_project(code)
 
-            loop = asyncio.get_event_loop()
-            logger.debug(type(loop))
+            # loop = asyncio.get_event_loop()
+            # logger.debug(type(loop))
 
             proc = await asyncio.create_subprocess_exec(self.dm_executable_path(channel), dmepath, stdout=asyncio.subprocess.PIPE)
             fail_reason = None
@@ -109,8 +109,10 @@ class PythonCodeHandler(MCodeHandler):
                 embed.add_field(name="Compiler Output", value=f"```{compile_log}```", inline=False)
                 await channel.send(embed=embed)
                 return
+           
+            await channel.server.master.client.add_reaction(message, "\U0001F528")
 
-            proc = await asyncio.create_subprocess_exec(self.dd_executable_path(channel), dmepath + "b", "-invisible", "ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            proc = await asyncio.create_subprocess_exec(self.dd_executable_path(channel), dmepath + "b", "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
             except asyncio.TimeoutError:
@@ -186,4 +188,4 @@ class PythonCodeHandler(MCodeHandler):
                 if os.access(path, os.F_OK):
                     return path
 
-        return None
+        return path
