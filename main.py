@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 import argparse
+import asyncio
 import logging
 import sys
 from pathlib import Path
 from MoMMI.logsetup import setup_logs
+
+# Do this BEFORE we import master, because it does a lot of event loop stuff.
+if sys.platform == "win32":
+    loop = asyncio.ProactorEventLoop()
+    asyncio.set_event_loop(loop)
+
 from MoMMI.master import master
 
 def main() -> None:

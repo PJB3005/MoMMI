@@ -56,14 +56,8 @@ class MoMMI(object):
 
     def start(self, configdir: Path, storagedir: Path) -> None:
         self.storagedir = storagedir
-        if sys.platform == "win32":
-            #print("yes!")
-            loop = asyncio.ProactorEventLoop()
-            asyncio.set_event_loop(loop)
-            client = discord.Client(loop=loop)
-            #LOGGER.debug(type(loop))
-        else:
-            loop = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
+
         try:
             loop.run_until_complete(self.config.load_from(configdir))
 
@@ -77,7 +71,7 @@ class MoMMI(object):
             exit(1)
 
         LOGGER.info("$GREENMoMMI starting!")
-        self.client.run(self.config.get_main("bot.token"), loop=loop)
+        self.client.run(self.config.get_main("bot.token"))
 
     async def on_ready(self) -> None:
         from MoMMI.commloop import commloop
