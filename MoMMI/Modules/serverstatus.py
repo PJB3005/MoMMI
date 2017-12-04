@@ -20,8 +20,19 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
 
     servername = match.group(1) or config.get("default")
 
+    if servername == "default":
+        servername = config.get("default")
+
     if not servername:
         await channel.send("No target server provided.")
+        return
+    
+    if servername == "list":
+        await channel.send(f"Available server keys are: {', '.join(config.keys())}")
+        return
+
+    if servername not in config:
+        await channel.send(f"Unknown key '{servername}`")
         return
 
     server_config = config[servername]
