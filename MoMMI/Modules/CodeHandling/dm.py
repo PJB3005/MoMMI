@@ -82,6 +82,7 @@ class PythonCodeHandler(MCodeHandler):
             # code then finishes, but the Window and as such process doesn't close
             # and on top of that it NEVER outputs to stdout.
             # Probably some code hacks can be done around this, I hope?
+            # Fresh from #coderbus: -close and -log file should solve it!
         #    await channel.send("Unable to execute DM code, since this MoMMI is hosted on Windows.")
         #    return
 
