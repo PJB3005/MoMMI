@@ -14,7 +14,7 @@ from MoMMI.channel import MChannel
 logger = logging.getLogger(__name__)
 
 @codehandler
-class PythonCodeHandler(MCodeHandler):
+class DMCodeHandler(MCodeHandler):
     name = "DM"
 
     def __init__(self):
@@ -77,14 +77,14 @@ class PythonCodeHandler(MCodeHandler):
         return dmepath
 
     async def execute(self, code: str, channel: MChannel, message: Message):
-        ##if sys.platform == "win32" or sys.platform == "cygwin":
+        if sys.platform == "win32" or sys.platform == "cygwin":
             # Attempting to run DD command line on Windows just makes it open a window, run the code, hide the window
             # code then finishes, but the Window and as such process doesn't close
             # and on top of that it NEVER outputs to stdout.
             # Probably some code hacks can be done around this, I hope?
             # Fresh from #coderbus: -close and -log file should solve it!
-        #    await channel.send("Unable to execute DM code, since this MoMMI is hosted on Windows.")
-        #    return
+            await channel.send("Unable to execute DM code, since this MoMMI is hosted on Windows.")
+            return
 
         path = await self.make_project_folder()
 
@@ -93,9 +93,16 @@ class PythonCodeHandler(MCodeHandler):
         await channel.server.master.client.add_reaction(message, "⌛")
 
         try:
+            firejail = []
+
+            # Use firejail if at all possible.
+            if channel.module_config("dm.firejail", "") != "":
+                firejail_profile = channel.module_config("dm.firejail")
+                firejail = ["firejail", "--quiet", f"--profile={firejail_profile}", f"--private={self.projectpath}"]
+
             dmepath = await self.make_project(code)
 
-            proc = await asyncio.create_subprocess_exec(self.dm_executable_path(channel), dmepath, stdout=asyncio.subprocess.PIPE)
+            proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), dmepath, stdout=asyncio.subprocess.PIPE)
             fail_reason = None
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
@@ -121,7 +128,7 @@ class PythonCodeHandler(MCodeHandler):
             await channel.server.master.client.remove_reaction(message, "⌛", me)
             await channel.server.master.client.add_reaction(message, "🔨")
 
-            proc = await asyncio.create_subprocess_exec(self.dd_executable_path(channel), dmepath + "b", "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            proc = await asyncio.create_subprocess_exec(*firejail, self.dd_executable_path(channel), dmepath + "b", "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
             except asyncio.TimeoutError:
