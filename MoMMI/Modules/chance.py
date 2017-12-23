@@ -9,4 +9,4 @@ async def pick_command(channel, match, message):
         return
 
     choice = random.choice(choices)
-    await channel.send(choice)
+    await channel.send(f"**{choice}**")
