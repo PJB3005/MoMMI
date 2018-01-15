@@ -28,9 +28,14 @@ DISCORD_CODEBLOCK_RE = re.compile(r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
 GITHUB_SESSION = "github_session"
 
+GITHUB_ISSUE_MAX_MESSAGES = 5
+
 async def load(loop: asyncio.AbstractEventLoop):
     if not master.has_cache(GITHUB_SESSION):
-        headers = {"Authorization": f"token {master.config.get_module('github.token')}"}
+        headers = {
+            "Authorization": f"token {master.config.get_module('github.token')}",
+            "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)"
+        }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
 
@@ -99,6 +104,8 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
     branchname = cfg["branch"]
     session = master.get_cache(GITHUB_SESSION)
 
+    messages = 0
+
     for match in REG_ISSUE.finditer(message.content):
         issueid = int(match.group(1))
         if issueid < 30:
@@ -143,6 +150,11 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
         embed.description += "\n\u200B"
 
         await channel.send(embed=embed)
+
+        messages += 1
+        print(f"uh??: {messages}")
+        if messages >= GITHUB_ISSUE_MAX_MESSAGES:
+            return
 
     if REG_PATH.search(message.content):
         url = github_url(f"/repos/{repo}/branches/{branchname}")
@@ -201,6 +213,11 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
 
                 await channel.send(embed=embed)
 
+                messages += 1
+                print(f"uh?: {messages}")
+                if messages >= GITHUB_ISSUE_MAX_MESSAGES:
+                    return
+
                 paths.remove((path, linestart, lineend))
 
     for match in REG_COMMIT.finditer(message.content):
@@ -226,6 +243,10 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
 
         await channel.send(embed=embed)
 
+        messages += 1
+        print(f"uh: {messages}")
+        if messages >= GITHUB_ISSUE_MAX_MESSAGES:
+            return
 
 @irc_transform("convert_code_blocks")
 async def convert_code_blocks(message: str, author: User, irc_client, discord_server):
