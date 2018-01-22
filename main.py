@@ -16,7 +16,7 @@ else:
         import uvloop
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-    except:
+    except ImportError:
         pass
 
 from MoMMI.master import master
