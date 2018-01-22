@@ -53,12 +53,12 @@ class commloop(object):
         await self.server.wait_closed()
 
     def accept_client(self, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
-        logger.debug("Accepting new client!")
+        # logger.debug("Accepting new client!")
         task: asyncio.Task = asyncio.ensure_future(self.handle_client(client_reader, client_writer), loop=self.loop)
         self.clients[task] = (client_reader, client_writer)
 
         def client_done(task: asyncio.Future) -> None:
-            logger.debug("Dropping client connection.")
+            # logger.debug("Dropping client connection.")
             del self.clients[task]
 
         task.add_done_callback(client_done)
