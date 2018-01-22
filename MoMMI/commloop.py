@@ -4,9 +4,10 @@ import json
 import logging
 import struct
 from hashlib import sha512
-from typing import Dict, Tuple, Any, Callable, Awaitable, Optional, List
+from typing import Dict, Tuple, Any, Callable, Awaitable, Optional, List, Union
+from MoMMI.channel import MChannel
 from MoMMI.handler import MHandler
-from MoMMI.server import MChannel
+from MoMMI.server import MServer
 from MoMMI.master import MoMMI
 from MoMMI.types import SnowflakeID
 
@@ -32,6 +33,7 @@ class commloop(object):
         self.address: str = master.config.get_main("commloop.address", "localhost")
         self.port: int = master.config.get_main("commloop.port", 1679)
         self.authkey: str = master.config.get_main("commloop.password")
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
 
     async def start(self, loop: asyncio.AbstractEventLoop) -> None:
         self.server = await asyncio.start_server(
@@ -41,6 +43,7 @@ class commloop(object):
             loop=loop
         )
         logger.debug("Started the commloop server.")
+        self.loop = loop
 
     async def stop(self) -> None:
         if self.server is None:
@@ -51,7 +54,7 @@ class commloop(object):
 
     def accept_client(self, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
         logger.debug("Accepting new client!")
-        task: asyncio.Task = asyncio.Task(self.handle_client(client_reader, client_writer))
+        task: asyncio.Task = asyncio.ensure_future(self.handle_client(client_reader, client_writer), loop=self.loop)
         self.clients[task] = (client_reader, client_writer)
 
         def client_done(task: asyncio.Future) -> None:
@@ -120,18 +123,31 @@ class commloop(object):
             logger.error(f"Found routing information for nonexistant handler \"{message['type']}\".")
             return
 
-        channel_ids: List[SnowflakeID] = list(map(SnowflakeID, self.routing[message["type"]].get(message["meta"], [])))
-        if not channel_ids:
-            logger.debug("Got message without ability to find routing info. Ignoring.")
+        channels = self.routing[message["type"]].get(message["meta"])
+        if not channels:
+            logger.warning(f"Got message with unconfigured meta '{message['meta']}'")
             return
 
-        channels = [x for x in self.master.iter_channels() if x.id in channel_ids]
+        for channelpair in channels:
+            servername = verify_tabled_id(channelpair[0])
+            channelname = verify_tabled_id(channelpair[1])
 
-        for channel in channels:
+            server: MServer = self.master.get_server(servername)
+            channel = server.get_channel(channelname)
             try:
                 await handler.execute(channel, message["cont"], message["meta"])
             except:
                 logger.exception("Caught exception inside commloop event handler.")
+
+
+def verify_tabled_id(idname: Any) -> Union[str, SnowflakeID]:
+    if isinstance(idname, int):
+        return SnowflakeID(idname)
+
+    elif isinstance(idname, str):
+        return idname
+
+    return SnowflakeID(0)
 
 
 CommEventType = Callable[[MChannel, Any, str], Awaitable[None]]
