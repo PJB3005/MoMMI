@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.6
 import argparse
 import asyncio
 import logging
@@ -10,6 +10,14 @@ from MoMMI.logsetup import setup_logs
 if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
     asyncio.set_event_loop(loop)
+
+else:
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+    except:
+        pass
 
 from MoMMI.master import master
 
