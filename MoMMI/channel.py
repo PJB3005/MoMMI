@@ -18,9 +18,10 @@ class MChannel(object):
     if TYPE_CHECKING:
         from MoMMI.server import MServer
 
-    def __init__(self, server: "MServer", channel: Channel) -> None:
+    def __init__(self, server: "MServer", channel: Channel, name: Optional[str]) -> None:
         from MoMMI.server import MServer
         self.id: SnowflakeID = SnowflakeID(channel.id)
+        self.internal_name: Optional[str] = name
         self.server: MServer = server
 
     @property

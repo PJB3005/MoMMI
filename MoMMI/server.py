@@ -2,11 +2,11 @@
 import asyncio
 import logging
 import pickle
-from typing import Dict, Any, TypeVar, Optional
+from typing import Dict, Any, TypeVar, Optional, Union
 from pathlib import Path
 import aiofiles
-from discord import Server, Channel, Member
-from MoMMI.types import SnowflakeID
+from discord import Server, Channel, Member, Role
+from MoMMI.types import SnowflakeID, MIdentifier
 from MoMMI.master import MoMMI
 from MoMMI.module import MModule
 from MoMMI.role import MRoleType
@@ -40,6 +40,7 @@ class MServer(object):
         self.cache: Dict[str, Any] = {}
         self.roles: Dict[MRoleType, SnowflakeID] = {}
         self.channels: Dict[SnowflakeID, MChannel] = {}
+        self.channels_name: Dict[str, MChannel] = {}
         self.master: MoMMI = master
 
         # Name in the config file, not the actual guild name.
@@ -50,6 +51,27 @@ class MServer(object):
         for channel in self.get_server().channels:
             self.add_channel(channel)
 
+    @property
+    def visible_name(self) -> str:
+        """
+        The name that is displayed to users in the server list and such.
+        """
+        return self.get_server().name
+
+    @property
+    def discordpy_server(self) -> Server:
+        """
+        The Discord.py server instance used internally.
+        """
+        return self.get_server()
+
+    def get_discordpy_role(self, identifier: SnowflakeID) -> Role:
+        for role in self.discordpy_server.roles:
+            if int(role.id) == identifier:
+                return role
+
+        raise KeyError(identifier)
+
     # Gets passed a section of servers.toml and loads it.
     def load_server_config(self, config: Dict[str, Any]) -> None:
         self.config = config
@@ -59,6 +81,7 @@ class MServer(object):
             self.roles[MRoleType[rolename]] = snowflake
 
         self.roles = self.config.get("roles", {})
+        self.init_channel_names()
 
     async def load_data_storages(self, source: Path) -> None:
         self.storagedir = source
@@ -71,19 +94,43 @@ class MServer(object):
 
         self.storage[module] = data
 
-    def get_channel(self, snowflake: SnowflakeID) -> MChannel:
+    def get_channel(self, snowflake: MIdentifier) -> MChannel:
         """
-        Get MChannel by Discord snowflake ID.
+        Get MChannel by Discord snowflake ID OR tabled ID.
         """
-        return self.channels[snowflake]
+        if isinstance(snowflake, SnowflakeID):
+            return self.channels[snowflake]
+
+        elif isinstance(snowflake, str):
+            return self.channels_name[snowflake]
+
+        raise TypeError()
 
     def get_server(self) -> Server:
         return self.master.client.get_server(str(self.id))
 
     def add_channel(self, channel: Channel) -> None:
-        self.channels[SnowflakeID(channel.id)] = MChannel(self, channel)
+        name = None
+        for k, v in self.config.get("channels", {}).items():
+            if int(v) == channel.id:
+                name = k
+                break
+
+        channel = MChannel(self, channel, name)
+        self.channels[SnowflakeID(channel.id)] = channel
+        if name:
+            self.channels_name[name] = channel
+
+    def init_channel_names(self) -> None:
+        for k, v in self.config.get("channels", {}).items():
+            if SnowflakeID(v) in self.channels:
+                self.channels_name[k] = self.channels[SnowflakeID(v)]
 
     def remove_channel(self, channel: Channel) -> None:
+        channel = self.get_channel(SnowflakeID(channel.id))
+        if channel.internal_name:
+            del self.channels_name[channel.internal_name]
+
         del self.channels[SnowflakeID(channel.id)]
 
     def get_storage(self, name: str) -> Any:
