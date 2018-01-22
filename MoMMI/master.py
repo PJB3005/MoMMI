@@ -7,14 +7,14 @@ import re
 import signal
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING, Union
 import discord
 from MoMMI.config import ConfigManager
 from MoMMI.module import MModule
 from MoMMI.types import SnowflakeID
 
-LOGGER = logging.getLogger("master")
-CHAT_LOGGER = logging.getLogger("chat")
+LOGGER: logging.Logger = logging.getLogger("master")
+CHAT_LOGGER: logging.Logger = logging.getLogger("chat")
 
 # TODO: Reorganize this.
 # All of it.
@@ -235,8 +235,14 @@ class MoMMI(object):
         for command in channel.iter_handlers(MCommand):
             await command.try_execute(channel, message)
 
-    def get_server(self, serverid: SnowflakeID) -> "MServer":
-        return self.servers[serverid]
+    def get_server(self, serverid: Union[SnowflakeID, str]) -> "MServer":
+        if isinstance(serverid, str):
+            return self.servers_name[serverid]
+
+        elif isinstance(serverid, SnowflakeID):
+            return self.servers[serverid]
+
+        raise TypeError("Server ID must be str or SnowflakeID")
 
     async def on_server_join(self, server: discord.Server) -> None:
         LOGGER.info(f"Joined new server {server.name}.")
@@ -263,6 +269,11 @@ class MoMMI(object):
             return
 
         new.load_server_config(cfg)
+        if new in self.servers_name:
+            LOGGER.error(f"Duplicate server name '{new.name}, {new.visible_name} <-> {self.servers_name[new.name].visible_name}'")
+        else:
+            self.servers_name[new.name] = new
+
         data_path: Path = self.storagedir.joinpath(new.name)
         if not data_path.exists():
             LOGGER.debug(f"Data directory for server {new.name} does not exist, creating.")
