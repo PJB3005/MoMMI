@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import asyncio
-from typing import re as typing_re, Dict, Any, Tuple, List, Optional
+from typing import re as typing_re, Tuple, List, Optional
 from urllib.parse import quote
 import aiohttp
 from colorhash import ColorHash
@@ -30,11 +30,15 @@ GITHUB_SESSION = "github_session"
 
 GITHUB_ISSUE_MAX_MESSAGES = 5
 
+VALID_ISSUES_ACTIONS = {"labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize", "opened", "closed", "reopened"}
+
 async def load(loop: asyncio.AbstractEventLoop):
     if not master.has_cache(GITHUB_SESSION):
         headers = {
             "Authorization": f"token {master.config.get_module('github.token')}",
-            "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)"
+            "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)",
+            "Accept": "application/vnd.github.v3+json",
+
         }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
@@ -55,7 +59,7 @@ def colour_extension(filename: str) -> Colour:
     return Colour(int(c.hex[1:], 16))
 
 
-@comm_event("github_event")
+@comm_event("github")
 async def github_event(channel: MChannel, message, meta):
     event = message['event']
     logger.debug(f"Handling GitHub event '$YELLOW{event}$RESET' to '$YELLOW{meta}$RESET'")
@@ -66,7 +70,7 @@ async def github_event(channel: MChannel, message, meta):
         logger.debug("No handler for this event, ignoring.")
         return
 
-    await func(channel, message["data"], meta)
+    await func(channel, message["content"], meta)
 
 
 async def on_github_push(channel: MChannel, message, repo):
@@ -76,6 +80,9 @@ async def on_github_push(channel: MChannel, message, repo):
     embed.title = "New commits"
 
     content = ""
+    if not message["commits"]:
+        return
+
     for commit in message["commits"]:
         message = commit["message"]
         if len(message) > 67:
@@ -86,8 +93,71 @@ async def on_github_push(channel: MChannel, message, repo):
 
     await channel.send(embed=embed)
 
-async def on_github_issues(channel, message, repo):
-    logger.debug("yes")
+async def on_github_issues(channel: MChannel, message, repo):
+    if message["action"] not in VALID_ISSUES_ACTIONS:
+        return
+
+    issue = message["issue"]
+    sender = message["sender"]
+    repository = message["repository"]
+    pre = None
+    embed = Embed()
+    if message["action"] == "closed":
+        pre = "<:ISSclosed:246037286322569216>"
+        embed.colour = COLOR_GITHUB_RED
+    else:
+        pre = "<:ISSopened:246037149873340416>"
+        embed.colour = COLOR_GITHUB_GREEN
+
+    embed.title = pre + issue["title"]
+    embed.url = issue["html_url"]
+    embed.set_author(name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
+    embed.set_footer(text="{}#{} by {}".format(repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
+    if len(issue["body"]) > MAX_BODY_LENGTH:
+        embed.description = issue["body"][:MAX_BODY_LENGTH] + "..."
+    else:
+        embed.description = issue["body"]
+
+    embed.description += "\n\u200B"
+
+    await channel.send(embed=embed)
+
+
+async def on_github_pull_request(channel: MChannel, message, repo):
+    if message["action"] not in VALID_ISSUES_ACTIONS:
+        return
+
+    pull_request = message["pull_request"]
+    sender = message["sender"]
+    repository = message["repository"]
+    pre = None
+
+    embed = Embed()
+    if message["action"] == "closed":
+        pre = "<:PRclosed:246037149839917056>"
+        embed.colour = COLOR_GITHUB_RED
+
+    else:
+        pre = "<:PRopened:245910125041287168>"
+        embed.colour = COLOR_GITHUB_GREEN
+
+    if message["action"] == "closed" and pull_request["merged"]:
+        pre = "<:PRmerged:245910124781240321>"
+        embed.colour = COLOR_GITHUB_PURPLE
+
+    embed.title = pre + pull_request["title"]
+    embed.url = pull_request["html_url"]
+    embed.set_author(name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
+    embed.set_footer(text="{}#{} by {}".format(repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
+
+    new_body = MD_COMMENT_RE.sub("", pull_request["body"])
+    if len(new_body) > MAX_BODY_LENGTH:
+        embed.description = new_body[:MAX_BODY_LENGTH] + "..."
+    else:
+        embed.description = new_body
+    embed.description += "\n\u200B"
+
+    await channel.send(embed=embed)
 
 
 # Indent 2: the indent
@@ -120,9 +190,9 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
         emoji = ""
         if content["state"] == "open":
             if content.get("pull_request") is not None:
-               emoji = "<:PRopened:245910125041287168>"
+                emoji = "<:PRopened:245910125041287168>"
             else:
-               emoji = "<:ISSopened:246037149873340416>"
+                emoji = "<:ISSopened:246037149873340416>"
             embed.colour = COLOR_GITHUB_GREEN
 
         elif content.get("pull_request") is not None:
@@ -152,7 +222,6 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
         await channel.send(embed=embed)
 
         messages += 1
-        print(f"uh??: {messages}")
         if messages >= GITHUB_ISSUE_MAX_MESSAGES:
             return
 
@@ -214,7 +283,6 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
                 await channel.send(embed=embed)
 
                 messages += 1
-                print(f"uh?: {messages}")
                 if messages >= GITHUB_ISSUE_MAX_MESSAGES:
                     return
 
@@ -244,7 +312,6 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
         await channel.send(embed=embed)
 
         messages += 1
-        print(f"uh: {messages}")
         if messages >= GITHUB_ISSUE_MAX_MESSAGES:
             return
 

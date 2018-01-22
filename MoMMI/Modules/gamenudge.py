@@ -1,32 +1,37 @@
 import logging
+from typing import Any
+from MoMMI.channel import MChannel
 from MoMMI.commloop import comm_event
+from MoMMI.types import SnowflakeID
+
+import json
+
 
 logger = logging.getLogger(__name__)
 
 @comm_event("gamenudge")
-async def gamenudge(channel, message, meta):
+async def gamenudge(channel: MChannel, message: Any, meta: str):
+    logger.debug(json.dumps(message))
     try:
-        password, content = message["password"], message["message"]
+        password = message["pass"]
+        content = message["content"]
+        ping = message["ping"]
 
-    except:
+    except KeyError:
         return
 
     if password != channel.module_config("nudge.password"):
         return
 
-    if content.find("{{PING}}") != -1:
-        ping_target = channel.server_config(f"modules.gamenudge.ping.{meta}")
-        ping = ""
+    content = content.replace("@", "@\u200B") # Zero-Width space to prevent pings.
 
-        if ping_target is None:
-            logger.error("Attempted to use a ping escape code, but no roles for it are set for this server route.")
-
+    if ping:
+        cfg = channel.server_config("modules.gamenudge.ping", {})
+        if not cfg.get(meta):
+            logger.warning("Got a ping nudge but no set role ID!")
         else:
-            role = channel.get_role(ping_target)
-
-            if role is not None and role.mentionable:
-                ping = role.mention
-
-        content = content.replace("{{PING}}", ping)
+            ident = cfg[meta]
+            role = channel.server.get_discordpy_role(SnowflakeID(ident))
+            content += f" {role.mention}"
 
     await channel.send(content)
