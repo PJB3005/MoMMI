@@ -1,8 +1,17 @@
 # Server specific settings and module overrides.
 
+# Each server is an entry into the servers array.
 [[servers]]
+# Snowflake ID of this server.
 id = 0
+# Internal name used for this server for readability and whatever.
 name = "unknown"
+
+# Servers can have "shortcuts" assigned to them for channels.
+# These will be resolved in say nudge routes.
+[servers.channels]
+channel1 = 123
+channel2 = 456
 
 [servers.roles]
 ADMIN = 0
