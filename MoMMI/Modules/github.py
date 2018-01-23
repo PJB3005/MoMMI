@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import asyncio
-from typing import re as typing_re, Tuple, List, Optional
+from typing import re as typing_re, Tuple, List, Optional, Any
 from urllib.parse import quote
 import aiohttp
 from colorhash import ColorHash
@@ -27,6 +27,7 @@ MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
 DISCORD_CODEBLOCK_RE = re.compile(r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
 GITHUB_SESSION = "github_session"
+GITHUB_CACHE = "github_cache"
 
 GITHUB_ISSUE_MAX_MESSAGES = 5
 
@@ -43,6 +44,9 @@ async def load(loop: asyncio.AbstractEventLoop):
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
 
+
+    if not master.has_cache(GITHUB_CACHE):
+        master.set_cache(GITHUB_CACHE, {})
 
 async def shutdown(loop: asyncio.AbstractEventLoop):
     master.get_cache(GITHUB_SESSION).close()
@@ -182,8 +186,7 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
             continue
 
         url = github_url(f"/repos/{repo}/issues/{issueid}")
-        async with session.get(url) as resp:
-            content = await resp.json()
+        content = await get_github_object(url)
 
         # God forgive me.
         embed = Embed()
@@ -197,14 +200,13 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
 
         elif content.get("pull_request") is not None:
             url = github_url(f"/repos/{repo}/pulls/{issueid}")
-            async with session.get(url) as resp:
-                prcontent = await resp.json()
-                if prcontent["merged"]:
-                    emoji = "<:PRmerged:245910124781240321>"
-                    embed.colour = COLOR_GITHUB_PURPLE
-                else:
-                    emoji = "<:PRclosed:246037149839917056>"
-                    embed.colour = COLOR_GITHUB_RED
+            prcontent = await get_github_object(url)
+            if prcontent["merged"]:
+                emoji = "<:PRmerged:245910124781240321>"
+                embed.colour = COLOR_GITHUB_PURPLE
+            else:
+                emoji = "<:PRclosed:246037149839917056>"
+                embed.colour = COLOR_GITHUB_RED
 
         else:
             emoji = "<:ISSclosed:246037286322569216>"
@@ -227,12 +229,10 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
 
     if REG_PATH.search(message.content):
         url = github_url(f"/repos/{repo}/branches/{branchname}")
-        async with session.get(url) as resp:
-            branch = json.loads(await resp.text())
+        branch = await get_github_object(url)
 
         url = github_url(f"/repos/{repo}/git/trees/{branch['commit']['sha']}")
-        async with session.get(url, params={"recursive": 1}) as resp:
-            tree = json.loads(await resp.text())
+        tree = await get_github_object(url, params={"recursive": 1})
 
         paths: List[Tuple[str, Optional[int], Optional[int]]]
         paths = []
@@ -291,11 +291,10 @@ async def issue(channel: MChannel, match: typing_re.Match, message: Message):
     for match in REG_COMMIT.finditer(message.content):
         sha = match.group(1)
         url = github_url(f"/repos/{repo}/git/commits/{sha}")
-        async with session.get(url) as resp:
-            if resp.status != 200:
-                continue
-
-            commit = await resp.json()
+        try:
+            commit = await get_github_object(url)
+        except:
+            continue
 
         split = commit["message"].split("\n")
         title = split[0]
@@ -375,3 +374,32 @@ async def make_gist(contents: str, name: str, desc: str):
 
         output = await resp.json()
         return output["html_url"]
+
+async def get_github_object(url: str, *, params=None) -> Any:
+    #logger.debug(f"Fetching github object at URL {url}...")
+
+    session = master.get_cache(GITHUB_SESSION)
+    cache = master.get_cache(GITHUB_CACHE)
+
+    response = None
+    paramstr = str(params)
+
+    if (url, paramstr) in cache:
+        contents, date = cache[(url, paramstr)]
+        response = await session.get(url, headers={"If-Modified-Since": date}, params=params)
+        if response.status == 304:
+            #logger.debug("Got 304!")
+            return contents
+
+    else:
+        response = await session.get(url, params=params)
+
+    if response.status != 200:
+        txt = await response.text()
+        raise Exception(f"GitHub API call returned non-200 code: {txt}")
+
+    contents = await response.json()
+    if "Last-Modified" in response.headers:
+        cache[(url, paramstr)] = contents, response.headers["Last-Modified"]
+
+    return contents
