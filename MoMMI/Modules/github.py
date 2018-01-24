@@ -6,7 +6,7 @@ from typing import re as typing_re, Tuple, List, Optional, Any
 from urllib.parse import quote
 import aiohttp
 from colorhash import ColorHash
-from discord import Colour, Embed, Message, User
+from discord import Color, Embed, Message, User
 from MoMMI.commloop import comm_event
 from MoMMI.commands import always_command
 from MoMMI.server import MChannel
@@ -19,9 +19,9 @@ REG_PATH = re.compile(r"\[(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[([0-9a-f]{40})\]", re.I)
 
-COLOR_GITHUB_RED = Colour(0xFF4444)
-COLOR_GITHUB_GREEN = Colour(0x6CC644)
-COLOR_GITHUB_PURPLE = Colour(0x6E5494)
+COLOR_GITHUB_RED = Color(0xFF4444)
+COLOR_GITHUB_GREEN = Color(0x6CC644)
+COLOR_GITHUB_PURPLE = Color(0x6E5494)
 MAX_BODY_LENGTH = 500
 MAX_COMMIT_LENGTH = 67
 MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
@@ -57,10 +57,10 @@ def github_url(sub: str) -> str:
     return f"https://api.github.com{sub}"
 
 
-def colour_extension(filename: str) -> Colour:
+def colour_extension(filename: str) -> Color:
     ext = filename.split(".")[-1]
     c = ColorHash(ext)
-    return Colour(int(c.hex[1:], 16))
+    return Color(int(c.hex[1:], 16))
 
 
 @comm_event("github")
@@ -83,12 +83,17 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
         return
 
     embed = Embed()
+    embed.url = message["compare"]
     embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
     embed.set_footer(text=message["repository"]["full_name"])
     if len(commits) == 1:
         embed.title = "1 New Commit"
     else:
         embed.title = f"{len(commits) }New Commits"
+
+    if message["forced"]:
+        embed.title = f"[FORCE PUSHED] {embed.title}"
+        embed.color = Color(0xFF0000)
 
     content = ""
 
@@ -118,10 +123,10 @@ async def on_github_issues(channel: MChannel, message, meta):
     embed = Embed()
     if message["action"] == "closed":
         pre = "<:ISSclosed:246037286322569216>"
-        embed.colour = COLOR_GITHUB_RED
+        embed.color = COLOR_GITHUB_RED
     else:
         pre = "<:ISSopened:246037149873340416>"
-        embed.colour = COLOR_GITHUB_GREEN
+        embed.color = COLOR_GITHUB_GREEN
 
     embed.title = pre + issue["title"]
     embed.url = issue["html_url"]
@@ -149,15 +154,15 @@ async def on_github_pull_request(channel: MChannel, message, meta):
     embed = Embed()
     if message["action"] == "closed":
         pre = "<:PRclosed:246037149839917056>"
-        embed.colour = COLOR_GITHUB_RED
+        embed.color = COLOR_GITHUB_RED
 
     else:
         pre = "<:PRopened:245910125041287168>"
-        embed.colour = COLOR_GITHUB_GREEN
+        embed.color = COLOR_GITHUB_GREEN
 
     if message["action"] == "closed" and pull_request["merged"]:
         pre = "<:PRmerged:245910124781240321>"
-        embed.colour = COLOR_GITHUB_PURPLE
+        embed.color = COLOR_GITHUB_PURPLE
 
     embed.title = pre + pull_request["title"]
     embed.url = pull_request["html_url"]
@@ -209,7 +214,6 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
     repo = cfg["repo"]
     branchname = cfg["branch"]
-    session = master.get_cache(GITHUB_SESSION)
 
     messages = 0
 
@@ -229,21 +233,21 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
                 emoji = "<:PRopened:245910125041287168>"
             else:
                 emoji = "<:ISSopened:246037149873340416>"
-            embed.colour = COLOR_GITHUB_GREEN
+            embed.color = COLOR_GITHUB_GREEN
 
         elif content.get("pull_request") is not None:
             url = github_url(f"/repos/{repo}/pulls/{issueid}")
             prcontent = await get_github_object(url)
             if prcontent["merged"]:
                 emoji = "<:PRmerged:245910124781240321>"
-                embed.colour = COLOR_GITHUB_PURPLE
+                embed.color = COLOR_GITHUB_PURPLE
             else:
                 emoji = "<:PRclosed:246037149839917056>"
-                embed.colour = COLOR_GITHUB_RED
+                embed.color = COLOR_GITHUB_RED
 
         else:
             emoji = "<:ISSclosed:246037286322569216>"
-            embed.colour = COLOR_GITHUB_RED
+            embed.color = COLOR_GITHUB_RED
 
         embed.title = emoji + content["title"]
         embed.url = content["html_url"]
@@ -306,7 +310,7 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
                     title += f" line {linestart}"
 
                 embed = Embed()
-                embed.colour = colour_extension(thepath)
+                embed.color = colour_extension(thepath)
                 embed.set_footer(text=f"{repo}")
                 embed.url = url
                 embed.title = title
