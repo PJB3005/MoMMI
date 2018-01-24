@@ -22,7 +22,8 @@ REG_COMMIT = re.compile(r"\[([0-9a-f]{40})\]", re.I)
 COLOR_GITHUB_RED = Colour(0xFF4444)
 COLOR_GITHUB_GREEN = Colour(0x6CC644)
 COLOR_GITHUB_PURPLE = Colour(0x6E5494)
-MAX_BODY_LENGTH = 200
+MAX_BODY_LENGTH = 500
+MAX_COMMIT_LENGTH = 67
 MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
 DISCORD_CODEBLOCK_RE = re.compile(r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
@@ -39,7 +40,6 @@ async def load(loop: asyncio.AbstractEventLoop):
             "Authorization": f"token {master.config.get_module('github.token')}",
             "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)",
             "Accept": "application/vnd.github.v3+json",
-
         }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
@@ -77,27 +77,37 @@ async def github_event(channel: MChannel, message, meta):
     await func(channel, message["content"], meta)
 
 
-async def on_github_push(channel: MChannel, message, repo):
-    embed = Embed()
-    embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
-    embed.set_footer(text=repo)
-    embed.title = "New commits"
-
-    content = ""
-    if not message["commits"]:
+async def on_github_push(channel: MChannel, message: Any, meta: str):
+    commits = message["commits"]
+    if not commits:
         return
 
-    for commit in message["commits"]:
+    embed = Embed()
+    embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
+    embed.set_footer(text=message["repository"]["full_name"])
+    if len(commits) == 1:
+        embed.title = "1 New Commit"
+    else:
+        embed.title = f"{len(commits) }New Commits"
+
+    content = ""
+
+    count = 0
+    for commit in commits:
         message = commit["message"]
         if len(message) > 67:
             message = message[:67] + "..."
-        content += f"`{commit['id'][:7]}` {message}\n"
+        content += f"[`{commit['id'][:7]}`]({commit['url']}) {message}\n"
+        count += 1
+        if count > 10:
+            content += "<.....>"
+            break
 
     embed.description = content
 
     await channel.send(embed=embed)
 
-async def on_github_issues(channel: MChannel, message, repo):
+async def on_github_issues(channel: MChannel, message, meta):
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
@@ -127,7 +137,7 @@ async def on_github_issues(channel: MChannel, message, repo):
     await channel.send(embed=embed)
 
 
-async def on_github_pull_request(channel: MChannel, message, repo):
+async def on_github_pull_request(channel: MChannel, message, meta):
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
@@ -164,10 +174,33 @@ async def on_github_pull_request(channel: MChannel, message, repo):
     await channel.send(embed=embed)
 
 
+async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
+    if message["action"] != "created":
+        return
+
+    issue = message["issue"]
+    comment = message["comment"]
+    repo_name = message["repository"]["full_name"]
+
+    if not channel.module_config(f"github.repos.{repo_name}.show_comments", False):
+        return
+
+    embed = Embed()
+    embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
+    embed.set_footer(text=f"{repo_name}#{issue['number']} by {issue['user']['login']}")
+    embed.title = f"New Comment: {issue['title']}"
+    embed.url = message["comment"]["html_url"]
+    if len(comment["body"]) > MAX_BODY_LENGTH:
+        embed.description = comment["body"][:MAX_BODY_LENGTH] + "..."
+    else:
+        embed.description = comment["body"]
+
+    await channel.send(embed=embed)
+
 # Indent 2: the indent
 # handling of stuff like [2000] and [world.dm]
 @always_command("github_issue")
-async def issue(channel: MChannel, match: typing_re.Match, message: Message):
+async def issue_command(channel: MChannel, match: typing_re.Match, message: Message):
     try:
         cfg = channel.server_config("modules.github")
     except:
