@@ -25,6 +25,10 @@ class MChannel(object):
         self.server: MServer = server
 
     @property
+    def discordpy_channel(self) -> Channel:
+        return self.get_channel()
+
+    @property
     def name(self) -> str:
         return cast(str, self.get_channel().name)
 

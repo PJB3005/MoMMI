@@ -7,7 +7,7 @@ import re
 import signal
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING, Union
+from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING, Union, Type, TypeVar
 import discord
 from MoMMI.config import ConfigManager
 from MoMMI.module import MModule
@@ -15,6 +15,8 @@ from MoMMI.types import SnowflakeID
 
 LOGGER: logging.Logger = logging.getLogger("master")
 CHAT_LOGGER: logging.Logger = logging.getLogger("chat")
+
+T = TypeVar("T")
 
 # TODO: Reorganize this.
 # All of it.
@@ -362,5 +364,10 @@ class MoMMI(object):
 
     def has_cache(self, key: str) -> bool:
         return key in self.cache
+
+    def iter_global_handlers(self, handlertype: Type[T]) -> Iterable[T]:
+        for module in self.modules.values():
+            yield from (x for x in module.handlers.values() if isinstance(x, handlertype))
+
 
 master = MoMMI()

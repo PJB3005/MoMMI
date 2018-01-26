@@ -107,6 +107,10 @@ class commloop(object):
 
 
     async def route(self, message: Dict[str, Any]) -> None:
+        # Do global comm events first.
+        for handler in self.master.iter_global_handlers(MGlobalCommEvent):
+            handler.execute(message["cont"], message["meta"])
+
         if message["type"] not in self.routing:
             logger.warning(f"No routing info for type '$YELLOW{message['type']}$RESET'")
             return
@@ -172,3 +176,27 @@ class MCommEvent(MHandler):
 
     async def execute(self, channel: MChannel, message: Any, meta: str):
         await self.func(channel, message, meta)
+
+
+GlobalCommEventType = Callable[[Any, str], Awaitable[None]]
+def global_comm_event(name: str) -> Callable[[GlobalCommEventType], None]:
+    def inner(function: GlobalCommEventType) -> None:
+        from MoMMI.master import master
+        event = MGlobalCommEvent(name, function.__module__, function)
+        event.register(master)
+
+    return inner
+
+
+class MGlobalCommEvent(MHandler):
+    def __init__(self,
+                 name: str,
+                 module: str,
+                 func: GlobalCommEventType) -> None:
+
+        super().__init__(name, module)
+
+        self.func: GlobalCommEventType = func
+
+    async def execute(self, message: Any, meta: str):
+        await self.func(message, meta)
