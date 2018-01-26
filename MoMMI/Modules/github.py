@@ -32,7 +32,7 @@ GITHUB_CACHE = "github_cache"
 
 GITHUB_ISSUE_MAX_MESSAGES = 5
 
-VALID_ISSUES_ACTIONS = {"labeled", "assigned", "unassigned", "edited", "unlabeled", "synchronize", "opened", "closed", "reopened"}
+VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
 
 async def load(loop: asyncio.AbstractEventLoop):
     if not master.has_cache(GITHUB_SESSION):
@@ -89,7 +89,7 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
     if len(commits) == 1:
         embed.title = "1 New Commit"
     else:
-        embed.title = f"{len(commits) }New Commits"
+        embed.title = f"{len(commits)} New Commits"
 
     if message["forced"]:
         embed.title = f"[FORCE PUSHED] {embed.title}"
