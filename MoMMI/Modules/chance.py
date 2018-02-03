@@ -13,11 +13,9 @@ async def pick_command(channel, match, message):
 
 @command("roll", r"(\d+)d(\d+)")
 async def roll_command(channel, match, message):
-    count = match.group(1)
-    dicetype = match.group(2)
     result = "Results: "
-    for i in range(0, count):
+    for i in range(0, int(match.group(1))):
         if i > 0:
             result += ", "
-        result += str(random.randint(1, dicetype))
+        result += str(random.randint(1, int(match.group(2))))
     await channel.send(result)
