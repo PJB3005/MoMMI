@@ -14,7 +14,11 @@ async def pick_command(channel, match, message):
 @command("roll", r"(\d+)d(\d+)")
 async def roll_command(channel, match, message):
     result = "Results: "
-    for i in range(0, int(match.group(1))):
+    count = int(match.group(1))
+    if count > 100:
+        await channel.send("Ok look dude. A minute or two after this dice command got implemented bobda ran a god damn 10000000000000000000000000000d10. Now because it has to ITERATE those dice and 10000000000000000000000000000 is a giant fucking number, that locked up MoMMI completely because no amount of asyncio is gonna save this madness. Thank got for SIGKILL. THEN I got pinged by Intigracy telling me MoMMI locked up. *sigh*")
+        return
+    for i in range(0, count):
         if i > 0:
             result += ", "
         result += str(random.randint(1, int(match.group(2))))
