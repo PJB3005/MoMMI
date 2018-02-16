@@ -23,3 +23,29 @@ async def roll_command(channel, match, message):
             result += ", "
         result += str(random.randint(1, int(match.group(2))))
     await channel.send(result)
+
+@command("magic8ball", r"(?:magic|magic8ball)")
+async def magic8ball_command(channel, match, message):
+    choice = random.choice([
+                "It is certain",
+                "It is decidedly so",
+                "Without a doubt",
+                "Yes, definitely",
+                "You may rely on it",
+                "As I see it, yes",
+                "Most likely",
+                "Outlook: Positive",
+                "Yes",
+                "Signs point to: Yes",
+                "Reply hazy, try again",
+                "Ask again later",
+                "Better to not tell you right now",
+                "Cannot predict now",
+                "Concentrate, then ask again",
+                "Do not count on it",
+                "My reply is: no",
+                "My sources say: no",
+                "Outlook: Negative",
+                "Very doubtful"
+                ])
+    await channel.send(choice)
