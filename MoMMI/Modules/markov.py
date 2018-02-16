@@ -88,6 +88,8 @@ async def markov(channel: MChannel, match: Match, message: Message):
         if len(message) > 5:
             break
 
+        message.replace("@","")
+
     await channel.send(" ".join(message) + ".")
 
 
