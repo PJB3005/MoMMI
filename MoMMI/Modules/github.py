@@ -7,9 +7,9 @@ from urllib.parse import quote
 import aiohttp
 from colorhash import ColorHash
 from discord import Color, Embed, Message, User
-from MoMMI.commloop import comm_event
+from MoMMI.commloop import comm_event, global_comm_event
 from MoMMI.commands import always_command
-from MoMMI.server import MChannel
+from MoMMI.channel import MChannel
 from MoMMI.master import master
 from MoMMI.Modules.irc import irc_transform
 
@@ -25,7 +25,8 @@ COLOR_GITHUB_PURPLE = Color(0x6E5494)
 MAX_BODY_LENGTH = 500
 MAX_COMMIT_LENGTH = 67
 MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
-DISCORD_CODEBLOCK_RE = re.compile(r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
+DISCORD_CODEBLOCK_RE = re.compile(
+    r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
 GITHUB_SESSION = "github_session"
 GITHUB_CACHE = "github_cache"
@@ -33,6 +34,7 @@ GITHUB_CACHE = "github_cache"
 GITHUB_ISSUE_MAX_MESSAGES = 5
 
 VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
+
 
 async def load(loop: asyncio.AbstractEventLoop):
     if not master.has_cache(GITHUB_SESSION):
@@ -44,9 +46,9 @@ async def load(loop: asyncio.AbstractEventLoop):
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
 
-
     if not master.has_cache(GITHUB_CACHE):
         master.set_cache(GITHUB_CACHE, {})
+
 
 async def shutdown(loop: asyncio.AbstractEventLoop):
     master.get_cache(GITHUB_SESSION).close()
@@ -66,7 +68,8 @@ def colour_extension(filename: str) -> Color:
 @comm_event("github")
 async def github_event(channel: MChannel, message, meta):
     event = message['event']
-    logger.debug(f"Handling GitHub event '$YELLOW{event}$RESET' to '$YELLOW{meta}$RESET'")
+    logger.debug(
+        f"Handling GitHub event '$YELLOW{event}$RESET' to '$YELLOW{meta}$RESET'")
 
     # Find a function by the name of `on_github_{event}` in globals and call it.
     func = globals().get(f"on_github_{event}")
@@ -84,7 +87,8 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
 
     embed = Embed()
     embed.url = message["compare"]
-    embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
+    embed.set_author(name=message["sender"]["login"], url=message["sender"]
+                     ["html_url"], icon_url=message["sender"]["avatar_url"])
     embed.set_footer(text=message["repository"]["full_name"])
     if len(commits) == 1:
         embed.title = "1 New Commit"
@@ -112,6 +116,7 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
 
     await channel.send(embed=embed)
 
+
 async def on_github_issues(channel: MChannel, message, meta):
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
@@ -130,8 +135,10 @@ async def on_github_issues(channel: MChannel, message, meta):
 
     embed.title = pre + issue["title"]
     embed.url = issue["html_url"]
-    embed.set_author(name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
-    embed.set_footer(text="{}#{} by {}".format(repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
+    embed.set_author(
+        name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
+    embed.set_footer(text="{}#{} by {}".format(
+        repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
     if len(issue["body"]) > MAX_BODY_LENGTH:
         embed.description = issue["body"][:MAX_BODY_LENGTH] + "..."
     else:
@@ -142,8 +149,12 @@ async def on_github_issues(channel: MChannel, message, meta):
     await channel.send(embed=embed)
 
 
-async def on_github_pull_request(channel: MChannel, message, meta):
-    if message["action"] not in VALID_ISSUES_ACTIONS:
+async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
+    action = message["action"]
+    if action == "synchronize" or action == "opened":
+        asyncio.ensure_future(secret_repo_check(message, channel))
+
+    if action not in VALID_ISSUES_ACTIONS:
         return
 
     pull_request = message["pull_request"]
@@ -152,7 +163,7 @@ async def on_github_pull_request(channel: MChannel, message, meta):
     pre = None
 
     embed = Embed()
-    if message["action"] == "closed":
+    if action == "closed":
         pre = "<:PRclosed:246037149839917056>"
         embed.color = COLOR_GITHUB_RED
 
@@ -160,14 +171,16 @@ async def on_github_pull_request(channel: MChannel, message, meta):
         pre = "<:PRopened:245910125041287168>"
         embed.color = COLOR_GITHUB_GREEN
 
-    if message["action"] == "closed" and pull_request["merged"]:
+    if action == "closed" and pull_request["merged"]:
         pre = "<:PRmerged:245910124781240321>"
         embed.color = COLOR_GITHUB_PURPLE
 
     embed.title = pre + pull_request["title"]
     embed.url = pull_request["html_url"]
-    embed.set_author(name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
-    embed.set_footer(text="{}#{} by {}".format(repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
+    embed.set_author(
+        name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
+    embed.set_footer(text="{}#{} by {}".format(
+        repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
 
     new_body = MD_COMMENT_RE.sub("", pull_request["body"])
     if len(new_body) > MAX_BODY_LENGTH:
@@ -191,8 +204,10 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
         return
 
     embed = Embed()
-    embed.set_author(name=message["sender"]["login"], url=message["sender"]["html_url"], icon_url=message["sender"]["avatar_url"])
-    embed.set_footer(text=f"{repo_name}#{issue['number']} by {issue['user']['login']}")
+    embed.set_author(name=message["sender"]["login"], url=message["sender"]
+                     ["html_url"], icon_url=message["sender"]["avatar_url"])
+    embed.set_footer(
+        text=f"{repo_name}#{issue['number']} by {issue['user']['login']}")
     embed.title = f"New Comment: {issue['title']}"
     embed.url = message["comment"]["html_url"]
     if len(comment["body"]) > MAX_BODY_LENGTH:
@@ -201,6 +216,43 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
         embed.description = comment["body"]
 
     await channel.send(embed=embed)
+
+
+@global_comm_event("secret_repo_pr_checker")
+async def secret_repo_check(message: Any, meta: str):
+    if message["event"] != "pull_request":
+        return
+
+    message = message["content"]
+    action = message["action"]
+    if action != "synchronize" and action != "opened" and action != "reopened":
+        return
+
+    repo_name = message["repository"]["full_name"]
+    conflict_files = master.config.get_module(
+        f"github.repos.{repo_name}.secret_repo_files", [])
+    if not conflict_files:
+        return
+
+    files = await get_github_object(message["pull_request"]["url"] + "/files")
+    for fileobject in files:
+        if fileobject["filename"] in conflict_files:
+            break
+
+    else:
+        return
+
+    session = master.get_cache(GITHUB_SESSION)
+
+    url = message["pull_request"]["issue_url"] + "/labels"
+    postdata = json.dumps(
+        [master.config.get_module(f"github.repos.{repo_name}.labels.secret_conflicts", "Secret Repo Conflict")])
+
+    session = master.get_cache(GITHUB_SESSION)
+    async with session.post(url, data=postdata) as postresp:
+        logger.info("Setting secret repo conflicts label on PR #%s returned status code %s!",
+                    message["number"], postresp.status)
+
 
 # Indent 2: the indent
 # handling of stuff like [2000] and [world.dm]
@@ -251,7 +303,8 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
         embed.title = emoji + content["title"]
         embed.url = content["html_url"]
-        embed.set_footer(text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
+        embed.set_footer(
+            text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
         if len(content["body"]) > MAX_BODY_LENGTH:
             embed.description = content["body"][:MAX_BODY_LENGTH] + "..."
         else:
@@ -351,6 +404,7 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
         if messages >= GITHUB_ISSUE_MAX_MESSAGES:
             return
 
+
 @irc_transform("convert_code_blocks")
 async def convert_code_blocks(message: str, author: User, irc_client, discord_server):
     try:
@@ -411,6 +465,7 @@ async def make_gist(contents: str, name: str, desc: str):
 
         output = await resp.json()
         return output["html_url"]
+
 
 async def get_github_object(url: str, *, params=None) -> Any:
     #logger.debug(f"Fetching github object at URL {url}...")

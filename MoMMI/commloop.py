@@ -25,12 +25,15 @@ logger = logging.getLogger(__name__)
 class commloop(object):
     def __init__(self, master: MoMMI) -> None:
         self.server: Optional[asyncio.AbstractServer] = None
-        self.clients: Dict[asyncio.Future, Tuple[asyncio.StreamReader, asyncio.StreamWriter]] = {}
+        self.clients: Dict[asyncio.Future,
+                           Tuple[asyncio.StreamReader, asyncio.StreamWriter]] = {}
 
         self.master: MoMMI = master
 
-        self.routing: Dict[str, Any] = master.config.get_main("commloop.route", {})
-        self.address: str = master.config.get_main("commloop.address", "localhost")
+        self.routing: Dict[str, Any] = master.config.get_main(
+            "commloop.route", {})
+        self.address: str = master.config.get_main(
+            "commloop.address", "localhost")
         self.port: int = master.config.get_main("commloop.port", 1679)
         self.authkey: str = master.config.get_main("commloop.password")
         self.loop: Optional[asyncio.AbstractEventLoop] = None
@@ -54,7 +57,8 @@ class commloop(object):
 
     def accept_client(self, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
         # logger.debug("Accepting new client!")
-        task: asyncio.Task = asyncio.ensure_future(self.handle_client(client_reader, client_writer), loop=self.loop)
+        task: asyncio.Task = asyncio.ensure_future(
+            self.handle_client(client_reader, client_writer), loop=self.loop)
         self.clients[task] = (client_reader, client_writer)
 
         def client_done(task: asyncio.Future) -> None:
@@ -102,17 +106,18 @@ class commloop(object):
             await self.route(message)
 
         except:
-            logger.exception("Got exception inside main commloop handler. Uh oh!")
+            logger.exception(
+                "Got exception inside main commloop handler. Uh oh!")
             writer.write(ERROR_UNKNOWN)
-
 
     async def route(self, message: Dict[str, Any]) -> None:
         # Do global comm events first.
         for handler in self.master.iter_global_handlers(MGlobalCommEvent):
-            handler.execute(message["cont"], message["meta"])
+            await handler.execute(message["cont"], message["meta"])
 
         if message["type"] not in self.routing:
-            logger.warning(f"No routing info for type '$YELLOW{message['type']}$RESET'")
+            logger.warning(
+                f"No routing info for type '$YELLOW{message['type']}$RESET'")
             return
 
         handler: Optional[MCommEvent] = None
@@ -124,12 +129,14 @@ class commloop(object):
                     break
 
         if handler is None:
-            logger.error(f"Found routing information for nonexistant handler \"{message['type']}\".")
+            logger.error(
+                f"Found routing information for nonexistant handler \"{message['type']}\".")
             return
 
         channels = self.routing[message["type"]].get(message["meta"])
         if not channels:
-            logger.warning(f"Got message with unconfigured meta '{message['meta']}'")
+            logger.warning(
+                f"Got message with unconfigured meta '{message['meta']}'")
             return
 
         for channelpair in channels:
@@ -141,7 +148,8 @@ class commloop(object):
             try:
                 await handler.execute(channel, message["cont"], message["meta"])
             except:
-                logger.exception("Caught exception inside commloop event handler.")
+                logger.exception(
+                    "Caught exception inside commloop event handler.")
 
 
 def verify_tabled_id(idname: Any) -> Union[str, SnowflakeID]:
@@ -155,6 +163,8 @@ def verify_tabled_id(idname: Any) -> Union[str, SnowflakeID]:
 
 
 CommEventType = Callable[[MChannel, Any, str], Awaitable[None]]
+
+
 def comm_event(name: str) -> Callable[[CommEventType], None]:
     def inner(function: CommEventType) -> None:
         from MoMMI.master import master
@@ -179,6 +189,8 @@ class MCommEvent(MHandler):
 
 
 GlobalCommEventType = Callable[[Any, str], Awaitable[None]]
+
+
 def global_comm_event(name: str) -> Callable[[GlobalCommEventType], None]:
     def inner(function: GlobalCommEventType) -> None:
         from MoMMI.master import master
