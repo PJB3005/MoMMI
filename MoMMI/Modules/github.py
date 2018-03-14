@@ -90,10 +90,13 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
     embed.set_author(name=message["sender"]["login"], url=message["sender"]
                      ["html_url"], icon_url=message["sender"]["avatar_url"])
     embed.set_footer(text=message["repository"]["full_name"])
+    commits_count = ""
     if len(commits) == 1:
-        embed.title = "1 New Commit"
+        commits_count = "**1** New Commit"
     else:
-        embed.title = f"{len(commits)} New Commits"
+        commits_count = f"**{len(commits)}** New Commits"
+
+    embed.title = f"{commits_count} to **{message['ref']}**"
 
     if message["forced"]:
         embed.title = f"[FORCE PUSHED] {embed.title}"
@@ -220,7 +223,7 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
 
 @global_comm_event("secret_repo_pr_checker")
 async def secret_repo_check(message: Any, meta: str):
-    if message["event"] != "pull_request":
+    if "event" not in message or message["event"] != "pull_request":
         return
 
     message = message["content"]
