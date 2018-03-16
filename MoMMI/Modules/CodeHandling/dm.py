@@ -6,12 +6,15 @@ import time
 import shutil
 import sys
 from distutils import spawn
+from random import choice
+from string import ascii_lowercase
 from typing import Optional
 from discord import Message, Embed
 from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOR_COMPILE_FAIL, COLOR_RUN_SUCCESS, COLOR_RUN_FAIL
 from MoMMI.channel import MChannel
 
 logger = logging.getLogger(__name__)
+
 
 @codehandler
 class DMCodeHandler(MCodeHandler):
@@ -27,7 +30,8 @@ class DMCodeHandler(MCodeHandler):
         offset = 0
         path = ""
         while True:
-            path = os.path.join(os.getcwd(), "codeprojects", "{}-{}".format(int(time.time()), offset))
+            path = os.path.join(os.getcwd(), "codeprojects",
+                                "{}-{}".format(int(time.time()), offset))
             try:
                 os.makedirs(path)
             except FileExistsError:
@@ -41,7 +45,8 @@ class DMCodeHandler(MCodeHandler):
     async def cleanup(self):
         # Can never be too safe with the equivalent of rm -r
         if not self.projectpath.startswith(os.path.join(os.getcwd(), "codeprojects")):
-            logger.error("Failed to delete project subdirectory because the directory doesn't start with our cwd!")
+            logger.error(
+                "Failed to delete project subdirectory because the directory doesn't start with our cwd!")
             return
 
         shutil.rmtree(self.projectpath)
@@ -94,11 +99,16 @@ class DMCodeHandler(MCodeHandler):
 
         try:
             firejail = []
+            firejail_name = ""
 
             # Use firejail if at all possible.
             if channel.module_config("dm.firejail", "") != "":
                 firejail_profile = channel.module_config("dm.firejail")
-                firejail = ["firejail", "--quiet", f"--profile={firejail_profile}", f"--private={self.projectpath}"]
+                firejail_name = "mommi_dm_" + DMCodeHandler.random_string()
+                firejail = ["firejail", "--quiet",
+                            f"--profile={firejail_profile}",
+                            f"--private={self.projectpath}",
+                            f"--name={firejail_name}"]
 
             dmepath = await self.make_project(code)
 
@@ -107,21 +117,27 @@ class DMCodeHandler(MCodeHandler):
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
             except asyncio.TimeoutError:
-                proc.kill()
+                if firejail_name:
+                    fjail_proc = await asyncio.create_subprocess_exec("firejail", f"--shutdown={firejail_name}")
+                    await fjail_proc.wait()
+                else:
+                    proc.kill()
+
                 fail_reason = "**Compilation failed** due to **timeout** (30 seconds)."
 
             data = await proc.stdout.read()
             compile_log = data.decode("Windows-1252", "replace")
 
-            if len(compile_log) > 900: # Discord max size of field is 1024 chars.
+            # Discord max size of field is 1024 chars.
+            if len(compile_log) > 900:
                 log = compile_log[:900] + "\n<truncated due to size>"
-
 
             if fail_reason or proc.returncode:
                 embed = Embed()
                 embed.color = COLOR_COMPILE_FAIL
                 embed.description = fail_reason or "**Compilation failed**"
-                embed.add_field(name="Compiler Output", value=f"```{compile_log}```", inline=False)
+                embed.add_field(name="Compiler Output",
+                                value=f"```{compile_log}```", inline=False)
                 await channel.send(embed=embed)
                 return
 
@@ -132,18 +148,24 @@ class DMCodeHandler(MCodeHandler):
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
             except asyncio.TimeoutError:
-                proc.kill()
+                if firejail_name:
+                    fjail_proc = await asyncio.create_subprocess_exec("firejail", f"--shutdown={firejail_name}")
+                    await fjail_proc.wait()
+                else:
+                    proc.kill()
+
                 fail_reason = "**Execution failed** due to **timeout** (30 seconds)."
 
             data = await proc.stderr.read() + await proc.stdout.read()
             log = data.decode("Windows-1252", "replace")
-            if len(log) > 900: # Discord max size of field is 1024 chars.
+            if len(log) > 900:  # Discord max size of field is 1024 chars.
                 log = log[:900] + "\n<truncated due to size>"
 
-
             embed = Embed()
-            embed.add_field(name="Compiler Output", value=f"```{compile_log}```", inline=False)
-            embed.add_field(name="Execution Output", value=f"```{log}```", inline=False)
+            embed.add_field(name="Compiler Output",
+                            value=f"```{compile_log}```", inline=False)
+            embed.add_field(name="Execution Output",
+                            value=f"```{log}```", inline=False)
 
             await channel.server.master.client.remove_reaction(message, "🔨", channel.server.get_server().me)
 
@@ -171,7 +193,8 @@ class DMCodeHandler(MCodeHandler):
     def dm_executable_path(self, channel: MChannel) -> str:
         try:
             return channel.module_config("dm.dm_path")
-        except: pass
+        except:
+            pass
 
         name = "DreamMaker"
         if sys.platform == "win32":
@@ -180,14 +203,16 @@ class DMCodeHandler(MCodeHandler):
         path = self.byond_executable_path(name)
 
         if path is None:
-            raise IOError("Unable to locate Dream Maker compiler binary. Please ensure that it is in your PATH, or set module config dm.dm_path.")
+            raise IOError(
+                "Unable to locate Dream Maker compiler binary. Please ensure that it is in your PATH, or set module config dm.dm_path.")
 
         return path
 
     def dd_executable_path(self, channel: MChannel) -> str:
         try:
             return channel.module_config("dm.dd_path")
-        except: pass
+        except:
+            pass
 
         name = "DreamDaemon"
         is_windows = sys.platform == "win32"
@@ -197,7 +222,8 @@ class DMCodeHandler(MCodeHandler):
         path = self.byond_executable_path(name)
 
         if path is None:
-            raise IOError("Unable to locate Dream Daemon server binary. Please ensure that it is in your PATH, or set module config dm.dd_path.")
+            raise IOError(
+                "Unable to locate Dream Daemon server binary. Please ensure that it is in your PATH, or set module config dm.dd_path.")
 
         return path
 
@@ -212,3 +238,7 @@ class DMCodeHandler(MCodeHandler):
                     return path
 
         return path
+
+    @staticmethod
+    def random_string() -> str:
+        return ''.join(choice(ascii_lowercase) for i in range(20))
