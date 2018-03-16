@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import asyncio
-from typing import re as typing_re, Tuple, List, Optional, Any
+from typing import re as typing_re, Tuple, List, Optional, Any, Set
 from urllib.parse import quote
 import aiohttp
 from colorhash import ColorHash
@@ -34,6 +34,8 @@ GITHUB_CACHE = "github_cache"
 GITHUB_ISSUE_MAX_MESSAGES = 5
 
 VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
+
+KNOWN_MERGE_COMMITS: Set[str] = set()
 
 
 async def load(loop: asyncio.AbstractEventLoop):
@@ -104,9 +106,14 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
 
     content = ""
 
+    found = False
     count = 0
     for commit in commits:
         message = commit["message"]
+        # Don't do these to reduce spam.
+        if message != "[ci skip] Automatic changelog update." and commit["id"] not in KNOWN_MERGE_COMMITS:
+            found = True
+
         if len(message) > 67:
             message = message[:67] + "..."
         content += f"[`{commit['id'][:7]}`]({commit['url']}) {message}\n"
@@ -114,6 +121,9 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
         if count > 10:
             content += "<.....>"
             break
+
+    if not found:
+        return
 
     embed.description = content
 
@@ -154,9 +164,6 @@ async def on_github_issues(channel: MChannel, message, meta):
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
     action = message["action"]
-    if action == "synchronize" or action == "opened":
-        asyncio.ensure_future(secret_repo_check(message, channel))
-
     if action not in VALID_ISSUES_ACTIONS:
         return
 
@@ -177,6 +184,7 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
     if action == "closed" and pull_request["merged"]:
         pre = "<:PRmerged:245910124781240321>"
         embed.color = COLOR_GITHUB_PURPLE
+        KNOWN_MERGE_COMMITS.add(pull_request["merge_commit_sha"])
 
     embed.title = pre + pull_request["title"]
     embed.url = pull_request["html_url"]
