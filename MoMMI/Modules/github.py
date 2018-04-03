@@ -2,8 +2,9 @@ import json
 import logging
 import re
 import asyncio
-from typing import re as typing_re, Tuple, List, Optional, Any, Set
+from typing import re as typing_re, Tuple, List, Optional, Any, Set, Dict, DefaultDict
 from urllib.parse import quote
+from collections import defaultdict
 import aiohttp
 from colorhash import ColorHash
 from discord import Color, Embed, Message, User
@@ -211,7 +212,7 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
     comment = message["comment"]
     repo_name = message["repository"]["full_name"]
 
-    if not channel.module_config(f"github.repos.{repo_name}.show_comments", False):
+    if not channel.module_config(f"github.repos.{repo_name}.show_comments", True):
         return
 
     embed = Embed()
@@ -270,150 +271,178 @@ async def secret_repo_check(message: Any, meta: str):
 @always_command("github_issue")
 async def issue_command(channel: MChannel, match: typing_re.Match, message: Message):
     try:
-        cfg = channel.server_config("modules.github")
+        cfg = channel.server_config("modules.github.repos")
     except:
         # Server has no config settings for GitHub.
         return
 
-    repo = cfg["repo"]
-    branchname = cfg["branch"]
+    await try_handle_file_embeds(message.content, channel, cfg)
 
-    messages = 0
+    for repo_config in cfg:
+        repo = repo_config["repo"]
+        branchname = repo_config["branch"]
 
-    for match in REG_ISSUE.finditer(message.content):
-        issueid = int(match.group(1))
-        if issueid < 30:
-            continue
+        for match in REG_ISSUE.finditer(message.content):
+            issueid = int(match.group(1))
+            if issueid < 30:
+                continue
 
-        url = github_url(f"/repos/{repo}/issues/{issueid}")
-        content = await get_github_object(url)
+            url = github_url(f"/repos/{repo}/issues/{issueid}")
+            content = await get_github_object(url)
 
-        # God forgive me.
-        embed = Embed()
-        emoji = ""
-        if content["state"] == "open":
-            if content.get("pull_request") is not None:
-                emoji = "<:PRopened:245910125041287168>"
+            # God forgive me.
+            embed = Embed()
+            emoji = ""
+            if content["state"] == "open":
+                if content.get("pull_request") is not None:
+                    emoji = "<:PRopened:245910125041287168>"
+                else:
+                    emoji = "<:ISSopened:246037149873340416>"
+                embed.color = COLOR_GITHUB_GREEN
+
+            elif content.get("pull_request") is not None:
+                url = github_url(f"/repos/{repo}/pulls/{issueid}")
+                prcontent = await get_github_object(url)
+                if prcontent["merged"]:
+                    emoji = "<:PRmerged:245910124781240321>"
+                    embed.color = COLOR_GITHUB_PURPLE
+                else:
+                    emoji = "<:PRclosed:246037149839917056>"
+                    embed.color = COLOR_GITHUB_RED
+
             else:
-                emoji = "<:ISSopened:246037149873340416>"
-            embed.color = COLOR_GITHUB_GREEN
-
-        elif content.get("pull_request") is not None:
-            url = github_url(f"/repos/{repo}/pulls/{issueid}")
-            prcontent = await get_github_object(url)
-            if prcontent["merged"]:
-                emoji = "<:PRmerged:245910124781240321>"
-                embed.color = COLOR_GITHUB_PURPLE
-            else:
-                emoji = "<:PRclosed:246037149839917056>"
+                emoji = "<:ISSclosed:246037286322569216>"
                 embed.color = COLOR_GITHUB_RED
 
-        else:
-            emoji = "<:ISSclosed:246037286322569216>"
-            embed.color = COLOR_GITHUB_RED
+            embed.title = emoji + content["title"]
+            embed.url = content["html_url"]
+            embed.set_footer(
+                text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
+            if len(content["body"]) > MAX_BODY_LENGTH:
+                embed.description = content["body"][:MAX_BODY_LENGTH] + "..."
+            else:
+                embed.description = content["body"]
+            embed.description += "\n\u200B"
 
-        embed.title = emoji + content["title"]
-        embed.url = content["html_url"]
-        embed.set_footer(
-            text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
-        if len(content["body"]) > MAX_BODY_LENGTH:
-            embed.description = content["body"][:MAX_BODY_LENGTH] + "..."
-        else:
-            embed.description = content["body"]
-        embed.description += "\n\u200B"
+            await channel.send(embed=embed)
 
-        await channel.send(embed=embed)
+        for match in REG_COMMIT.finditer(message.content):
+            sha = match.group(1)
+            url = github_url(f"/repos/{repo}/git/commits/{sha}")
+            try:
+                commit = await get_github_object(url)
+            except:
+                continue
 
-        messages += 1
-        if messages >= GITHUB_ISSUE_MAX_MESSAGES:
-            return
+            split = commit["message"].split("\n")
+            title = split[0]
+            desc = "\n".join(split[1:])
+            if len(desc) > MAX_BODY_LENGTH:
+                desc = desc[:MAX_BODY_LENGTH] + "..."
 
-    if REG_PATH.search(message.content):
+            embed = Embed()
+            embed.set_footer(
+                text=f"{repo} {sha} by {commit['author']['name']}")
+            embed.url = commit["html_url"]
+            embed.title = title
+            embed.description = desc
+
+            await channel.send(embed=embed)
+
+
+async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict[str, str]]) -> bool:
+    if not REG_PATH.search(message):
+        return False
+
+    paths: List[Tuple[str, Optional[str], Optional[str], bool]]
+    paths = []
+    for match in REG_PATH.finditer(message):
+        path = match.group(1).lower()
+        # Ignore tiny paths, too common accidentally in code blocks.
+        if len(path) <= 3:
+            continue
+
+        rooted = False
+        if path.startswith("^"):
+            path = path[1:]
+            rooted = True
+
+        linestart = None
+        lineend = None
+        if match.group(2):
+            linestart = match.group(2)
+            if match.group(3):
+                lineend = match.group(3)
+
+        paths.append((path, linestart, lineend, rooted))
+
+    # That's reponame: list((title, url))
+    output: DefaultDict[str, List[Tuple[str, str]]] = defaultdict(list)
+
+    for repocfg in cfg:
+        repo = repocfg["repo"]
+        branchname = repocfg["branch"]
+
         url = github_url(f"/repos/{repo}/branches/{branchname}")
         branch = await get_github_object(url)
 
-        url = github_url(f"/repos/{repo}/git/trees/{branch['commit']['sha']}")
+        url = github_url(
+            f"/repos/{repo}/git/trees/{branch['commit']['sha']}")
         tree = await get_github_object(url, params={"recursive": 1})
 
-        paths: List[Tuple[str, Optional[int], Optional[int]]]
-        paths = []
-        for match in REG_PATH.finditer(message.content):
-            path = match.group(1).lower()
-            # Ignore tiny paths, too common accidentally in code blocks.
-            if len(path) <= 3:
-                continue
-
-            linestart = None
-            lineend = None
-            if match.group(2):
-                linestart = match.group(2)
-                if match.group(3):
-                    lineend = match.group(3)
-
-            paths.append((path, linestart, lineend))
-
         for filehash in tree["tree"]:
-            for path, linestart, lineend in paths:
-                if not filehash["path"].lower().endswith(path):
-                    continue
+            for path, linestart, lineend, rooted in paths:
+                if rooted:
+                    if not filehash["path"].lower().startswith(path):
+                        continue
+
+                else:
+                    if not filehash["path"].lower().endswith(path):
+                        continue
 
                 thepath = filehash["path"]  # type: str
-                html_url = f"https://github.com/{repo}"
                 file_url_part = quote(thepath)
                 if linestart is not None:
                     file_url_part += f"#L{linestart}"
                     if lineend is not None:
                         file_url_part += f"-L{lineend}"
 
-                url = f"{html_url}/blob/{branchname}/{file_url_part}"
-                title = thepath.split("/")[-1]
+                url = f"https://github.com/{repo}/blob/{branchname}/{file_url_part}"
+                title = thepath
                 if lineend is not None:
                     title += f" lines {linestart}-{lineend}"
 
                 elif linestart is not None:
                     title += f" line {linestart}"
 
-                embed = Embed()
-                embed.color = colour_extension(thepath)
-                embed.set_footer(text=f"{repo}")
-                embed.url = url
-                embed.title = title
+                output[repo].append((title, url))
 
-                embed.description = f"`{thepath}`"
+    if not output:
+        return False
 
-                await channel.send(embed=embed)
+    embed = Embed()
 
-                messages += 1
-                if messages >= GITHUB_ISSUE_MAX_MESSAGES:
-                    return
+    for repo, hits in output.items():
+        value = ""
+        count = 0
+        for title, url in hits:
+            count += 1
+            entry = f"[`{title}`]({url})\n"
+            if len(value) > 800:
+                if not count:
+                    value = f"Good job even a single entry is too long to fit within Discord's embed field limits. There were {len(hits)}."
+                    break
 
-                paths.remove((path, linestart, lineend))
+                value += f"...and {len(hits)-count} more."
+                break
 
-    for match in REG_COMMIT.finditer(message.content):
-        sha = match.group(1)
-        url = github_url(f"/repos/{repo}/git/commits/{sha}")
-        try:
-            commit = await get_github_object(url)
-        except:
-            continue
+            value += entry
 
-        split = commit["message"].split("\n")
-        title = split[0]
-        desc = "\n".join(split[1:])
-        if len(desc) > MAX_BODY_LENGTH:
-            desc = desc[:MAX_BODY_LENGTH] + "..."
+        embed.add_field(name=repo, value=value)
 
-        embed = Embed()
-        embed.set_footer(text=f"{repo} {sha} by {commit['author']['name']}")
-        embed.url = commit["html_url"]
-        embed.title = title
-        embed.description = desc
+    await channel.send(embed=embed)
 
-        await channel.send(embed=embed)
-
-        messages += 1
-        if messages >= GITHUB_ISSUE_MAX_MESSAGES:
-            return
+    return True
 
 
 @irc_transform("convert_code_blocks")
@@ -491,7 +520,6 @@ async def get_github_object(url: str, *, params=None) -> Any:
         contents, date = cache[(url, paramstr)]
         response = await session.get(url, headers={"If-Modified-Since": date}, params=params)
         if response.status == 304:
-            #logger.debug("Got 304!")
             return contents
 
     else:

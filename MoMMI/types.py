@@ -7,4 +7,5 @@ class SnowflakeID(int):
     """
     pass
 
+
 MIdentifier = Union[SnowflakeID, str]

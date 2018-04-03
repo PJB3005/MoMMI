@@ -13,31 +13,39 @@ logger = logging.getLogger(__name__)
 chatlogger = logging.getLogger("chat")
 
 CommandType = Callable[[MChannel, Match, Message], Awaitable[None]]
+
+
 def command(name: str, regex: str, flags: int = re.IGNORECASE, **kwargs: Any) -> Callable[[CommandType], CommandType]:
     def inner(function: CommandType) -> CommandType:
         from MoMMI.master import master
         if not asyncio.iscoroutinefunction(function):
-            logger.error(f"Attempted to register non-coroutine {function} as command!")
+            logger.error(
+                f"Attempted to register non-coroutine {function} as command!")
             return function
 
         pattern = re.compile(regex, flags)
-        commandhandler = MCommand(name, function.__module__, function, pattern, **kwargs)
+        commandhandler = MCommand(
+            name, function.__module__, function, pattern, **kwargs)
         commandhandler.register(master)
         return function
     return inner
+
 
 def always_command(name: str, **kwargs: Any) -> Callable[[CommandType], CommandType]:
     def inner(function: CommandType) -> CommandType:
         from .master import master
         if not asyncio.iscoroutinefunction(function):
-            logger.error(f"Attempted to register non-coroutine {function} as always command!")
+            logger.error(
+                f"Attempted to register non-coroutine {function} as always command!")
             return function
 
-        commandhandler = MCommand(name, function.__module__, function, prefix=False, **kwargs)
+        commandhandler = MCommand(
+            name, function.__module__, function, prefix=False, **kwargs)
         commandhandler.register(master)
         return function
 
     return inner
+
 
 class MCommand(MHandler):
     prefix_re: Optional[Pattern]
@@ -52,7 +60,7 @@ class MCommand(MHandler):
                  commandhelp: Optional[str] = None,
                  roles: Optional[List[MRoleType]] = None,
                  bans: Optional[List[bantypes]] = None
-                ) -> None:
+                 ) -> None:
 
         super().__init__(name, module)
 
@@ -97,11 +105,12 @@ class MCommand(MHandler):
                     break
 
             if not found:
-                choice = random.choice(channel.main_config("bot.deny-messages", ["*buzz*"]))
+                choice = random.choice(channel.main_config(
+                    "bot.deny-messages", ["*buzz*"]))
                 await channel.send(choice)
                 return
 
         # TODO: type ignore because ALL commands take in a regex match,
         # but that only exists if you give the command decorator an actual regex.
         # Refactor this so that commands that don't take in a match are a different type.
-        await self.func(channel, match, message) # type: ignore
+        await self.func(channel, match, message)  # type: ignore

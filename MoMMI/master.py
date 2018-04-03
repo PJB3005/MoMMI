@@ -21,6 +21,8 @@ T = TypeVar("T")
 # TODO: Reorganize this.
 # All of it.
 # Dear god.
+
+
 class MoMMI(object):
     if TYPE_CHECKING:
         from MoMMI.handler import MHandler
@@ -65,7 +67,8 @@ class MoMMI(object):
 
         except:
             LOGGER.exception("$REDError in the config files")
-            LOGGER.critical("$REDCannot start MoMMI due to broken config files.")
+            LOGGER.critical(
+                "$REDCannot start MoMMI due to broken config files.")
             exit(1)
 
         if not self.config.get_main("bot.token"):
@@ -88,7 +91,8 @@ class MoMMI(object):
         self.commloop = commloop(self)
         await self.commloop.start(self.client.loop)
 
-        LOGGER.info(f"$BLUELogged in as $WHITE{self.client.user.name}$RESET ($YELLOW{self.client.user.id}$RESET)")
+        LOGGER.info(
+            f"$BLUELogged in as $WHITE{self.client.user.name}$RESET ($YELLOW{self.client.user.id}$RESET)")
 
         MCommand.prefix_re = re.compile(rf"^<@\!?{self.client.user.id}>\s*")
 
@@ -128,17 +132,26 @@ class MoMMI(object):
 
         return out
 
-    async def reload_modules(self) -> None:
+    async def reload_modules(self) -> bool:
+        """
+        Returns True if there were any errors.
+        """
         self.reloading_modules = True
         newmodules = await self.detect_modules()
         todrop = []
+
+        # Logs!
+        errors = False
+
         for name, module in self.modules.items():
             if module.loaded:
                 if hasattr(module.module, "unload"):
                     try:
                         await module.module.unload(self.client.loop)
                     except:
-                        LOGGER.exception(f"Hit an exception while unloading module {name}.")
+                        LOGGER.exception(
+                            f"Hit an exception while unloading module {name}.")
+                        errors = True
 
             if name not in newmodules:
                 LOGGER.debug(f"Dropping removed module {name}.")
@@ -146,7 +159,9 @@ class MoMMI(object):
                     try:
                         await module.module.shutdown(self.client.loop)
                     except:
-                        LOGGER.exception(f"Hit an exception while shutting down module {name}.")
+                        LOGGER.exception(
+                            f"Hit an exception while shutting down module {name}.")
+                        errors = True
 
                 todrop.append(module)
                 continue
@@ -157,8 +172,10 @@ class MoMMI(object):
                 importlib.reload(module.module)
 
             except:
-                LOGGER.exception(f"Hit an exception while reloading module {name}.")
+                LOGGER.exception(
+                    f"Hit an exception while reloading module {name}.")
                 todrop.append(module)
+                errors = True
                 continue
 
             if hasattr(module.module, "load"):
@@ -166,7 +183,9 @@ class MoMMI(object):
                     await module.module.load(self.client.loop)
 
                 except:
-                    LOGGER.exception(f"Hit an exception while load()ing module {name}.")
+                    LOGGER.exception(
+                        f"Hit an exception while load()ing module {name}.")
+                    errors = True
 
             module.loaded = True
 
@@ -178,18 +197,22 @@ class MoMMI(object):
             try:
                 mod = importlib.import_module(name)
             except:
-                LOGGER.exception(f"Hit an exception while loading module {name}.")
+                LOGGER.exception(
+                    f"Hit an exception while loading module {name}.")
                 # Alas it was not meant to be.
                 del self.modules[name]
+                errors = True
                 continue
 
             newmod.module = mod
 
             if hasattr(mod, "load"):
                 try:
-                    await mod.load(self.client.loop) # type: ignore
+                    await mod.load(self.client.loop)  # type: ignore
                 except:
-                    LOGGER.exception(f"Hit an exception while load()ing module {name}.")
+                    LOGGER.exception(
+                        f"Hit an exception while load()ing module {name}.")
+                    errors = True
 
             newmod.loaded = True
             for server in self.servers.values():
@@ -210,7 +233,11 @@ class MoMMI(object):
                 self.register_handler(handler)
 
             except:
-                LOGGER.exception(f"Exception while registering handler {handler}!")
+                LOGGER.exception(
+                    f"Exception while registering handler {handler}!")
+                errors = True
+
+        return errors
 
     def register_handler(self, handler: "MHandler") -> None:
         if self.reloading_modules:
@@ -229,7 +256,8 @@ class MoMMI(object):
         if message.author.id == self.client.user.id and message.content.startswith("\u200B**IRC:**"):
             return
 
-        CHAT_LOGGER.info(f"({message.channel.name}) {message.author.name}: {message.content}")
+        CHAT_LOGGER.info(
+            f"({message.channel.name}) {message.author.name}: {message.content}")
 
         server = self.get_server(SnowflakeID(message.server.id))
         channel = server.get_channel(SnowflakeID(message.channel.id))
@@ -267,21 +295,25 @@ class MoMMI(object):
                 break
 
         if not cfg:
-            LOGGER.error(f"No configuration present for server {server.name} ({server.id})!")
+            LOGGER.error(
+                f"No configuration present for server {server.name} ({server.id})!")
             return
 
         new.load_server_config(cfg)
         if new in self.servers_name:
-            LOGGER.error(f"Duplicate server name '{new.name}, {new.visible_name} <-> {self.servers_name[new.name].visible_name}'")
+            LOGGER.error(
+                f"Duplicate server name '{new.name}, {new.visible_name} <-> {self.servers_name[new.name].visible_name}'")
         else:
             self.servers_name[new.name] = new
 
         data_path: Path = self.storagedir.joinpath(new.name)
         if not data_path.exists():
-            LOGGER.debug(f"Data directory for server {new.name} does not exist, creating.")
+            LOGGER.debug(
+                f"Data directory for server {new.name} does not exist, creating.")
             data_path.mkdir(parents=True)
         elif not data_path.is_dir():
-            LOGGER.error(f"Data storage directory for {new.name} exists but is not a file!")
+            LOGGER.error(
+                f"Data storage directory for {new.name} exists but is not a file!")
         await new.load_data_storages(data_path)
 
     async def on_server_remove(self, server: discord.Server) -> None:
@@ -307,10 +339,12 @@ class MoMMI(object):
 
         await asyncio.gather(*(server.save_all_storages() for server in self.servers.values()))
 
-        tasks = [module.module.unload(self.client.loop) for module in self.modules.values() if hasattr(module.module, "unload")]
+        tasks = [module.module.unload(self.client.loop) for module in self.modules.values(
+        ) if hasattr(module.module, "unload")]
         await asyncio.gather(*tasks)
 
-        tasks = [module.module.shutdown(self.client.loop) for module in self.modules.values() if hasattr(module.module, "shutdown")]
+        tasks = [module.module.shutdown(self.client.loop) for module in self.modules.values(
+        ) if hasattr(module.module, "shutdown")]
         await asyncio.gather(*tasks)
 
         LOGGER.info("Goodbye.")

@@ -8,7 +8,7 @@ import sys
 from distutils import spawn
 from random import choice
 from string import ascii_lowercase
-from typing import Optional
+from typing import Optional, List
 from discord import Message, Embed
 from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOR_COMPILE_FAIL, COLOR_RUN_SUCCESS, COLOR_RUN_FAIL
 from MoMMI.channel import MChannel
@@ -98,7 +98,7 @@ class DMCodeHandler(MCodeHandler):
         await channel.server.master.client.add_reaction(message, "⌛")
 
         try:
-            firejail = []
+            firejail: List[str] = []
             firejail_name = ""
 
             # Use firejail if at all possible.
