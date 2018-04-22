@@ -80,13 +80,18 @@ async def github_event(channel: MChannel, message, meta):
         logger.debug("No handler for this event, ignoring.")
         return
 
-    await func(channel, message["content"], meta)
+    asyncio.ensure_future(func(channel, message["content"], meta))
 
 
 async def on_github_push(channel: MChannel, message: Any, meta: str):
     commits = message["commits"]
     if not commits:
         return
+
+    # We need to sleep for a few because
+    # the PR event needs to update commit hashes to ignore
+    # and it does a network request.
+    await asyncio.sleep(3)
 
     embed = Embed()
     embed.url = message["compare"]
@@ -183,9 +188,11 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
         embed.color = COLOR_GITHUB_GREEN
 
     if action == "closed" and pull_request["merged"]:
-        pre = "<:PRmerged:245910124781240321>"
+        pre = "<:PRmerged:437316952772444170>"
         embed.color = COLOR_GITHUB_PURPLE
         KNOWN_MERGE_COMMITS.add(pull_request["merge_commit_sha"])
+        asyncio.ensure_future(add_known_merge_commits(
+            repository["full_name"], pull_request["number"]))
 
     embed.title = pre + pull_request["title"]
     embed.url = pull_request["html_url"]
@@ -202,6 +209,14 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
     embed.description += "\n\u200B"
 
     await channel.send(embed=embed)
+
+
+async def add_known_merge_commits(repo: str, number: int):
+    url = github_url(f"/repos/{repo}/pulls/{number}/commits")
+    commits = await get_github_object(url)
+    for commit in commits:
+        sha = commit["sha"]
+        KNOWN_MERGE_COMMITS.add(sha)
 
 
 async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
@@ -241,7 +256,7 @@ async def secret_repo_check(message: Any, meta: str):
         return
 
     repo_name = message["repository"]["full_name"]
-    conflict_files = master.config.get_module(
+    conflict_files: List[str] = master.config.get_module(
         f"github.repos.{repo_name}.secret_repo_files", [])
     if not conflict_files:
         return
@@ -280,7 +295,6 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
     for repo_config in cfg:
         repo = repo_config["repo"]
-        branchname = repo_config["branch"]
 
         for match in REG_ISSUE.finditer(message.content):
             issueid = int(match.group(1))
@@ -304,7 +318,7 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
                 url = github_url(f"/repos/{repo}/pulls/{issueid}")
                 prcontent = await get_github_object(url)
                 if prcontent["merged"]:
-                    emoji = "<:PRmerged:245910124781240321>"
+                    emoji = "<:PRmerged:437316952772444170>"
                     embed.color = COLOR_GITHUB_PURPLE
                 else:
                     emoji = "<:PRclosed:246037149839917056>"
