@@ -218,7 +218,7 @@ async def ircrelay(channel: MChannel, match: Match, message: Message):
             last_messages.pop(0)
             last_messages.append(split_message)
 
-            target_connection.client.send("PRIVMSG", target=target_channel, message="<{}> {}".format(author, split_message))
+            target_connection.client.send("PRIVMSG", target=target_channel, message="\x02<{}>\x02 {}".format(author, split_message))
 
     except RuntimeError:
         pass
