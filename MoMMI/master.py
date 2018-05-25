@@ -117,6 +117,9 @@ class MoMMI(object):
             if "__pycache__" in dirnames:
                 dirnames.remove("__pycache__")
 
+            if ".mypy_cache" in dirnames:
+                dirnames.remove(".mypy_cache")
+
             dirpath = Path(dirpath_)
 
             for filename in filenames:
