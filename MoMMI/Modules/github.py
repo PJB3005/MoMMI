@@ -3,7 +3,7 @@ import logging
 import re
 import asyncio
 from typing import re as typing_re, Tuple, List, Optional, Any, Set, Dict, DefaultDict
-from urllib.parse import quote
+from urllib.parse import quote, quote_plus
 from collections import defaultdict
 import aiohttp
 from colorhash import ColorHash
@@ -283,18 +283,23 @@ async def secret_repo_check(message: Any, meta: str):
     session: aiohttp.ClientSession = master.get_cache(GITHUB_SESSION)
 
     url = message["pull_request"]["issue_url"] + "/labels"
-    postdata = json.dumps(
-        [label_name])
 
     session = master.get_cache(GITHUB_SESSION)
-    method = session.post if found else session.delete
-    async with method(url, data=postdata) as postresp:
-        logger.info("Setting secret repo conflicts label on PR #%s returned status code %s!",
-                    message["number"], postresp.status)
-
+    if found:
+        postdata = json.dumps(
+            [label_name])
+        async with session.post(url, data=postdata) as postresp:
+            logger.info("Setting secret repo conflicts label on PR #%s returned status code %s!",
+                        message["number"], postresp.status)
+    else:
+        async with session.delete(url + "/" + quote_plus(label_name)):
+            logger.info("Deleting secret repo conflicts label on PR #%s returned status code %s!",
+                        message["number"], postresp.status)
 
 # Indent 2: the indent
 # handling of stuff like [2000] and [world.dm]
+
+
 @always_command("github_issue")
 async def issue_command(channel: MChannel, match: typing_re.Match, message: Message):
     try:
