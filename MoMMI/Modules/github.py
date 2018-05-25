@@ -262,21 +262,33 @@ async def secret_repo_check(message: Any, meta: str):
         return
 
     files = await get_github_object(message["pull_request"]["url"] + "/files")
+    found = False
     for fileobject in files:
         if fileobject["filename"] in conflict_files:
+            found = True
             break
 
-    else:
+    label_name = master.config.get_module(f"github.repos.{repo_name}.labels.secret_conflicts", "Secret Repo Conflict")
+    url = message["pull_request"]["issue_url"] + "/labels"
+    labels = await get_github_object(url)
+    haslabel = False
+    for label in labels:
+        if label["name"] == label_name:
+            haslabel = True
+            break
+
+    if haslabel == found:
         return
 
-    session = master.get_cache(GITHUB_SESSION)
+    session: aiohttp.ClientSession = master.get_cache(GITHUB_SESSION)
 
     url = message["pull_request"]["issue_url"] + "/labels"
     postdata = json.dumps(
-        [master.config.get_module(f"github.repos.{repo_name}.labels.secret_conflicts", "Secret Repo Conflict")])
+        [label_name])
 
     session = master.get_cache(GITHUB_SESSION)
-    async with session.post(url, data=postdata) as postresp:
+    method = session.post if found else session.delete
+    async with method(url, data=postdata) as postresp:
         logger.info("Setting secret repo conflicts label on PR #%s returned status code %s!",
                     message["number"], postresp.status)
 
