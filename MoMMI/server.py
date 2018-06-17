@@ -116,7 +116,7 @@ class MServer(object):
     def add_channel(self, channel: Channel) -> None:
         name = None
         for k, v in self.config.get("channels", {}).items():
-            if int(v) == channel.id:
+            if int(v) == int(channel.id):
                 name = k
                 break
 
@@ -127,8 +127,10 @@ class MServer(object):
 
     def init_channel_names(self) -> None:
         for k, v in self.config.get("channels", {}).items():
-            if SnowflakeID(v) in self.channels:
-                self.channels_name[k] = self.channels[SnowflakeID(v)]
+            sid = SnowflakeID(v)
+            if sid in self.channels:
+                self.channels_name[k] = self.channels[sid]
+                self.channels[sid].internal_name = k
 
     def remove_channel(self, channel: Channel) -> None:
         channel = self.get_channel(SnowflakeID(channel.id))
