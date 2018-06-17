@@ -88,8 +88,8 @@ class MoMMI(object):
         if sys.platform != "win32":
             self.register_signals()
 
-        self.commloop = commloop(self)
-        await self.commloop.start(self.client.loop)
+        self.commloop = commloop(self, self.client.loop)
+        await self.commloop.start()
 
         LOGGER.info(
             f"$BLUELogged in as $WHITE{self.client.user.name}$RESET ($YELLOW{self.client.user.id}$RESET)")
@@ -371,7 +371,7 @@ class MoMMI(object):
         for server in self.servers.values():
             yield from server.channels.values()
 
-    async def on_channel_delete(self, channel: discord.Channel):
+    async def on_channel_delete(self, channel: discord.Channel) -> None:
         if channel.is_private:
             return
 
@@ -379,7 +379,7 @@ class MoMMI(object):
         mserver = self.get_server(server_id)
         mserver.remove_channel(channel)
 
-    async def on_channel_create(self, channel: discord.Channel):
+    async def on_channel_create(self, channel: discord.Channel) -> None:
         # TODO: support for PMs.
         # Probably longs ways off shit.
         LOGGER.debug(f"Got new channel! {channel.is_private}, {channel.id}")

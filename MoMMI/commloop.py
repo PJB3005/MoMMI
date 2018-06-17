@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 class commloop(object):
-    def __init__(self, master: MoMMI) -> None:
+    def __init__(self, master: MoMMI, loop: asyncio.AbstractEventLoop) -> None:
         self.server: Optional[asyncio.AbstractServer] = None
         self.clients: Dict[asyncio.Future,
                            Tuple[asyncio.StreamReader, asyncio.StreamWriter]] = {}
 
-        self.master: MoMMI = master
+        self.master = master
 
         self.routing: Dict[str, Any] = master.config.get_main(
             "commloop.route", {})
@@ -36,17 +36,16 @@ class commloop(object):
             "commloop.address", "localhost")
         self.port: int = master.config.get_main("commloop.port", 1679)
         self.authkey: str = master.config.get_main("commloop.password")
-        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.loop = loop
 
-    async def start(self, loop: asyncio.AbstractEventLoop) -> None:
+    async def start(self) -> None:
         self.server = await asyncio.start_server(
             self.accept_client,
             self.address,
             self.port,
-            loop=loop
+            loop=self.loop
         )
         logger.debug("Started the commloop server.")
-        self.loop = loop
 
     async def stop(self) -> None:
         if self.server is None:
@@ -57,7 +56,7 @@ class commloop(object):
 
     def accept_client(self, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
         # logger.debug("Accepting new client!")
-        task: asyncio.Task = asyncio.ensure_future(
+        task = asyncio.ensure_future(
             self.handle_client(client_reader, client_writer), loop=self.loop)
         self.clients[task] = (client_reader, client_writer)
 
@@ -112,8 +111,8 @@ class commloop(object):
 
     async def route(self, message: Dict[str, Any]) -> None:
         # Do global comm events first.
-        for handler in self.master.iter_global_handlers(MGlobalCommEvent):
-            await handler.execute(message["cont"], message["meta"])
+        for globalhandler in self.master.iter_global_handlers(MGlobalCommEvent):
+            await globalhandler.execute(message["cont"], message["meta"])
 
         if message["type"] not in self.routing:
             logger.warning(
@@ -184,7 +183,7 @@ class MCommEvent(MHandler):
 
         self.func: CommEventType = func
 
-    async def execute(self, channel: MChannel, message: Any, meta: str):
+    async def execute(self, channel: MChannel, message: Any, meta: str) -> None:
         await self.func(channel, message, meta)
 
 
@@ -210,5 +209,5 @@ class MGlobalCommEvent(MHandler):
 
         self.func: GlobalCommEventType = func
 
-    async def execute(self, message: Any, meta: str):
+    async def execute(self, message: Any, meta: str) -> None:
         await self.func(message, meta)

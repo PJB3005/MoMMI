@@ -41,7 +41,7 @@ class ConfigManager(object):
 
         return default
 
-    async def load_from(self, path: Path):
+    async def load_from(self, path: Path) -> None:
         self.path = path
         await asyncio.gather(
             self.load_main(path),

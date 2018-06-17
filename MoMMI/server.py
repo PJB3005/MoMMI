@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import pickle
-from typing import Dict, Any, TypeVar, Optional, Union
+from typing import Dict, Any, TypeVar, Optional, Union, cast
 from pathlib import Path
 import aiofiles
 from discord import Server, Channel, Member, Role
@@ -56,7 +56,7 @@ class MServer(object):
         """
         The name that is displayed to users in the server list and such.
         """
-        return self.get_server().name
+        return cast(str, self.get_server().name)
 
     @property
     def discordpy_server(self) -> Server:
@@ -89,10 +89,14 @@ class MServer(object):
 
     async def load_single_storage(self, module: str, file: Path) -> None:
         data: Any
-        async with aiofiles.open(file, "rb") as f:
-            data = pickle.loads(await f.read())
+        try:
+            async with aiofiles.open(file, "rb") as f:
+                data = pickle.loads(await f.read())
 
-        self.storage[module] = data
+            self.storage[module] = data
+
+        except:
+            logger.exception(f"Failed to load storage {module} for server {self.name}")
 
     def get_channel(self, snowflake: MIdentifier) -> MChannel:
         """
@@ -142,11 +146,11 @@ class MServer(object):
     def has_storage(self, name: str) -> bool:
         return name in self.storage
 
-    async def set_storage_save(self, name: str, value: Any):
+    async def set_storage_save(self, name: str, value: Any) -> None:
         self.set_storage(name, value)
         await self.save_storage(name)
 
-    async def save_storage(self, name: str):
+    async def save_storage(self, name: str) -> None:
         if self.storagedir is None:
             raise RuntimeError("Storage dir has not been set. Cannot save storages!")
 

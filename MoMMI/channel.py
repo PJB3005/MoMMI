@@ -39,7 +39,7 @@ class MChannel(object):
         """
         return self.server.master.client.get_channel(str(self.id))
 
-    async def send(self, message: str = "", **kwargs: Any):
+    async def send(self, message: str = "", **kwargs: Any) -> None:
         """
         Send a message on this channel.
         """
@@ -67,7 +67,7 @@ class MChannel(object):
 
     def isrole(self, member: Member, rolename: MRoleType) -> bool:
         if rolename == MRoleType.OWNER:
-            owner_id = self.main_config("bot.owner")
+            owner_id: int = self.main_config("bot.owner")
             return int(member.id) == owner_id
 
         if rolename not in self.server.roles:

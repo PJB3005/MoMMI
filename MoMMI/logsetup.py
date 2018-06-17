@@ -5,7 +5,7 @@ import logging.handlers
 import re
 import copy
 from pathlib import Path
-from typing import cast
+from typing import cast, Type
 
 COLOR_ESCAPE = re.compile(r"\$(BLACK|RED|GREEN|YELLOW|BLUE|MAGENTA|CYAN|WHITE|BOLD|RESET)")
 
@@ -15,6 +15,8 @@ class NotColorFormatter(logging.Formatter):
         if isinstance(record.msg, str):
             record.msg = COLOR_ESCAPE.sub("", record.msg)
         return super().format(record)
+
+ColorFormatter: Type[logging.Formatter]
 
 try:
     import colorama
@@ -39,7 +41,7 @@ try:
 
     colorama.init()
 
-    class ColorFormatter(logging.Formatter):
+    class __ColorFormatter(logging.Formatter):
         def format(self, record: logging.LogRecord) -> str:
             record = copy.copy(record)
             if record.levelname in LEVELNAME_COLORS:
@@ -50,6 +52,8 @@ try:
                 record.msg = COLOR_ESCAPE.sub(lambda x: cast(str, globals()[x.group(1)]), record.msg) + RESET
 
             return super().format(record)
+
+    ColorFormatter = __ColorFormatter
 
 except ImportError:
     ColorFormatter = NotColorFormatter
