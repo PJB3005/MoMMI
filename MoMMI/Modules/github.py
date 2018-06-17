@@ -314,16 +314,11 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
     for repo_config in cfg:
         repo = repo_config["repo"]
-        repo_prefix = repo_config.get("prefix")
-        repo_prefix_required = repo_config.get("prefix_required", True)
 
         for match in REG_ISSUE.finditer(message.content):
             prefix = match.group(1)
 
-            if prefix is not None and repo_prefix != prefix:
-                continue
-
-            if prefix is None and repo_prefix_required:
+            if not is_repo_valid_for_command(repo_config, channel, prefix):
                 continue
 
             issueid = int(match.group(2))
@@ -379,10 +374,7 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
         for match in REG_COMMIT.finditer(message.content):
             prefix = match.group(1)
 
-            if prefix is not None and repo_prefix != prefix:
-                continue
-
-            if prefix is None and repo_prefix_required:
+            if not is_repo_valid_for_command(repo_config, channel, prefix):
                 continue
 
             sha = match.group(2)
@@ -447,8 +439,6 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
     for repocfg in cfg:
         repo = repocfg["repo"]
         branchname = repocfg.get("branch", "master")
-        repo_prefix = repocfg.get("prefix")
-        repo_prefix_required = repocfg.get("prefix_required", True)
 
         url = github_url(f"/repos/{repo}/branches/{branchname}")
         branch = await get_github_object(url)
@@ -458,10 +448,7 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
         tree = await get_github_object(url, params={"recursive": 1})
 
         for path, linestart, lineend, rooted, prefix in paths:
-            if prefix is not None and repo_prefix != prefix:
-                continue
-
-            if prefix is None and repo_prefix_required:
+            if not is_repo_valid_for_command(repocfg, channel, prefix):
                 continue
 
             for filehash in tree["tree"]:
@@ -607,3 +594,22 @@ async def get_github_object(url: str, *, params=None) -> Any:
         cache[(url, paramstr)] = contents, response.headers["Last-Modified"]
 
     return contents
+
+def is_repo_valid_for_command(repo_config: Dict[str, Any], channel: MChannel, prefix: Optional[str]) -> bool:
+    """
+    Checks to see whether commands like [123] are valid for a certain repo on a certain channel.
+    """
+    repo_prefix = repo_config.get("prefix")
+    repo_prefix_required = repo_config.get("prefix_required", True)
+    repo_prefix_whitelist = repo_config.get("prefix_whitelist", [])
+
+    if channel.internal_name is not None and channel.internal_name in repo_prefix_whitelist:
+        repo_prefix_required = False
+
+    if prefix is not None and repo_prefix != prefix:
+        return False
+
+    if prefix is None and repo_prefix_required:
+        return False
+
+    return True
