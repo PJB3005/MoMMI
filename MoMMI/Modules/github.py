@@ -16,9 +16,9 @@ from MoMMI.Modules.irc import irc_transform
 
 logger = logging.getLogger(__name__)
 
-REG_PATH = re.compile(r"\[(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
-REG_ISSUE = re.compile(r"\[#?([0-9]+)\]")
-REG_COMMIT = re.compile(r"\[([0-9a-f]{40})\]", re.I)
+REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
+REG_ISSUE = re.compile(r"\[(?:(\S+)#)?([0-9]+)\]")
+REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
 
 COLOR_GITHUB_RED = Color(0xFF4444)
 COLOR_GITHUB_GREEN = Color(0x6CC644)
@@ -310,16 +310,31 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
     await try_handle_file_embeds(message.content, channel, cfg)
 
+    messages = 0
+
     for repo_config in cfg:
         repo = repo_config["repo"]
+        repo_prefix = repo_config.get("prefix")
+        repo_prefix_required = repo_config.get("prefix_required", True)
 
         for match in REG_ISSUE.finditer(message.content):
-            issueid = int(match.group(1))
-            if issueid < 30:
+            prefix = match.group(1)
+
+            if prefix is not None and repo_prefix != prefix:
+                continue
+
+            if prefix is None and repo_prefix_required:
+                continue
+
+            issueid = int(match.group(2))
+            if not prefix and issueid < 30:
                 continue
 
             url = github_url(f"/repos/{repo}/issues/{issueid}")
-            content = await get_github_object(url)
+            try:
+                content = await get_github_object(url)
+            except:
+                continue
 
             # God forgive me.
             embed = Embed()
@@ -357,8 +372,20 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
             await channel.send(embed=embed)
 
+            messages += 1
+            if messages >= GITHUB_ISSUE_MAX_MESSAGES:
+                return
+
         for match in REG_COMMIT.finditer(message.content):
-            sha = match.group(1)
+            prefix = match.group(1)
+
+            if prefix is not None and repo_prefix != prefix:
+                continue
+
+            if prefix is None and repo_prefix_required:
+                continue
+
+            sha = match.group(2)
             url = github_url(f"/repos/{repo}/git/commits/{sha}")
             try:
                 commit = await get_github_object(url)
@@ -380,15 +407,20 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
 
             await channel.send(embed=embed)
 
+            messages += 1
+            if messages >= GITHUB_ISSUE_MAX_MESSAGES:
+                return
+
 
 async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict[str, str]]) -> bool:
     if not REG_PATH.search(message):
         return False
 
-    paths: List[Tuple[str, Optional[str], Optional[str], bool]]
+    paths: List[Tuple[str, Optional[str], Optional[str], bool, Optional[str]]]
     paths = []
     for match in REG_PATH.finditer(message):
-        path = match.group(1).lower()
+        prefix = match.group(1)
+        path = match.group(2).lower()
         # Ignore tiny paths, too common accidentally in code blocks.
         if len(path) <= 3:
             continue
@@ -400,19 +432,23 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
 
         linestart = None
         lineend = None
-        if match.group(2):
-            linestart = match.group(2)
-            if match.group(3):
-                lineend = match.group(3)
+        if match.group(3):
+            linestart = match.group(3)
+            if match.group(4):
+                lineend = match.group(4)
 
-        paths.append((path, linestart, lineend, rooted))
+        print(repr(prefix))
+
+        paths.append((path, linestart, lineend, rooted, prefix))
 
     # That's reponame: list((title, url))
     output: DefaultDict[str, List[Tuple[str, str]]] = defaultdict(list)
 
     for repocfg in cfg:
         repo = repocfg["repo"]
-        branchname = repocfg["branch"]
+        branchname = repocfg.get("branch", "master")
+        repo_prefix = repocfg.get("prefix")
+        repo_prefix_required = repocfg.get("prefix_required", True)
 
         url = github_url(f"/repos/{repo}/branches/{branchname}")
         branch = await get_github_object(url)
@@ -421,8 +457,14 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
             f"/repos/{repo}/git/trees/{branch['commit']['sha']}")
         tree = await get_github_object(url, params={"recursive": 1})
 
-        for filehash in tree["tree"]:
-            for path, linestart, lineend, rooted in paths:
+        for path, linestart, lineend, rooted, prefix in paths:
+            if prefix is not None and repo_prefix != prefix:
+                continue
+
+            if prefix is None and repo_prefix_required:
+                continue
+
+            for filehash in tree["tree"]:
                 if rooted:
                     if not filehash["path"].lower().startswith(path):
                         continue
