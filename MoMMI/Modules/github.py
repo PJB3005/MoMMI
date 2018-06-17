@@ -308,7 +308,7 @@ async def issue_command(channel: MChannel, match: typing_re.Match, message: Mess
         # Server has no config settings for GitHub.
         return
 
-    await try_handle_file_embeds(message.content, channel, cfg)
+    asyncio.ensure_future(try_handle_file_embeds(message.content, channel, cfg))
 
     messages = 0
 
@@ -408,10 +408,13 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
     if not REG_PATH.search(message):
         return False
 
+    prefixes: List[Optional[str]] = [None]
     paths: List[Tuple[str, Optional[str], Optional[str], bool, Optional[str]]]
     paths = []
     for match in REG_PATH.finditer(message):
         prefix = match.group(1)
+        if prefix is not None and prefix not in prefixes:
+            prefixes.append(prefix)
         path = match.group(2).lower()
         # Ignore tiny paths, too common accidentally in code blocks.
         if len(path) <= 3:
@@ -437,6 +440,13 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
     output: DefaultDict[str, List[Tuple[str, str]]] = defaultdict(list)
 
     for repocfg in cfg:
+        for prefix in prefixes:
+            if is_repo_valid_for_command(repocfg, channel, prefix):
+                break
+
+        else:
+            continue
+
         repo = repocfg["repo"]
         branchname = repocfg.get("branch", "master")
 
@@ -568,7 +578,7 @@ async def make_gist(contents: str, name: str, desc: str):
 
 
 async def get_github_object(url: str, *, params=None) -> Any:
-    #logger.debug(f"Fetching github object at URL {url}...")
+    logger.debug(f"Fetching github object at URL {url}...")
 
     session = master.get_cache(GITHUB_SESSION)
     cache = master.get_cache(GITHUB_CACHE)
