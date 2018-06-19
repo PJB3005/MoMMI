@@ -69,10 +69,15 @@ class DMCodeHandler(MCodeHandler):
 
             output += "\n".join(lines)
 
-            output += "\nvar/c/d=new\n/c/New()\n\tshutdown()"
+            output += "\nvar/c/d=new\n/c/New()\n\teval(\"\")\n\tshutdown()"
 
         else:
-            output = f"\n{code}\nvar/ZZZZZ/zzzzz=new\nZZZZZ/New()\n\tmain()\n\tshutdown()"
+            output = f"\n{code}\nvar/ZZZZZ/zzzzz=new\nZZZZZ/New()\n\tmain()\n\teval(\"\")\n\tshutdown()"
+
+        # You may have noticed that eval("") call before the shutdown calls.
+        # I absolutely have no god damn idea why, but DD reliably hangs for 20+ seconds before shutting down when running in a sandbox.
+        # eval("") fixes this.
+        # Literally what the fuck.
 
         dmepath = os.path.join(self.projectpath, "code.dm")
 
