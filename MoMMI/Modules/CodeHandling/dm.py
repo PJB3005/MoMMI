@@ -100,7 +100,7 @@ class DMCodeHandler(MCodeHandler):
 
         me = channel.server.get_server().me
 
-        asyncio.ensure_future(channel.server.master.client.add_reaction(message, "⌛"))
+        #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "⌛"))
 
         try:
             firejail: List[str] = []
@@ -146,8 +146,8 @@ class DMCodeHandler(MCodeHandler):
                 await channel.send(embed=embed)
                 return
 
-            asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "⌛", me))
-            asyncio.ensure_future(channel.server.master.client.add_reaction(message, "🔨"))
+            #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "⌛", me))
+            #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "🔨"))
 
             proc = await asyncio.create_subprocess_exec(*firejail, self.dd_executable_path(channel), dmepath + "b", "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
@@ -172,25 +172,25 @@ class DMCodeHandler(MCodeHandler):
             embed.add_field(name="Execution Output",
                             value=f"```{log}```", inline=False)
 
-            asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "🔨", channel.server.get_server().me))
+            #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "🔨", channel.server.get_server().me))
 
             if fail_reason:
                 embed.color = COLOR_RUN_FAIL
                 embed.description = fail_reason
-                asyncio.ensure_future(channel.server.master.client.add_reaction(message, "❌"))
+                #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "❌"))
 
             else:
                 embed.color = COLOR_RUN_SUCCESS
-                asyncio.ensure_future(channel.server.master.client.add_reaction(message, "✅"))
+                #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "✅"))
 
             await channel.send(embed=embed)
 
         except:
             await channel.send("Unknown error occured while executing code. Check the log files.")
             logger.exception("Exception while executing DM code")
-            await channel.server.master.client.remove_reaction(message, "🔨", me)
-            await channel.server.master.client.remove_reaction(message, "⌛", me)
-            await channel.server.master.client.add_reaction(message, "❌")
+            #await channel.server.master.client.remove_reaction(message, "🔨", me)
+            #await channel.server.master.client.remove_reaction(message, "⌛", me)
+            #await channel.server.master.client.add_reaction(message, "❌")
 
         finally:
             await self.cleanup()
