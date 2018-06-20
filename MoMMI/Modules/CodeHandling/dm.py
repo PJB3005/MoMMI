@@ -39,19 +39,18 @@ class DMCodeHandler(MCodeHandler):
             else:
                 break
 
-        self.projectpath = path
         return path
 
-    async def cleanup(self):
+    async def cleanup(self, path: str):
         # Can never be too safe with the equivalent of rm -r
-        if not self.projectpath.startswith(os.path.join(os.getcwd(), "codeprojects")):
+        if not path.startswith(os.path.join(os.getcwd(), "codeprojects")):
             logger.error(
                 "Failed to delete project subdirectory because the directory doesn't start with our cwd!")
             return
 
-        shutil.rmtree(self.projectpath)
+        shutil.rmtree(path)
 
-    async def make_project(self, code: str) -> str:
+    async def make_project(self, code: str, path: str) -> str:
         code = code.replace("\r", "\n").replace("    ", "\t")
         lines = code.split("\n")
 
@@ -79,7 +78,7 @@ class DMCodeHandler(MCodeHandler):
         # eval("") fixes this.
         # Literally what the fuck.
 
-        dmepath = os.path.join(self.projectpath, "code.dm")
+        dmepath = os.path.join(path, "code.dm")
 
         async with aiofiles.open(dmepath, "w") as f:
             await f.write(output)
@@ -112,10 +111,10 @@ class DMCodeHandler(MCodeHandler):
                 firejail_name = "mommi_dm_" + DMCodeHandler.random_string()
                 firejail = ["firejail", "--quiet",
                             f"--profile={firejail_profile}",
-                            f"--private={self.projectpath}",
+                            f"--private={path}",
                             f"--name={firejail_name}"]
 
-            dmepath = await self.make_project(code)
+            dmepath = await self.make_project(code, path)
 
             proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), dmepath, stdout=asyncio.subprocess.PIPE)
             fail_reason = None
@@ -193,7 +192,7 @@ class DMCodeHandler(MCodeHandler):
             #await channel.server.master.client.add_reaction(message, "❌")
 
         finally:
-            await self.cleanup()
+            await self.cleanup(path)
 
     def dm_executable_path(self, channel: MChannel) -> str:
         try:
