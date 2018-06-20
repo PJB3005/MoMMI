@@ -259,11 +259,17 @@ class MoMMI(object):
         if message.author.id == self.client.user.id and message.content.startswith("\u200B**IRC:**"):
             return
 
-        CHAT_LOGGER.info(
-            f"({message.channel.name}) {message.author.name}: {message.content}")
-
         server = self.get_server(SnowflakeID(message.server.id))
         channel = server.get_channel(SnowflakeID(message.channel.id))
+
+        logmsg = f"({server.name}/{message.channel.name}) {message.author.name}: {message.content}"
+
+        if message.attachments:
+            logmsg += "[Attachments]"
+            for attach in message.attachments:
+                logmsg += " " + attach["url"]
+
+        CHAT_LOGGER.info(logmsg)
 
         for command in channel.iter_handlers(MCommand):
             await command.try_execute(channel, message)
