@@ -4,6 +4,8 @@ sudo: false
 
 before-install:
 - python3 -m venv venv/
+- ls
+- ls venv
 
 install:
 - source venv/bin/activate
