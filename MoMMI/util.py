@@ -2,7 +2,8 @@ import os
 import pickle
 from typing import Any
 import aiofiles
-
+from discord import Message
+from MoMMI.master import master
 
 async def pickle_dump(obj: Any, filename: os.PathLike):
     """
@@ -21,3 +22,9 @@ async def pickle_load(filename: os.PathLike) -> Any:
         byte = await f.read()
 
     return pickle.loads(byte)
+
+async def add_reaction(message: Message, reaction: str) -> None:
+    await master.client.add_reaction(message, reaction)
+
+async def remove_reaction(message: Message, reaction: str) -> None:
+    await master.client.remove_reaction(message, reaction)

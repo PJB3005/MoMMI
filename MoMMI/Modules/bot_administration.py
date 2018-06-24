@@ -61,5 +61,4 @@ async def avatar_command(channel: MChannel, match: Match, message: Message):
 
 @command("save", r"save", roles=[MRoleType.OWNER])
 async def avatar_command(channel: MChannel, match: Match, message: Message):
-    for server in master.servers.values():
-        await server.save_all_storages()
+    await master.save_all_storage()

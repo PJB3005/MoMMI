@@ -5,3 +5,5 @@ aiohttp
 bottom
 toml
 colorama
+pytz
+python-dateutil

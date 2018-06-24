@@ -3,11 +3,13 @@ import asyncio
 import importlib
 import logging
 import os
+import pickle
 import re
 import signal
 import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Iterable, TYPE_CHECKING, Union, Type, TypeVar
+import aiofiles
 import discord
 from MoMMI.config import ConfigManager
 from MoMMI.module import MModule
@@ -52,6 +54,8 @@ class MoMMI(object):
         self.client = discord.Client()
         self.commloop: Optional[commloop] = None
         self.storagedir: Optional[Path] = None
+        self.global_storagedir: Optional[Path] = None
+        self.global_storage: Dict[str, Any] = {}
 
         # Find all on_xxx attributes and register them to the client.
         for member in dir(self):
@@ -60,6 +64,8 @@ class MoMMI(object):
 
     def start(self, configdir: Path, storagedir: Path) -> None:
         self.storagedir = storagedir
+        self.global_storagedir = storagedir/"__global__"
+        self.global_storagedir.mkdir(parents=True, exist_ok=True)
         loop = asyncio.get_event_loop()
 
         try:
@@ -98,6 +104,9 @@ class MoMMI(object):
 
         await self.reload_modules()
         LOGGER.info(f"$BLUELoaded $WHITE{len(self.modules)}$BLUE modules.")
+
+        await self.load_all_global_storages()
+        LOGGER.info("Loaded global storages.")
 
         tasks = []
         LOGGER.info("$BLUEConnected servers:")
@@ -346,7 +355,7 @@ class MoMMI(object):
             LOGGER.debug("Closing commloop.")
             await self.commloop.stop()
 
-        await asyncio.gather(*(server.save_all_storages() for server in self.servers.values()))
+        await self.save_all_storage()
 
         tasks = [module.module.unload(self.client.loop) for module in self.modules.values(
         ) if hasattr(module.module, "unload")]
@@ -412,5 +421,61 @@ class MoMMI(object):
         for module in self.modules.values():
             yield from (x for x in module.handlers.values() if isinstance(x, handlertype))
 
+    async def save_all_storage(self) -> None:
+        """
+        Save all storages, including server and global storages.
+        """
+        await asyncio.gather(*(server.save_all_storages() for server in self.servers.values()))
+        await self.save_all_global_storages()
+
+    def get_global_storage(self, name: str) -> Any:
+        """
+        Fetch a GLOBAL storage.
+        """
+        return self.global_storage[name]
+
+    def set_global_storage(self, name: str, value: Any) -> None:
+        """
+        Set a GLOBAL storage.
+        """
+        self.global_storage[name] = value
+
+    def has_global_storage(self, name: str) -> bool:
+        """
+        Check whether a GLOBAL storage exists or not.
+        """
+        return name in self.global_storage
+
+    async def save_global_storage(self, name: str) -> None:
+        if self.global_storagedir is None:
+            raise RuntimeError("Storage dir has not been set. Cannot save storages!")
+
+        storage = self.get_global_storage(name)
+        data = pickle.dumps(storage)
+        async with aiofiles.open(self.global_storagedir/name, "wb") as f:
+            await f.write(data)
+
+    async def save_all_global_storages(self) -> None:
+        for name in self.global_storage.keys():
+            await self.save_global_storage(name)
+
+    async def load_all_global_storages(self) -> None:
+        if self.global_storagedir is None:
+            raise RuntimeError("Storage dir has not been set. Cannot save storages!")
+
+        await asyncio.gather(
+            *(self.load_single_global_storage(m.name, m) for m in self.global_storagedir.iterdir())
+        )
+
+    async def load_single_global_storage(self, module: str, file: Path) -> None:
+        data: Any
+        try:
+            async with aiofiles.open(file, "rb") as f:
+                data = pickle.loads(await f.read())
+
+            self.global_storage[module] = data
+
+        except:
+            LOGGER.exception(f"Failed to load global storage {module}")
 
 master = MoMMI()
