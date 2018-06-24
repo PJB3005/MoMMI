@@ -2,17 +2,19 @@ import asyncio
 import logging
 import random
 import re
-from typing import Callable, Match, Pattern, Awaitable, Optional, List, Any
+from typing import Callable, Match, Pattern, Awaitable, Optional, List, Any, TYPE_CHECKING
 from discord import Message
 from MoMMI.handler import MHandler
 from MoMMI.permissions import bantypes
-from MoMMI.server import MChannel
 from MoMMI.role import MRoleType
 
 logger = logging.getLogger(__name__)
 chatlogger = logging.getLogger("chat")
 
-CommandType = Callable[[MChannel, Match, Message], Awaitable[None]]
+if TYPE_CHECKING:
+    from MoMMI.channel import MChannel
+
+CommandType = Callable[["MChannel", Match, Message], Awaitable[None]]
 
 
 def command(name: str, regex: str, flags: int = re.IGNORECASE, **kwargs: Any) -> Callable[[CommandType], CommandType]:
@@ -74,7 +76,7 @@ class MCommand(MHandler):
         self.help: Optional[str] = commandhelp
         self.roles: Optional[List[MRoleType]] = roles
 
-    async def try_execute(self, channel: MChannel, message: Message) -> None:
+    async def try_execute(self, channel: "MChannel", message: Message) -> None:
         message_start = 0
         match = None
 

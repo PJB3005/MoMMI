@@ -1,9 +1,7 @@
 import asyncio
 import logging
-from typing import Any
-from MoMMI.commloop import comm_event
-from MoMMI.master import master
-from MoMMI.server import MChannel
+from typing import Any, TypeVar, List, Dict, Tuple
+from MoMMI import comm_event, master, MChannel
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -24,13 +22,13 @@ CHANGELOG_EMOJIS = {
 
 CACHE_CHANGELOG_NAMES = "changelog_names"
 
-async def load(loop: asyncio.AbstractEventLoop):
+async def load(loop: asyncio.AbstractEventLoop) -> None:
     if not master.has_cache(CACHE_CHANGELOG_NAMES):
         master.set_cache(CACHE_CHANGELOG_NAMES, {})
 
 
 @comm_event("changelog")
-async def changelog_comm_event(channel: MChannel, message: Any, meta: str):
+async def changelog_comm_event(channel: MChannel, message: Any, meta: str) -> None:
     author = message["author"]
     changes = message["changes"]
     if not changes:
@@ -55,5 +53,10 @@ async def changelog_comm_event(channel: MChannel, message: Any, meta: str):
 
     await channel.send(content)
 
-def dicttotuples(d):
+
+TKey = TypeVar("TKey")
+TValue = TypeVar("TValue")
+
+def dicttotuples(d: Dict[TKey, TValue]) -> List[Tuple[TKey, TValue]]:
     return [(k, v) for k, v in d.items()]
+

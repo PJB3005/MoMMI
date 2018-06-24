@@ -1,6 +1,7 @@
-from MoMMI.commands import command
-from MoMMI.master import master
+from typing import Match
+from discord import Message
+from MoMMI import MChannel, master, command
 
 @command("dance", "dance")
-async def dance(channel, match, message):
+async def dance(channel: MChannel, match: Match, message: Message) -> None:
     await master.client.send_file(message.channel, "/home/pj/MoMMI/Files/wiggle.gif")

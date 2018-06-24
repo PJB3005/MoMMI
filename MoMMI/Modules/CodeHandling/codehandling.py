@@ -15,7 +15,7 @@ COLOR_RUN_FAIL     = Color(0xC0C333)
 COLOR_COMPILE_FAIL = Color(0xF90E0E)
 
 @command("runcode", r"```(?P<Language>[^\r\n]*)\r?\n(?P<Code>.*)\r?\n```", flags=re.DOTALL)
-async def runcode_command(channel: MChannel, match: Match, message: Message):
+async def runcode_command(channel: MChannel, match: Match, message: Message) -> None:
     language = match.group("Language").lower() or "dm" # Default to DM
     code = match.group("Code")
 
@@ -27,14 +27,12 @@ async def runcode_command(channel: MChannel, match: Match, message: Message):
     await channel.send(f"No language with key: `{language}`")
 
 class MCodeHandler(MHandler):
-    name: ClassVar[str] = "ERROR"
-
     def __init__(self) -> None:
-        super().__init__(type(self).name, self.__module__)
+        super().__init__("ERROR", self.__module__)
 
-        self.languages: Set[str] = {}
+        self.languages: Set[str] = set()
 
-    async def execute(self, code: str, channel: MChannel, message: Message):
+    async def execute(self, code: str, channel: MChannel, message: Message) -> None:
         raise RuntimeError("This function needs to be overriden.")
 
 

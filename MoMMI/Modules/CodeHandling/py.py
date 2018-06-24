@@ -6,14 +6,13 @@ from MoMMI.role import MRoleType
 
 @codehandler
 class PythonCodeHandler(MCodeHandler):
-    name = "python"
-
-    def __init__(self):
+    def __init__(self) -> None:
+        self.name = "python"
         super().__init__()
 
         self.languages = {"py", "python"}
 
-    async def execute(self, code: str, channel: MChannel, message: Message):
+    async def execute(self, code: str, channel: MChannel, message: Message) -> None:
         if not channel.isrole(message.author, MRoleType.OWNER):
             await channel.send("Nope. You're not executing unsandboxed Python on my MoMMI!")
             return

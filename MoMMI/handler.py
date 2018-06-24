@@ -1,4 +1,4 @@
-from MoMMI.master import MoMMI
+from typing import TYPE_CHECKING
 
 class MHandler(object):
     """
@@ -7,10 +7,12 @@ class MHandler(object):
 
     Handlers can be queried for a channel and such.
     """
+    if TYPE_CHECKING:
+        from MoMMI.master import MoMMI
 
     def __init__(self, name: str, module: str) -> None:
         self.name: str = name
         self.module: str = module
 
-    def register(self, master: MoMMI) -> None:
+    def register(self, master: "MoMMI") -> None:
         master.register_handler(self)

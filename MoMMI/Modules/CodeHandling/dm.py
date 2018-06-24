@@ -1,28 +1,27 @@
-import aiofiles
 import asyncio
 import logging
 import os
 import time
 import shutil
 import sys
+import aiofiles
 from distutils import spawn
 from random import choice
 from string import ascii_lowercase
 from typing import Optional, List
 from discord import Message, Embed
 from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOR_COMPILE_FAIL, COLOR_RUN_SUCCESS, COLOR_RUN_FAIL
-from MoMMI.channel import MChannel
+from MoMMI import MChannel
 
 logger = logging.getLogger(__name__)
 
 
 @codehandler
 class DMCodeHandler(MCodeHandler):
-    name = "DM"
-
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
+        self.name = "DM"
         self.languages = {"dm", "dreammaker", "byond"}
 
     async def make_project_folder(self) -> str:
@@ -41,7 +40,7 @@ class DMCodeHandler(MCodeHandler):
 
         return path
 
-    async def cleanup(self, path: str):
+    async def cleanup(self, path: str) -> None:
         # Can never be too safe with the equivalent of rm -r
         if not path.startswith(os.path.join(os.getcwd(), "codeprojects")):
             logger.error(
@@ -85,7 +84,7 @@ class DMCodeHandler(MCodeHandler):
 
         return dmepath
 
-    async def execute(self, code: str, channel: MChannel, message: Message):
+    async def execute(self, code: str, channel: MChannel, message: Message) -> None:
         if sys.platform == "win32" or sys.platform == "cygwin":
             # Attempting to run DD command line on Windows just makes it open a window, run the code, hide the window
             # code then finishes, but the Window and as such process doesn't close
@@ -107,7 +106,7 @@ class DMCodeHandler(MCodeHandler):
 
             # Use firejail if at all possible.
             if channel.module_config("dm.firejail", "") != "":
-                firejail_profile = channel.module_config("dm.firejail")
+                firejail_profile: str = channel.module_config("dm.firejail")
                 firejail_name = "mommi_dm_" + DMCodeHandler.random_string()
                 firejail = ["firejail", "--quiet",
                             f"--profile={firejail_profile}",
@@ -129,6 +128,7 @@ class DMCodeHandler(MCodeHandler):
 
                 fail_reason = "**Compilation failed** due to **timeout** (30 seconds)."
 
+            assert proc.stdout is not None
             data = await proc.stdout.read()
             compile_log = data.decode("Windows-1252", "replace")
 
@@ -160,6 +160,7 @@ class DMCodeHandler(MCodeHandler):
 
                 fail_reason = "**Execution failed** due to **timeout** (30 seconds)."
 
+            assert proc.stdout is not None and proc.stderr is not None
             data = await proc.stderr.read() + await proc.stdout.read()
             log = data.decode("Windows-1252", "replace")
             if len(log) > 900:  # Discord max size of field is 1024 chars.
