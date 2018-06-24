@@ -6,6 +6,7 @@ import shutil
 import sys
 import aiofiles
 from distutils import spawn
+from pathlib import Path
 from random import choice
 from string import ascii_lowercase
 from typing import Optional, List
@@ -24,15 +25,14 @@ class DMCodeHandler(MCodeHandler):
         self.name = "DM"
         self.languages = {"dm", "dreammaker", "byond"}
 
-    async def make_project_folder(self) -> str:
+    async def make_project_folder(self) -> Path:
         # Even if there's a folder already there, keep trying by adding a number to the end.
         offset = 0
-        path = ""
+        path = Path()
         while True:
-            path = os.path.join(os.getcwd(), "codeprojects",
-                                "{}-{}".format(int(time.time()), offset))
+            path = Path.cwd()/"codeprojects"/"{}-{}".format(int(time.time()), offset)
             try:
-                os.makedirs(path)
+                path.mkdir(parents=True, exist_ok=False)
             except FileExistsError:
                 offset += 1
             else:
@@ -40,16 +40,18 @@ class DMCodeHandler(MCodeHandler):
 
         return path
 
-    async def cleanup(self, path: str) -> None:
+    async def cleanup(self, path: Path) -> None:
         # Can never be too safe with the equivalent of rm -r
-        if not path.startswith(os.path.join(os.getcwd(), "codeprojects")):
+        try:
+            path.relative_to(Path.cwd()/"codeprojects")
+        except ValueError:
             logger.error(
                 "Failed to delete project subdirectory because the directory doesn't start with our cwd!")
-            return
+        else:
+            shutil.rmtree(path)
 
-        shutil.rmtree(path)
 
-    async def make_project(self, code: str, path: str) -> str:
+    async def make_project(self, code: str, path: Path) -> Path:
         code = code.replace("\r", "\n").replace("    ", "\t")
         lines = code.split("\n")
 
@@ -77,9 +79,9 @@ class DMCodeHandler(MCodeHandler):
         # eval("") fixes this.
         # Literally what the fuck.
 
-        dmepath = os.path.join(path, "code.dm")
+        dmepath = path/"code.dm"
 
-        async with aiofiles.open(dmepath, "w") as f:
+        async with aiofiles.open(str(dmepath), "w") as f:
             await f.write(output)
 
         return dmepath
@@ -115,7 +117,7 @@ class DMCodeHandler(MCodeHandler):
 
             dmepath = await self.make_project(code, path)
 
-            proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), dmepath, stdout=asyncio.subprocess.PIPE)
+            proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), str(dmepath), stdout=asyncio.subprocess.PIPE)
             fail_reason = None
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
@@ -148,7 +150,7 @@ class DMCodeHandler(MCodeHandler):
             #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "⌛", me))
             #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "🔨"))
 
-            proc = await asyncio.create_subprocess_exec(*firejail, self.dd_executable_path(channel), dmepath + "b", "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            proc = await asyncio.create_subprocess_exec(*firejail, self.dd_executable_path(channel), str(dmepath.with_name("code.dmb")), "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
                 await asyncio.wait_for(proc.wait(), timeout=30)
             except asyncio.TimeoutError:

@@ -11,13 +11,13 @@ if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
     asyncio.set_event_loop(loop)
 
-else:
-    try:
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+#else:
+#    try:
+#        import uvloop
+#        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-    except ImportError:
-        pass
+#    except ImportError:
+#        pass
 
 from MoMMI.master import master
 

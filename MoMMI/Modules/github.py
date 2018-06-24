@@ -434,8 +434,6 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
             if match.group(4):
                 lineend = match.group(4)
 
-        print(repr(prefix))
-
         paths.append((path, linestart, lineend, rooted, prefix))
 
     # That's reponame: list((title, url))
