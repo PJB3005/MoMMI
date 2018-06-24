@@ -15,8 +15,10 @@ before_install:
 - source venv/bin/activate
 
 install:
-- pip install -r requirements.txt
-- pip install mypy
+- source venv/bin/activate
+- pip3 install -r requirements.txt
+- pip3 install mypy
 
 script:
+- source venv/bin/activate
 - ./mypyall.py
