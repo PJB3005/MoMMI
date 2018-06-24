@@ -5,10 +5,10 @@ sudo: false
 python:
 - "3.6"
 
-addons:
-  apt:
-    packages:
-    - python3-venv
+#addons:
+#  apt:
+#    packages:
+#    - python3-venv
 
 before_install:
 - python3 -m venv venv/
