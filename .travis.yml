@@ -5,20 +5,12 @@ sudo: false
 python:
 - "3.6"
 
-#addons:
-#  apt:
-#    packages:
-#    - python3-venv
-
 before_install:
 - pyenv global 3.6
-#- python3 -m venv venv/
-#- source venv/bin/activate
 
 install:
 - pip3 install -r requirements.txt
 - pip3 install mypy
 
 script:
-- source venv/bin/activate
 - ./mypyall.py
