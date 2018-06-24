@@ -2,16 +2,13 @@ language: python
 
 sudo: false
 
-before-install:
+before_install:
 - python3 -m venv venv/
-- ls
-- ls venv
+- source venv/bin/activate
 
 install:
-- source venv/bin/activate
 - pip install -r requirements.txt
 - pip install mypy
 
 script:
-- source venv/bin/activate
 - ./mypyall.py
