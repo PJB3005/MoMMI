@@ -15,7 +15,7 @@ from MoMMI.util import add_reaction
 
 LOOP_TASK_CACHE = "reminder_task"
 REMINDER_QUEUE = "reminder_queue"
-LOOP_INTERVAL = 1
+LOOP_INTERVAL = 5
 LOGGER = getLogger(__name__)
 DATE_RE = re.compile(r"^(?:(\d{4})[/-](\d\d)[/-](\d\d))?(?:(?(1)@)(\d\d)(?::(\d\d)(?::(\d\d))?)?)?$")
 RELATIVE_DATE_SECTION_RE = re.compile(r"(\d+)([dhmsw])")
