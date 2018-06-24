@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import struct
-from typing import Match, Union, Any
+from typing import Match, Union, Any, Dict, List, cast
 from urllib.parse import parse_qs
 from discord import Message
 from MoMMI.commands import command
@@ -10,9 +10,9 @@ from MoMMI.channel import MChannel
 logger = logging.getLogger(__name__)
 
 @command("serverstatus", r"stat(?:us|su)\s*(\S*)")
-async def serverstatus_command(channel: MChannel, match: Match, message: Message):
+async def serverstatus_command(channel: MChannel, match: Match, message: Message) -> None:
     try:
-        config = channel.server_config("modules.serverstatus")
+        config: Dict[str, Any] = channel.server_config("modules.serverstatus")
     except:
         # No config for this server probably.
         await channel.send("No status configuration for this Discord server!")
@@ -26,7 +26,7 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
     if not servername:
         await channel.send("No target server provided.")
         return
-    
+
     if servername == "list":
         await channel.send(f"Available server keys are: {', '.join(config.keys())}")
         return
@@ -52,12 +52,23 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         await channel.send("Unknown error occured.")
         return
 
-    mapname = response["map_name"][0]
-    players = response["players"][0]
+    mapname: str
+    players: str
+
+    try:
+        if not isinstance(response, List):
+            raise NotImplementedError("Non-list returns are not accepted.")
+
+        mapname = response["map_name"][0]
+        players = response["players"][0]
+
+    except:
+        await channel.send("Server sent unsupported response.")
+        return
 
     await channel.send(f"{players} players online, map is {mapname}.")
 
-async def server_topic(address: str, port: int, message: bytes) -> Any:
+async def server_topic(address: str, port: int, message: bytes) -> Union[float, Dict[str, List[str]]]:
     if message[0] != 63:
         message = b"?" + message
 
@@ -80,15 +91,21 @@ async def server_topic(address: str, port: int, message: bytes) -> Any:
     # Read response
     size = struct.unpack(">H", await reader.read(2))[0]
     response = await reader.read(size)
-    logger.info(response)
+    # logger.info(response)
     writer.close()
 
-    return parse_qs(decode_packet(response))
+    ret = decode_packet(response)
+    if isinstance(ret, str):
+        return parse_qs(ret)
+
+    return ret
 
 # Turns the BYOND packet into either a string or a float.
 def decode_packet(packet: bytes) -> Union[float, str]:
     if packet[0] == 0x2a:
-        return struct.unpack(">f", packet[1:5])[0]
+        return cast(float, struct.unpack(">f", packet[1:5])[0])
 
     elif packet[0] == 0x06:
         return packet[1:-1].decode("ascii")
+
+    raise NotImplementedError(f"Unknown BYOND data code: 0x{packet[0]:x}")

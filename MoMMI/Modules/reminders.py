@@ -3,7 +3,7 @@ import heapq
 import re
 from datetime import datetime, timedelta
 from logging import getLogger
-from typing import Match, List, Tuple
+from typing import Match, List, Tuple, Set, cast
 import dateutil.parser
 import pytz
 from discord import Message
@@ -134,7 +134,7 @@ def parse_time(timestring: str) -> datetime:
         if RELATIVE_DATE_VERIFY_RE.match(timestring) is None:
             raise Exception()
 
-        keys_done = set()
+        keys_done: Set[str] = set()
 
         for amount, key in RELATIVE_DATE_SECTION_RE.findall(timestring):
             newa = int(amount)
@@ -158,17 +158,17 @@ def parse_time(timestring: str) -> datetime:
         return utcnow() + delta
 
     except:
-        LOGGER.exception("derp")
         pass
 
 
     # ISO 8601
     try:
-        time = dateutil.parser.isoparse(timestring)
+        # Mypy fails to find this method? Odd.
+        time = dateutil.parser.isoparse(timestring) # type: ignore
         if not time.tzinfo:
             time = time.replace(tzinfo=pytz.utc)
 
-        return time
+        return cast(datetime, time)
 
     except:
         pass

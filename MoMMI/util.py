@@ -5,7 +5,7 @@ import aiofiles
 from discord import Message
 from MoMMI.master import master
 
-async def pickle_dump(obj: Any, filename: os.PathLike):
+async def pickle_dump(obj: Any, filename: os.PathLike) -> None:
     """
     Async pickle dump.
     """

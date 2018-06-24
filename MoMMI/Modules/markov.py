@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 partial = functools.partial(defaultdict, int)
 
 @always_command("markov_read")
-async def markov_reader(channel: MChannel, match: Match, message: Message):
+async def markov_reader(channel: MChannel, match: Match, message: Message) -> None:
     # if not isbanned(message.author, bantypes.markov):
 
     content = PARENT_RE.sub("", message.content.lower())
@@ -46,7 +46,7 @@ async def markov_reader(channel: MChannel, match: Match, message: Message):
 
 
 @command("markov", r"markov\s*(?:\((\S*)\))?")
-async def markov(channel: MChannel, match: Match, message: Message):
+async def markov(channel: MChannel, match: Match, message: Message) -> None:
     try:
         chain = channel.get_storage("markov")
     except:

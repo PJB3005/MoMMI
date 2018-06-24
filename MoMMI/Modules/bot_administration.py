@@ -9,7 +9,7 @@ from MoMMI.role import MRoleType
 
 
 @command("reload", "reload", roles=[MRoleType.OWNER])
-async def reload(channel: MChannel, match: Match, message: Message):
+async def reload(channel: MChannel, match: Match, message: Message) -> None:
     errors = await master.reload_modules()
 
     if errors:
@@ -20,7 +20,7 @@ async def reload(channel: MChannel, match: Match, message: Message):
 
 
 @command("modules", "modules", roles=[MRoleType.OWNER])
-async def modules(channel: MChannel, match: Match, message: Message):
+async def modules(channel: MChannel, match: Match, message: Message) -> None:
     msg = "```"
     for module in channel.server.master.modules.values():
         msg += f"{module.name}:\n"
@@ -33,25 +33,25 @@ async def modules(channel: MChannel, match: Match, message: Message):
 
 
 @command("shutdown", "shutdown", roles=[MRoleType.OWNER])
-async def shutdown_command(channel: MChannel, match: Match, message: Message):
+async def shutdown_command(channel: MChannel, match: Match, message: Message) -> None:
     await channel.send("Shutting down!")
     # Ensure future instead of awaiting to prevent code calling us exploding.
     asyncio.ensure_future(channel.server.master.shutdown())
 
 
 @command("name", r"name\s+(.+)", roles=[MRoleType.OWNER])
-async def name_command(channel: MChannel, match: Match, message: Message):
+async def name_command(channel: MChannel, match: Match, message: Message) -> None:
     await master.client.edit_profile(username=match.group(1))
 
 
 @command("nick", r"nick\s+(.+)", roles=[MRoleType.OWNER])
-async def nick_command(channel: MChannel, match: Match, message: Message):
+async def nick_command(channel: MChannel, match: Match, message: Message) -> None:
     member = message.server.get_member(master.client.user.id)
     await master.client.change_nickname(member, match.group(1))
 
 
 @command("avatar", r"avatar", roles=[MRoleType.OWNER])
-async def avatar_command(channel: MChannel, match: Match, message: Message):
+async def avatar_command(channel: MChannel, match: Match, message: Message) -> None:
     attachment = message.attachments[0]["url"]
     async with aiohttp.ClientSession() as session:
         async with session.get(attachment) as request:
@@ -60,5 +60,5 @@ async def avatar_command(channel: MChannel, match: Match, message: Message):
     await master.client.edit_profile(avatar=data)
 
 @command("save", r"save", roles=[MRoleType.OWNER])
-async def avatar_command(channel: MChannel, match: Match, message: Message):
+async def save_command(channel: MChannel, match: Match, message: Message) -> None:
     await master.save_all_storage()

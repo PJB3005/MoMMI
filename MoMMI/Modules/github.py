@@ -2,16 +2,18 @@ import json
 import logging
 import re
 import asyncio
-from typing import re as typing_re, Tuple, List, Optional, Any, Set, Dict, DefaultDict
+from typing import Match, Tuple, List, Optional, Any, Set, Dict, DefaultDict, cast
 from urllib.parse import quote, quote_plus
 from collections import defaultdict
 import aiohttp
+import bottom
 from colorhash import ColorHash
 from discord import Color, Embed, Message, User
+from MoMMI.channel import MChannel
 from MoMMI.commloop import comm_event, global_comm_event
 from MoMMI.commands import always_command
-from MoMMI.channel import MChannel
 from MoMMI.master import master
+from MoMMI.server import MServer
 from MoMMI.Modules.irc import irc_transform
 
 logger = logging.getLogger(__name__)
@@ -39,7 +41,7 @@ VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
 KNOWN_MERGE_COMMITS: Set[str] = set()
 
 
-async def load(loop: asyncio.AbstractEventLoop):
+async def load(loop: asyncio.AbstractEventLoop) -> None:
     if not master.has_cache(GITHUB_SESSION):
         headers = {
             "Authorization": f"token {master.config.get_module('github.token')}",
@@ -53,7 +55,7 @@ async def load(loop: asyncio.AbstractEventLoop):
         master.set_cache(GITHUB_CACHE, {})
 
 
-async def shutdown(loop: asyncio.AbstractEventLoop):
+async def shutdown(loop: asyncio.AbstractEventLoop) -> None:
     master.get_cache(GITHUB_SESSION).close()
     master.del_cache(GITHUB_SESSION)
 
@@ -69,7 +71,7 @@ def colour_extension(filename: str) -> Color:
 
 
 @comm_event("github")
-async def github_event(channel: MChannel, message, meta):
+async def github_event(channel: MChannel, message: Any, meta: str) -> None:
     event = message['event']
     logger.debug(
         f"Handling GitHub event '$YELLOW{event}$RESET' to '$YELLOW{meta}$RESET'")
@@ -83,7 +85,7 @@ async def github_event(channel: MChannel, message, meta):
     asyncio.ensure_future(func(channel, message["content"], meta))
 
 
-async def on_github_push(channel: MChannel, message: Any, meta: str):
+async def on_github_push(channel: MChannel, message: Any, meta: str) -> None:
     commits = message["commits"]
     if not commits:
         return
@@ -136,7 +138,7 @@ async def on_github_push(channel: MChannel, message: Any, meta: str):
     await channel.send(embed=embed)
 
 
-async def on_github_issues(channel: MChannel, message, meta):
+async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
@@ -168,7 +170,7 @@ async def on_github_issues(channel: MChannel, message, meta):
     await channel.send(embed=embed)
 
 
-async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
+async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
     action = message["action"]
     if action not in VALID_ISSUES_ACTIONS:
         return
@@ -211,7 +213,7 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str):
     await channel.send(embed=embed)
 
 
-async def add_known_merge_commits(repo: str, number: int):
+async def add_known_merge_commits(repo: str, number: int) -> None:
     url = github_url(f"/repos/{repo}/pulls/{number}/commits")
     commits = await get_github_object(url)
     for commit in commits:
@@ -219,7 +221,7 @@ async def add_known_merge_commits(repo: str, number: int):
         KNOWN_MERGE_COMMITS.add(sha)
 
 
-async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
+async def on_github_issue_comment(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] != "created":
         return
 
@@ -246,7 +248,7 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str):
 
 
 @global_comm_event("secret_repo_pr_checker")
-async def secret_repo_check(message: Any, meta: str):
+async def secret_repo_check(message: Any, meta: str) -> None:
     if "event" not in message or message["event"] != "pull_request":
         return
 
@@ -301,9 +303,9 @@ async def secret_repo_check(message: Any, meta: str):
 
 
 @always_command("github_issue")
-async def issue_command(channel: MChannel, match: typing_re.Match, message: Message):
+async def issue_command(channel: MChannel, match: Match, message: Message) -> None:
     try:
-        cfg = channel.server_config("modules.github.repos")
+        cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
     except:
         # Server has no config settings for GitHub.
         return
@@ -440,8 +442,8 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
     output: DefaultDict[str, List[Tuple[str, str]]] = defaultdict(list)
 
     for repocfg in cfg:
-        for prefix in prefixes:
-            if is_repo_valid_for_command(repocfg, channel, prefix):
+        for theprefix in prefixes:
+            if is_repo_valid_for_command(repocfg, channel, theprefix):
                 break
 
         else:
@@ -455,10 +457,10 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
 
         url = github_url(
             f"/repos/{repo}/git/trees/{branch['commit']['sha']}")
-        tree = await get_github_object(url, params={"recursive": 1})
+        tree = await get_github_object(url, params={"recursive": "1"})
 
-        for path, linestart, lineend, rooted, prefix in paths:
-            if not is_repo_valid_for_command(repocfg, channel, prefix):
+        for path, linestart, lineend, rooted, nottheprefix in paths:
+            if not is_repo_valid_for_command(repocfg, channel, nottheprefix):
                 continue
 
             for filehash in tree["tree"]:
@@ -516,7 +518,7 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
 
 
 @irc_transform("convert_code_blocks")
-async def convert_code_blocks(message: str, author: User, irc_client, discord_server):
+async def convert_code_blocks(message: str, author: User, irc_client: bottom.Client, discord_channel: MChannel) -> str:
     try:
         last = 0
         out = ""
@@ -555,7 +557,7 @@ async def convert_code_blocks(message: str, author: User, irc_client, discord_se
         return "<MoMMI error tell PJB>"
 
 
-async def make_gist(contents: str, name: str, desc: str):
+async def make_gist(contents: str, name: str, desc: str) -> str:
     session = master.get_cache(GITHUB_SESSION)
 
     # POST /gists
@@ -574,10 +576,10 @@ async def make_gist(contents: str, name: str, desc: str):
             return f"[GIST ERROR: {resp.status} ({resp.reason})]"
 
         output = await resp.json()
-        return output["html_url"]
+        return cast(str, output["html_url"])
 
 
-async def get_github_object(url: str, *, params=None) -> Any:
+async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None) -> Any:
     logger.debug(f"Fetching github object at URL {url}...")
 
     session = master.get_cache(GITHUB_SESSION)

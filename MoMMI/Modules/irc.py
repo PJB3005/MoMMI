@@ -31,7 +31,7 @@ class MIrcTransform(MHandler):
 
         self.func: IrcTransformType = func
 
-    async def transform(self, message: str, author: User, irc_client: bottom.Client, discord_server: MChannel):
+    async def transform(self, message: str, author: User, irc_client: bottom.Client, discord_server: MChannel) -> str:
         return await self.func(message, author, irc_client, discord_server)
 
 DiscordTransformType = Callable[[str, str, MChannel, bottom.Client], Awaitable[str]]
@@ -51,7 +51,7 @@ class MDiscordTransform(MHandler):
 
         self.func: DiscordTransformType = func
 
-    async def transform(self, message: str, author: str, discord_server: MChannel, irc_client: bottom.Client):
+    async def transform(self, message: str, author: str, discord_server: MChannel, irc_client: bottom.Client) -> str:
         return await self.func(message, author, discord_server, irc_client)
 
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ async def unload(loop: asyncio.AbstractEventLoop) -> None:
     master.del_cache("irc_client_list")
 
 @always_command("irc_relay", unsafe=True)
-async def ircrelay(channel: MChannel, match: Match, message: Message):
+async def ircrelay(channel: MChannel, match: Match, message: Message) -> None:
     content = message.content
     for attachment in message.attachments:
         content += " " + attachment["url"]
