@@ -56,7 +56,7 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
     players: str
 
     try:
-        if not isinstance(response, List):
+        if not isinstance(response, Dict):
             raise NotImplementedError("Non-list returns are not accepted.")
 
         mapname = response["map_name"][0]
