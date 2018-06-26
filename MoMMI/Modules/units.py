@@ -6,11 +6,12 @@ from functools import reduce
 from typing import Match, Optional, List, Pattern
 import unit_converter
 from unit_converter.converter import converts
-from unit_converter.parser import UnitParser
+from unit_converter.parser import UnitParser, QuantityParser
 from unit_converter.data import UNITS, PREFIXES
 from unit_converter.units import Unit
 from discord import Message
 from MoMMI import command, MChannel
+from MoMMI.Modules.parser import Parser, ParserError
 
 
 async def load(loop: asyncio.AbstractEventLoop) -> None:
@@ -25,6 +26,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
 
     UNITS["mph"] = unit_type("mph", "mph", L=1, T=-1, coef=Decimal("0.44704"))
     UNITS["Wh"] = unit_type("Wh", "watt-hours", M=1, L=2, T=-2, coef=Decimal("3600"))
+    QuantityParser.quantity_re = re.compile(r"(?P<value>-?\d+[.,]?\d*)? *(?P<unit>.*)")
 
 
 @command("unit", r"(?:unit)?\s*`?(.+?)`?\s+(?:as|to)\s+`?(.+?)`?$")
@@ -45,7 +47,8 @@ async def unit_command(channel: MChannel, match: Match, message: Message) -> Non
     except ParserError as e:
         await channel.send(f"Parser error: {e.value}")
 
-class UnitParserMoMMI(unit_converter.parser.UnitParser):
+
+class UnitParserMoMMI(UnitParser):
     word_re = re.compile(r"[a-zA-Z°Ωµ]*")
     number_re = re.compile(r"(-)?[0-9]+")
 
@@ -69,7 +72,7 @@ class UnitParserMoMMI(unit_converter.parser.UnitParser):
                     unit = PREFIXES[prefix_s] * UNITS[unit_s[len(prefix_s):]]
                     break
 
-            if unit is None:
+            else:
                 raise ParserError(f"Unknown unit '{unit_s}'")
 
             # Exponent
@@ -104,53 +107,5 @@ class UnitParserMoMMI(unit_converter.parser.UnitParser):
 
         return reduce(operator.mul, units)
 
+
 unit_converter.parser.UnitParser = UnitParserMoMMI
-
-
-class ParserError(ValueError):
-    def __init__(self, problem: str) -> None:
-        super().__init__()
-        self.value = problem
-
-    def __str__(self) -> str:
-        return f"ParserError({repr(self.value)})"
-
-
-class Parser:
-    def __init__(self, string: str, startpos: int = 0) -> None:
-        self.string = string
-        self.position = startpos
-
-    @property
-    def eof(self) -> bool:
-        return self.position >= len(self.string)
-
-    def take(self) -> Optional[str]:
-        if self.eof:
-            return None
-
-        ret = self.string[self.position]
-        self.position += 1
-        return ret
-
-    def peek(self) -> Optional[str]:
-        if self.eof:
-            return None
-
-        return self.string[self.position]
-
-    def skip(self, amount: int = 1) -> None:
-        self.position = min(len(self.string), amount + self.position)
-
-    def take_re(self, pattern: Pattern[str]) -> Optional[str]:
-        if self.eof:
-            return None
-
-        match = pattern.match(self.string, self.position)
-        if not match:
-            return ""
-
-        assert match.start() == self.position
-        self.position = match.end()
-        return match[0]
-

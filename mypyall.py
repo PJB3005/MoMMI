@@ -19,7 +19,7 @@ def main() -> int:
             if filename.endswith(".py"):
                 files.append(p(dirpath, filename))
 
-    return subprocess.run(["mypy", "--ignore-missing-imports", "--strict", *files], check=False).returncode
+    return subprocess.run(["mypy", "--ignore-missing-imports", "--strict", "--allow-subclassing-any", *files], check=False).returncode
 
 if __name__ == '__main__':
     exit(main())
