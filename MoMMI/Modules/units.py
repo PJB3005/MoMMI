@@ -5,7 +5,7 @@ from decimal import Decimal
 from functools import reduce
 from typing import Match, Optional, List, Pattern
 import unit_converter
-from unit_converter.converter import converts
+from unit_converter.converter import convert
 from unit_converter.parser import UnitParser, QuantityParser
 from unit_converter.data import UNITS, PREFIXES
 from unit_converter.units import Unit
@@ -29,14 +29,14 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
     QuantityParser.quantity_re = re.compile(r"(?P<value>-?\d+[.,]?\d*)? *(?P<unit>.*)")
 
 
-@command("unit", r"(?:unit)?\s*`?(.+?)`?\s+(?:as|to)\s+`?(.+?)`?$")
+@command("unit", r"(?:unit)?\s*`?(\d+\s+\S+?)`?\s+(?:as|to)\s+`?(\S+?)`?$")
 async def unit_command(channel: MChannel, match: Match, message: Message) -> None:
     fromunit = match.group(1).strip()
     tounit = match.group(2).strip()
 
     try:
-        result = converts(fromunit, tounit)
-        await channel.send(result + " " + tounit)
+        result = convert(fromunit, tounit)
+        await channel.send(f"{result} {tounit}")
 
     except unit_converter.exceptions.UnConsistentUnitsError as e:
         await channel.send(e.value.replace("*", "\\*"))
