@@ -15,7 +15,11 @@ from MoMMI.Modules.parser import Parser, ParserError
 
 
 async def load(loop: asyncio.AbstractEventLoop) -> None:
-    unit_type = unit_converter.units.Unit
+    UNITS["mph"] = Unit("mph", "mph", L=1, T=-1, coef=Decimal("0.44704"))
+    UNITS["Wh"] = Unit("Wh", "watt-hours", M=1, L=2, T=-2, coef=Decimal("3600"))
+    UNITS["L"] = Unit("L", "litre", L=3, coef=Decimal("0.001"))
+    UNITS["gal"] = Unit("gal", "gallon", L=3, coef=Decimal("0.00378541"))
+    UNITS["lb"] = Unit("lb", "pound", M=1, coef=Decimal("0.45359237"))
     tempunits = list(UNITS.values())
     for unit in tempunits:
         if unit.name not in UNITS:
@@ -24,8 +28,6 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
         if unit.symbol not in UNITS:
             UNITS[unit.symbol] = unit
 
-    UNITS["mph"] = unit_type("mph", "mph", L=1, T=-1, coef=Decimal("0.44704"))
-    UNITS["Wh"] = unit_type("Wh", "watt-hours", M=1, L=2, T=-2, coef=Decimal("3600"))
     QuantityParser.quantity_re = re.compile(r"(?P<value>-?\d+[.,]?\d*)? *(?P<unit>.*)")
 
 

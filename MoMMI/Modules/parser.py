@@ -46,4 +46,3 @@ class Parser:
         assert match.start() == self.position
         self.position = match.end()
         return match[0]
-
