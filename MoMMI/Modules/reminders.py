@@ -6,22 +6,25 @@ from logging import getLogger
 from typing import Match, List, Tuple, Set, cast
 import dateutil.parser
 import pytz
-from discord import Message
+from discord import Message, Embed
 from MoMMI.channel import MChannel
 from MoMMI.commands import command
 from MoMMI.master import master
 from MoMMI.types import SnowflakeID
 from MoMMI.util import add_reaction
+from MoMMI.role import MRoleType
 
 LOOP_TASK_CACHE = "reminder_task"
 REMINDER_QUEUE = "reminder_queue"
+REMINDER_UID = "reminder_uid"
 LOOP_INTERVAL = 5
 LOGGER = getLogger(__name__)
 DATE_RE = re.compile(r"^(?:(\d{4})[/-](\d\d)[/-](\d\d))?(?:(?(1)@)(\d\d)(?::(\d\d)(?::(\d\d))?)?)?$")
 RELATIVE_DATE_SECTION_RE = re.compile(r"(\d+)([dhmsw])")
 RELATIVE_DATE_VERIFY_RE = re.compile(r"^(?:\d+[dhmsw])+$")
 # Tuple format: time, message, server, channel, member, uid
-REMINDER_TUPLE_TYPE = Tuple[datetime, str, SnowflakeID, SnowflakeID, SnowflakeID]
+REMINDER_TUPLE_TYPE = Tuple[datetime, str, SnowflakeID, SnowflakeID, SnowflakeID, int]
+
 
 async def load(loop: asyncio.AbstractEventLoop) -> None:
     task: asyncio.Future
@@ -34,6 +37,9 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
     master.set_cache(LOOP_TASK_CACHE, task)
     if not master.has_global_storage(REMINDER_QUEUE):
         master.set_global_storage(REMINDER_QUEUE, [])
+
+    if not master.has_global_storage(REMINDER_UID):
+        master.set_global_storage(REMINDER_UID, 0)
 
 
 async def unload(loop: asyncio.AbstractEventLoop) -> None:
@@ -74,6 +80,53 @@ async def send_reminder(reminder: REMINDER_TUPLE_TYPE) -> None:
     channel = server.get_channel(reminder[3])
     await channel.send(f"*Buzz* <@{reminder[4]}> {reminder[1]}")
 
+@command("remindlist", r"remindlist(?:\s+<@!?(\d+)>)?")
+async def remindlist_command(channel: MChannel, match: Match, message: Message) -> None:
+    snowflake = SnowflakeID(message.author.id)
+    if match[1] is not None:
+        if not channel.isrole(message.author, MRoleType.ADMIN):
+            await channel.send("No perms lad.")
+            return
+
+        snowflake = SnowflakeID(match[1])
+
+    serv_id = channel.server.id
+    queue = filter(lambda x: x[4] == snowflake and x[2] == serv_id, master.get_global_storage(REMINDER_QUEUE))
+    embed = Embed()
+    desc = "All reminders for that user ID, contents hidden:\n"
+    for entry in queue:
+        if len(entry) > 5: # It has a UID.
+            desc += f"{entry[5]}: "
+
+        t = entry[0].astimezone(pytz.utc)
+        pretty = t.strftime("%A %d %B %Y %H:%M:%S %Z")
+        desc += f"{pretty} <#{entry[3]}>\n"
+
+    embed.description = desc
+    await channel.send(embed=embed)
+
+@command("unremind", r"unremind\s+(\d+)")
+async def unremind_command(channel: MChannel, match: Match, message: Message) -> None:
+    uid = int(match[1])
+    serv_id = channel.server.id
+    thelist = master.get_global_storage(REMINDER_QUEUE)
+    for x in master.get_global_storage(REMINDER_QUEUE):
+        if len(x) > 5 and x[5] == uid:
+            if x[2] != serv_id:
+                await channel.send("That reminder UID doesn't belong to this server, hands off.")
+                return
+
+            if x[4] != SnowflakeID(message.author.id):
+                if not channel.isrole(MRoleType.ADMIN):
+                    await channel.send("You're not touching that without admin perms dude.")
+                    return
+
+            found = x
+            break
+
+    thelist.remove(found)
+    asyncio.ensure_future(master.save_global_storage(REMINDER_QUEUE))
+    await channel.send("And away it goes.")
 
 @command("reminder", r"remind(?:me|er)?\s+(\S+)\s+(.+)")
 async def remind_command(channel: MChannel, match: Match, message: Message) -> None:
@@ -91,12 +144,15 @@ async def remind_command(channel: MChannel, match: Match, message: Message) -> N
         asyncio.ensure_future(add_reaction(message, "❌"))
         return
 
-    reminder = (time, match.group(2), channel.server.id, channel.id, SnowflakeID(message.author.id))
+    uid = master.get_global_storage(REMINDER_UID)
+    master.set_global_storage(REMINDER_UID, uid+1)
+    reminder = (time, match.group(2), channel.server.id, channel.id, SnowflakeID(message.author.id), uid)
     heapq.heappush(heap, reminder)
     pretty = time.strftime("%A %d %B %Y %H:%M:%S **%Z**")
-    await channel.send(f"Coming in at {pretty}")
+    await channel.send(f"#{uid} coming in at {pretty}")
     asyncio.ensure_future(add_reaction(message, "✅"))
     asyncio.ensure_future(master.save_global_storage(REMINDER_QUEUE))
+    asyncio.ensure_future(master.save_global_storage(REMINDER_UID))
 
 
 def parse_time(timestring: str) -> datetime:

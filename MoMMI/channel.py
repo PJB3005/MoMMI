@@ -66,9 +66,9 @@ class MChannel(object):
         return default
 
     def isrole(self, member: Member, rolename: MRoleType) -> bool:
-        if rolename == MRoleType.OWNER:
-            owner_id: int = self.main_config("bot.owner")
-            return int(member.id) == owner_id
+        owner_id: int = self.main_config("bot.owner")
+        if int(member.id) == owner_id:
+            return True
 
         if rolename not in self.server.roles:
             return False
@@ -76,7 +76,7 @@ class MChannel(object):
         snowflake = self.server.roles[rolename]
 
         for role in member.roles:
-            if SnowflakeID(role.id) == snowflake:
+            if SnowflakeID(role.id) in snowflake:
                 return True
 
         return False
@@ -116,6 +116,8 @@ class MChannel(object):
 
         return ValueError(f"Unknown role {snowflake}")
 
+    """
+    TODO: Doesn't work because we support multiple roles now.
     def get_role(self, name: MRoleType) -> Role:
         try:
             snowflake = self.server.roles[name]
@@ -130,6 +132,7 @@ class MChannel(object):
                 return role
 
         raise ConfigError(f"Unable to find role {snowflake}!")
+    """
 
     def get_member_named(self, name: str) -> Member:
         return self.server.get_server().get_member_named(name)

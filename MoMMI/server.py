@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import pickle
-from typing import Dict, Any, TypeVar, Optional, Union, cast
+from typing import Dict, Any, TypeVar, Optional, Union, cast, List, Set
 from pathlib import Path
 import aiofiles
 from discord import Server, Channel, Member, Role
@@ -38,7 +38,7 @@ class MServer(object):
 
         # Cache is persistent through reloads, but not through restarts.
         self.cache: Dict[str, Any] = {}
-        self.roles: Dict[MRoleType, SnowflakeID] = {}
+        self.roles: Dict[MRoleType, Set[SnowflakeID]] = {}
         self.channels: Dict[SnowflakeID, MChannel] = {}
         self.channels_name: Dict[str, MChannel] = {}
         self.master: MoMMI = master
@@ -78,9 +78,14 @@ class MServer(object):
         self.name = config["name"]
 
         for rolename, snowflake in self.config.get("roles", {}).items():
-            self.roles[MRoleType[rolename]] = snowflake
+            l = set()
+            if isinstance(snowflake, List):
+                for roleid in snowflake:
+                    l.add(SnowflakeID(roleid))
+            else:
+                l.add(SnowflakeID(snowflake))
+            self.roles[MRoleType[rolename]] = l
 
-        self.roles = self.config.get("roles", {})
         self.init_channel_names()
 
     async def load_data_storages(self, source: Path) -> None:
