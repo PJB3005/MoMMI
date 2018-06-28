@@ -56,7 +56,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
 
 
 async def shutdown(loop: asyncio.AbstractEventLoop) -> None:
-    master.get_cache(GITHUB_SESSION).close()
+    await master.get_cache(GITHUB_SESSION).close()
     master.del_cache(GITHUB_SESSION)
 
 
