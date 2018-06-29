@@ -22,10 +22,10 @@ async def reload(channel: MChannel, match: Match, message: Message) -> None:
 @command("modules", "modules", roles=[MRoleType.OWNER])
 async def modules(channel: MChannel, match: Match, message: Message) -> None:
     msg = "```"
-    for module in channel.server.master.modules.values():
+    for module in master.modules.values():
         msg += f"{module.name}:\n"
         for handler in module.handlers.values():
-            msg += f"* {handler.name} ({type(handler)})\n"
+            msg += f"* {handler.name}\n"
 
     msg += "```"
 

@@ -7,12 +7,8 @@ from typing import Match, List, Tuple, Set, cast
 import dateutil.parser
 import pytz
 from discord import Message, Embed
-from MoMMI.channel import MChannel
-from MoMMI.commands import command
-from MoMMI.master import master
-from MoMMI.types import SnowflakeID
-from MoMMI.util import add_reaction
-from MoMMI.role import MRoleType
+from MoMMI import MChannel, command, master, SnowflakeID, add_reaction, MRoleType
+from MoMMI.Modules.help import register_help
 
 LOOP_TASK_CACHE = "reminder_task"
 REMINDER_QUEUE = "reminder_queue"
@@ -117,7 +113,7 @@ async def unremind_command(channel: MChannel, match: Match, message: Message) ->
                 return
 
             if x[4] != SnowflakeID(message.author.id):
-                if not channel.isrole(MRoleType.ADMIN):
+                if not channel.isrole(message.author, MRoleType.ADMIN):
                     await channel.send("You're not touching that without admin perms dude.")
                     return
 
@@ -224,6 +220,9 @@ def parse_time(timestring: str) -> datetime:
         if not time.tzinfo:
             time = time.replace(tzinfo=pytz.utc)
 
+        else:
+            time = time.astimezone(pytz.utc)
+
         return cast(datetime, time)
 
     except:
@@ -234,3 +233,26 @@ def parse_time(timestring: str) -> datetime:
 
 def utcnow() -> datetime:
     return datetime.now(pytz.utc)
+
+register_help(__name__, "reminders", f"""For when you're forgetful like me.
+You can set reminders to be reminded of *things* later.
+
+The basic syntax is as follows:
+@MoMMI remind 5m fix that got damn broken Discord bot.
+where 5m is a time or date specifier, here "in 5 minutes". Anything after that is a handy message you can insult yourself with.
+Time specifiers can be of 3 types:
+* Relative, such as the first example. They work by smashing a number and a unit together, units being w d h m s for week day hour minute and second. You can do stuff like 1d12h.
+* YYYY/MM/DD@hh:mm:ss date specifier: pretty simple as long as you're not American. Time of day can be left out.
+* ISO-8601. Of course. Also the only way you're entering non-UTC time zones because screw that otherwise.
+
+All times are handled in UTC because it's absolutely the only way I'm maintaining my sanity let's be honest: https://www.youtube.com/watch?v=-5wpm-gesOY
+Seriously I'm using Python which is supposed to be *batteries included* and I had to pull in TWO libraries from PyPI just to make this module. That's enough.
+Tom Scott was right.
+
+MoMMI will confirm when the reminder is gonna be sent (within {LOOP_INTERVAL} second accuracy), as well as giving a UID with a # prefix.
+You can later delete the reminder by doing @MoMMI unremind <UID>, provided you're not too late.
+
+You can also get a list of all reminders (contents excluded) for you on a server by doing @MoMMI remindlist. This command will also print UIDs.
+
+Admins can view reminders for others on the server by doing @MoMMI remindlist @ShitposterAboutToBeBanned. They can also delete reminders for other users. Remember with great power comes great responsability yada yada.
+""")

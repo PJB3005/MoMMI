@@ -229,7 +229,7 @@ class MoMMI(object):
             newmod.loaded = True
             for server in self.servers.values():
                 server.modules[name] = newmod
-            LOGGER.info(f"$BLUESuccessfully loaded module $WHITE{name}$BLUE.")
+            #LOGGER.info(f"$BLUESuccessfully loaded module $WHITE{name}$BLUE.")
 
         for module in todrop:
             for server in self.servers.values():
@@ -242,12 +242,18 @@ class MoMMI(object):
 
         for handler in self.temp_module_handlers:
             try:
-                self.register_handler(handler)
+                if handler.module in self.modules:
+                    self.register_handler(handler)
+
+                else:
+                    LOGGER.warning(f"Attempted to late-register for nonexistant module: {handler.module}/{handler.name}")
 
             except:
                 LOGGER.exception(
-                    f"Exception while registering handler {handler}!")
+                    f"Exception while registering handler {handler.module}/{handler.name}!")
                 errors = True
+
+        self.temp_module_handlers = []
 
         return errors
 
@@ -255,6 +261,9 @@ class MoMMI(object):
         if self.reloading_modules:
             self.temp_module_handlers.append(handler)
             return
+
+        if handler.name == "reminders":
+            print("EYSSSSS")
 
         module = self.get_module(handler.module)
         module.handlers[handler.name] = handler
