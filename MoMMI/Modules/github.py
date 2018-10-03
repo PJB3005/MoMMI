@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import asyncio
-from typing import Match, Tuple, List, Optional, Any, Set, Dict, DefaultDict, cast
+from typing import Match, Tuple, List, Optional, Any, Set, Dict, DefaultDict, cast, Union
 from urllib.parse import quote, quote_plus
 from collections import defaultdict
 import aiohttp
@@ -19,7 +19,7 @@ from MoMMI.Modules.irc import irc_transform
 logger = logging.getLogger(__name__)
 
 REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
-REG_ISSUE = re.compile(r"\[(?:(\S+)#)?([0-9]+)\]")
+REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
 
 COLOR_GITHUB_RED = Color(0xFF4444)
@@ -53,6 +53,8 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
 
     if not master.has_cache(GITHUB_CACHE):
         master.set_cache(GITHUB_CACHE, {})
+
+    gh_register_help()
 
 
 async def shutdown(loop: asyncio.AbstractEventLoop) -> None:
@@ -413,6 +415,7 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
     prefixes: List[Optional[str]] = [None]
     paths: List[Tuple[str, Optional[str], Optional[str], bool, Optional[str]]]
     paths = []
+    color: Union[str, Color] = None
     for match in REG_PATH.finditer(message):
         prefix = match.group(1)
         if prefix is not None and prefix not in prefixes:
@@ -486,11 +489,18 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
                     title += f" line {linestart}"
 
                 output[repo].append((title, url))
+                thiscolor = colour_extension(thepath)
+                if color is None:
+                    color = thiscolor
+                elif color != thiscolor:
+                    color = "Nope"
 
     if not output:
         return False
 
     embed = Embed()
+    if color != "Nope" and color is not None:
+        embed.color = color
 
     for repo, hits in output.items():
         value = ""
@@ -605,6 +615,7 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
 
     return contents
 
+
 def is_repo_valid_for_command(repo_config: Dict[str, Any], channel: MChannel, prefix: Optional[str]) -> bool:
     """
     Checks to see whether commands like [123] are valid for a certain repo on a certain channel.
@@ -623,3 +634,59 @@ def is_repo_valid_for_command(repo_config: Dict[str, Any], channel: MChannel, pr
         return False
 
     return True
+
+
+async def get_gh_help(channel: MChannel, message: Message) -> None:
+    try:
+        cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
+    except:
+        await channel.send("This server has no repo configs. Sorry lad.")
+        return
+
+    has_nonprefixed = False
+
+    for repo_config in cfg:
+        if not repo_config.get("prefix_required", True):
+            has_nonprefixed = True
+            break
+
+    if has_nonprefixed:
+        desc = """MoMMI can look up issues, commits and files in GitHub repos for you. Syntax is as follows:
+    `[number]`: issue/PR lookup.
+    `[commit hash]`: commit lookup.
+    `[end of filepath]` or `[^begin of file path]`: look up files.
+
+For refinement (and to look up in certain repos) you can specify "prefixes":
+    `[prefix#number]`: issue/PR lookup with prefix.
+    `[prefix@commit hash]`: commit lookup with prefix.
+    `[prefix//end of filepath]` or `[prefix//^begin of file path]`: look up files with prefix.
+
+FOR THIS DISCORD SERVER, the following repos are available, including their prefix and if it's required or not.
+"""
+
+        for repo_config in cfg:
+            desc += f"* `{repo_config['repo']}`: `{repo_config['prefix']}`"
+            if repo_config.get("prefix_required", True):
+                desc += ", prefix required\n"
+            else:
+                desc += "\n"
+
+    else:
+        desc = """MoMMI can look up issues, commits and files in GitHub repos for you. Syntax is as follows:
+    `[prefix#number]`: issue/PR lookup.
+    `[prefix@commit hash]`: commit lookup.
+    `[prefix//end of filepath]` or `[prefix//^begin of file path]`: look up files.
+
+These prefixes are per-repo identifiers. FOR THIS DISCORD SERVER, the following repos are available:
+"""
+
+        for repo_config in cfg:
+            desc += f"* `{repo_config['repo']}`: `{repo_config['prefix']}`\n"
+
+
+    await channel.send(desc)
+
+def gh_register_help() -> None:
+    from MoMMI.Modules.help import register_help
+
+    register_help(__name__, "github", get_gh_help)

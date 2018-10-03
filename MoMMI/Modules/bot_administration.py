@@ -59,6 +59,7 @@ async def avatar_command(channel: MChannel, match: Match, message: Message) -> N
 
     await master.client.edit_profile(avatar=data)
 
+
 @command("save", r"save", roles=[MRoleType.OWNER])
 async def save_command(channel: MChannel, match: Match, message: Message) -> None:
     await master.save_all_storage()

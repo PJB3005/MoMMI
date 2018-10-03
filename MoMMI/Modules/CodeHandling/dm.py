@@ -12,6 +12,7 @@ from string import ascii_lowercase
 from typing import Optional, List
 from discord import Message, Embed
 from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOR_COMPILE_FAIL, COLOR_RUN_SUCCESS, COLOR_RUN_FAIL
+from MoMMI.Modules.help import register_help
 from MoMMI import MChannel
 
 logger = logging.getLogger(__name__)
@@ -249,3 +250,18 @@ class DMCodeHandler(MCodeHandler):
     @staticmethod
     def random_string() -> str:
         return ''.join(choice(ascii_lowercase) for i in range(20))
+
+
+async def load(loop: asyncio.AbstractEventLoop) -> None:
+    register_help(__name__, "dm", """INTRODUCING THE BYOND-EXEC 5000™!
+
+With the BYOND-Exec 5000™ you too can test BYOND code from the comfort of your Discord client!
+Simply run the following command to be delighted by BYOND's ~~stupid fucking edge cases Lummox why~~ stability and consistency:
+
+@MoMMI \\`\\`\\`
+var/godwhy = .....
+world.log << "[godwhy]"
+\\`\\`\\`
+
+Your code will automatically be wrapped in a proc and be ready for execution!
+If this is not desired, simply put `/proc/main()` in your code, and MoMMI will put it at root level, auto executing `main()`.""")

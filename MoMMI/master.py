@@ -151,6 +151,7 @@ class MoMMI(object):
         self.reloading_modules = True
         newmodules = await self.detect_modules()
         todrop = []
+        toload = []
 
         # Logs!
         errors = False
@@ -190,15 +191,7 @@ class MoMMI(object):
                 errors = True
                 continue
 
-            if hasattr(module.module, "load"):
-                try:
-                    await module.module.load(self.client.loop)
-
-                except:
-                    LOGGER.exception(
-                        f"Hit an exception while load()ing module {name}.")
-                    errors = True
-
+            toload.append(module)
             module.loaded = True
 
         # Loops over NEW modules. Because we can't just reload them.
@@ -217,19 +210,22 @@ class MoMMI(object):
                 continue
 
             newmod.module = mod
-
-            if hasattr(mod, "load"):
-                try:
-                    await mod.load(self.client.loop)  # type: ignore
-                except:
-                    LOGGER.exception(
-                        f"Hit an exception while load()ing module {name}.")
-                    errors = True
+            toload.append(newmod)
 
             newmod.loaded = True
             for server in self.servers.values():
                 server.modules[name] = newmod
             #LOGGER.info(f"$BLUESuccessfully loaded module $WHITE{name}$BLUE.")
+
+        for module in toload:
+            if hasattr(module.module, "load"):
+                try:
+                    await module.module.load(self.client.loop)
+
+                except:
+                    LOGGER.exception(
+                        f"Hit an exception while load()ing module {module.name}.")
+                    errors = True
 
         for module in todrop:
             for server in self.servers.values():

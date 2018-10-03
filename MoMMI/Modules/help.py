@@ -14,7 +14,7 @@ async def help_command(channel: MChannel, match: Match, message: Message) -> Non
         msg = """Yes hello I'm your ~~un~~friendly neighbourhood MoMMI.
 Send @MoMMIv2 help <topic> for more info.
 Available topics are: """
-        msg += ", ".join((h.name for h in channel.iter_handlers(HelpHandler)))
+        msg += ", ".join((h.topic for h in channel.iter_handlers(HelpHandler)))
 
         await channel.send(msg)
         return
@@ -22,7 +22,8 @@ Available topics are: """
     found: HelpHandler
 
     for handler in channel.iter_handlers(HelpHandler):
-        if handler.name == match[1]:
+        print(handler.name)
+        if handler.topic == match[1]:
             found = handler
             break
 
@@ -49,9 +50,10 @@ def register_help(module: str, topic: str, contents: Union[str, callback_type]) 
 
 class HelpHandler(MHandler):
     def __init__(self, topic: str, module: str, contents: Union[str, callback_type]) -> None:
-        super().__init__(topic, module)
+        super().__init__(topic + "__help", module)
 
         self.contents = contents
+        self.topic = topic
 
 
 register_help(__name__, "help", "How hopeless are you, exactly?")

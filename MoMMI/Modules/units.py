@@ -31,7 +31,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
     QuantityParser.quantity_re = re.compile(r"(?P<value>-?\d+[.,]?\d*)? *(?P<unit>.*)")
 
 
-@command("unit", r"(?:unit)?\s*`?(\d+\s+\S+?)`?\s+(?:as|to)\s+`?(\S+?)`?$")
+@command("unit", r"(?:unit)?\s*`?([\d\.\d]+\s+\S+?)`?\s+(?:as|to)\s+`?(\S+?)`?$")
 async def unit_command(channel: MChannel, match: Match, message: Message) -> None:
     fromunit = match.group(1).strip()
     tounit = match.group(2).strip()

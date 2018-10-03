@@ -7,9 +7,9 @@ from MoMMI.role import MRoleType
 @codehandler
 class PythonCodeHandler(MCodeHandler):
     def __init__(self) -> None:
-        self.name = "python"
         super().__init__()
 
+        self.name = "python"
         self.languages = {"py", "python"}
 
     async def execute(self, code: str, channel: MChannel, message: Message) -> None:

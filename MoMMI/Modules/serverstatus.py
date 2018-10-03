@@ -4,8 +4,8 @@ import struct
 from typing import Match, Union, Any, Dict, List, cast
 from urllib.parse import parse_qs
 from discord import Message
-from MoMMI.commands import command
-from MoMMI.channel import MChannel
+from MoMMI import command, MChannel
+from MoMMI.Modules.help import register_help
 
 logger = logging.getLogger(__name__)
 
@@ -109,3 +109,19 @@ def decode_packet(packet: bytes) -> Union[float, str]:
         return packet[1:-1].decode("ascii")
 
     raise NotImplementedError(f"Unknown BYOND data code: 0x{packet[0]:x}")
+
+
+async def status_help(channel: MChannel, message: Message) -> None:
+    out = """REEEEE IS THE SERVER DOWN?
+
+The answer is quite simple: ~~yes.~~ just run @MoMMI status <server>.
+
+On *this Discord server*, you can check status for the following servers: """
+
+    config: Dict[str, Any] = channel.server_config("modules.serverstatus")
+    out += ", ".join(config.keys())
+
+    return out
+
+async def load(loop: asyncio.AbstractEventLoop) -> None:
+    register_help(__name__, "status", status_help)

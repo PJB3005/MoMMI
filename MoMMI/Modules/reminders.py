@@ -21,7 +21,6 @@ RELATIVE_DATE_VERIFY_RE = re.compile(r"^(?:\d+[dhmsw])+$")
 # Tuple format: time, message, server, channel, member, uid
 REMINDER_TUPLE_TYPE = Tuple[datetime, str, SnowflakeID, SnowflakeID, SnowflakeID, int]
 
-
 async def load(loop: asyncio.AbstractEventLoop) -> None:
     task: asyncio.Future
     if master.has_cache(LOOP_TASK_CACHE):
@@ -47,6 +46,7 @@ async def unload(loop: asyncio.AbstractEventLoop) -> None:
 
 async def reminder_loop() -> None:
     while True:
+        print("tick")
         await asyncio.sleep(LOOP_INTERVAL)
         try:
             await check_reminders()
@@ -60,9 +60,10 @@ async def check_reminders() -> None:
 
     modified = False
     while heap and heap[0][0] < now:
-        #LOGGER.debug("Yes?")
+        # LOGGER.debug("Yes?")
         item = heap[0]
         heapq.heappop(heap)
+        # heapq.heapify(heap)
         modified = True
 
         asyncio.ensure_future(send_reminder(item))
@@ -75,6 +76,7 @@ async def send_reminder(reminder: REMINDER_TUPLE_TYPE) -> None:
     server = master.get_server(reminder[2])
     channel = server.get_channel(reminder[3])
     await channel.send(f"*Buzz* <@{reminder[4]}> {reminder[1]}")
+
 
 @command("remindlist", r"remindlist(?:\s+<@!?(\d+)>)?")
 async def remindlist_command(channel: MChannel, match: Match, message: Message) -> None:
@@ -91,7 +93,7 @@ async def remindlist_command(channel: MChannel, match: Match, message: Message) 
     embed = Embed()
     desc = "All reminders for that user ID, contents hidden:\n"
     for entry in queue:
-        if len(entry) > 5: # It has a UID.
+        if len(entry) > 5:  # It has a UID.
             desc += f"{entry[5]}: "
 
         t = entry[0].astimezone(pytz.utc)
@@ -100,6 +102,7 @@ async def remindlist_command(channel: MChannel, match: Match, message: Message) 
 
     embed.description = desc
     await channel.send(embed=embed)
+
 
 @command("unremind", r"unremind\s+(\d+)")
 async def unremind_command(channel: MChannel, match: Match, message: Message) -> None:
@@ -121,8 +124,10 @@ async def unremind_command(channel: MChannel, match: Match, message: Message) ->
             break
 
     thelist.remove(found)
+    heapq.heapify(thelist)
     asyncio.ensure_future(master.save_global_storage(REMINDER_QUEUE))
     await channel.send("And away it goes.")
+
 
 @command("reminder", r"remind(?:me|er)?\s+(\S+)\s+(.+)")
 async def remind_command(channel: MChannel, match: Match, message: Message) -> None:
@@ -141,8 +146,35 @@ async def remind_command(channel: MChannel, match: Match, message: Message) -> N
         return
 
     uid = master.get_global_storage(REMINDER_UID)
-    master.set_global_storage(REMINDER_UID, uid+1)
+    master.set_global_storage(REMINDER_UID, uid + 1)
     reminder = (time, match.group(2), channel.server.id, channel.id, SnowflakeID(message.author.id), uid)
+    heapq.heappush(heap, reminder)
+    pretty = time.strftime("%A %d %B %Y %H:%M:%S **%Z**")
+    await channel.send(f"#{uid} coming in at {pretty}")
+    asyncio.ensure_future(add_reaction(message, "✅"))
+    asyncio.ensure_future(master.save_global_storage(REMINDER_QUEUE))
+    asyncio.ensure_future(master.save_global_storage(REMINDER_UID))
+
+
+@command("sneakremind", r"sneakremind\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.+)", roles=[MRoleType.OWNER])
+async def sneakremind_command(channel: MChannel, match: Match, message: Message) -> None:
+    heap: List[REMINDER_TUPLE_TYPE] = master.get_global_storage(REMINDER_QUEUE)
+    try:
+        time = parse_time(match.group(1))
+    except:
+        await channel.send("Invalid time format lad.")
+        asyncio.ensure_future(add_reaction(message, "❌"))
+        return
+
+    if time < utcnow():
+        LOGGER.debug(f"Time travel prevented, attempted was {time}")
+        await channel.send("*Buzz* no time travel, nerd.")
+        asyncio.ensure_future(add_reaction(message, "❌"))
+        return
+
+    uid = master.get_global_storage(REMINDER_UID)
+    master.set_global_storage(REMINDER_UID, uid + 1)
+    reminder = (time, match.group(5), SnowflakeID(match.group(2)), SnowflakeID(match.group(3)), SnowflakeID(match.group(4)), uid)
     heapq.heappush(heap, reminder)
     pretty = time.strftime("%A %d %B %Y %H:%M:%S **%Z**")
     await channel.send(f"#{uid} coming in at {pretty}")
@@ -212,11 +244,10 @@ def parse_time(timestring: str) -> datetime:
     except:
         pass
 
-
     # ISO 8601
     try:
         # Mypy fails to find this method? Odd.
-        time = dateutil.parser.isoparse(timestring) # type: ignore
+        time = dateutil.parser.isoparse(timestring)  # type: ignore
         if not time.tzinfo:
             time = time.replace(tzinfo=pytz.utc)
 
@@ -233,6 +264,7 @@ def parse_time(timestring: str) -> datetime:
 
 def utcnow() -> datetime:
     return datetime.now(pytz.utc)
+
 
 register_help(__name__, "reminders", f"""For when you're forgetful like me.
 You can set reminders to be reminded of *things* later.

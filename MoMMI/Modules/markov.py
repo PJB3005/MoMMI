@@ -7,10 +7,13 @@ from typing import DefaultDict, Match, Iterable
 from discord import Message
 from MoMMI.commands import command, always_command
 from MoMMI.server import MChannel
+from MoMMI import SnowflakeID
 
 SENTENCE_RE = re.compile(r"([.,?\n]|(?<!@)!)")
 PARENT_RE = re.compile(r"[[\]{}()\"']")
 CHAIN_TYPE = DefaultDict[str, DefaultDict[str, int]]
+MENTION_RE = re.compile(r"<@!?(\d+)>")
+ROLE_RE = re.compile(r"<@&(\d+)>")
 
 logger = logging.getLogger(__name__)
 partial = functools.partial(defaultdict, int)
@@ -45,7 +48,7 @@ async def markov_reader(channel: MChannel, match: Match, message: Message) -> No
         chain[last][""] += 1
 
 
-@command("markov", r"markov\s*(?:\((\S*)\))?")
+@command("markov", r"markov\s*(?:\(?(\S*)\)?)?")
 async def markov(channel: MChannel, match: Match, message: Message) -> None:
     try:
         chain = channel.get_storage("markov")
@@ -54,6 +57,8 @@ async def markov(channel: MChannel, match: Match, message: Message) -> None:
 
     message = None
     original_seed = (match.group(1) or "").lower()
+    if original_seed.endswith(")"):
+        original_seed = original_seed[:-1]
     if original_seed not in chain:
         await channel.send("Cannot make markov chain: unknown word.")
         return
@@ -88,7 +93,26 @@ async def markov(channel: MChannel, match: Match, message: Message) -> None:
         if len(message) > 5:
             break
 
-    await channel.send(" ".join(message) + ".")
+    finalmsg = " ".join(message) + "."
+
+    # Cut out pings.
+    def role_replace(match: Match) -> str:
+        snowflake = SnowflakeID(match.group(1))
+        role = channel.get_role_snowflake(snowflake)
+        return f"@{role.name}"
+
+    finalmsg = ROLE_RE.sub(role_replace, finalmsg)
+
+    def user_replace(match: Match) -> str:
+        logger.fatal("yes")
+        snowflake = SnowflakeID(match.group(1))
+        member = channel.get_member(snowflake)
+
+        return f"@{member.nick or member.name}"
+
+    finalmsg = MENTION_RE.sub(user_replace, finalmsg)
+
+    await channel.send(finalmsg)
 
 
 def sentences(words: str) -> Iterable[str]:
