@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 markov_chain = None
 sentence_re = re.compile("([.,?\n]|(?<!@)!)")
 parent_re = re.compile("[[\]{}()\"']")
+MENTION_RE = re.compile(r"<@!?(\d+)>")
+ROLE_RE = re.compile(r"<@&(\d+)>")
 
 
 def zero():
@@ -133,6 +135,27 @@ async def markov(content, match, message):
 
         if len(msg.split(" ")) > 5:
             break
+
+    # Cut out pings.
+    def role_replace(match) -> str:
+        snowflake = match.group(1)
+        for role in message.channel.server.roles:
+            if role.id == snowflake:
+                name = role.name
+                break
+        else:
+            name = "Unknown Role"
+        return f"@{name}"
+
+    msg = ROLE_RE.sub(role_replace, msg)
+
+    def user_replace(match) -> str:
+        snowflake = match.group(1)
+        member = message.channel.server.get_member(snowflake)
+
+        return f"@{member.nick or member.name}"
+
+    msg = MENTION_RE.sub(user_replace, msg)
 
     await output(message.channel, msg)
 

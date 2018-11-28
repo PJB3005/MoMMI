@@ -33,12 +33,13 @@ def discord_transform(func):
     discord_transforms.append(func)
     return func
 
-irc_client = irc_client = bottom.Client(
-    host=get_config("mainserver.irc.irc.address"),
-    port=get_config("mainserver.irc.irc.port"),
-    loop=asyncio.get_event_loop(),
-    ssl=True
-)
+#irc_client = irc_client = bottom.Client(
+#    host=get_config("mainserver.irc.irc.address"),
+#    port=get_config("mainserver.irc.irc.port"),
+#    loop=asyncio.get_event_loop(),
+#    ssl=True
+#)
+irc_client = None
 logger = logging.getLogger(__name__)
 messagelogger = logging.getLogger("IRC")
 MENTION_RE = re.compile(r"<@!?(\d+)>")
@@ -46,7 +47,7 @@ ROLE_RE = re.compile(r"<@&(\d+)>")
 CHANNEL_RE = re.compile(r"<#(\d+)>")
 EMOJI_RE = re.compile(r"<:(.+):(\d+)>")
 IRC_MENTION_RE = re.compile(r"@([^@]+?)@")
-IGNORED_NAMES = {"travis-ci", "vg-bot", "py-ctcp"}
+IGNORED_NAMES = {"travis-ci", "vg-bot", "py-ctcp", "MrStonedOne"}
 
 
 async def unload(loop=None):
@@ -54,7 +55,7 @@ async def unload(loop=None):
     await irc_client.disconnect()
 
 
-@irc_client.on("client_connect")
+#@irc_client.on("client_connect")
 async def connect(**kwargs):
     logger.info("Connected")
     irc_client.send("NICK", nick=get_config("mainserver.irc.irc.user.nick"))
@@ -72,10 +73,10 @@ async def connect(**kwargs):
 
     irc_client.send('JOIN', channel=get_config("mainserver.irc.irc.channel"))
 
-asyncio.ensure_future(irc_client.connect(), loop=irc_client.loop)
+#asyncio.ensure_future(irc_client.connect(), loop=irc_client.loop)
 
 
-@irc_client.on("PRIVMSG")
+#@irc_client.on("PRIVMSG")
 async def message(nick, target, message, **kvargs):
     if nick in IGNORED_NAMES:
         return
@@ -91,12 +92,12 @@ async def message(nick, target, message, **kvargs):
     await output(channel, "\u200B**IRC:** `<{}>` {}".format(nick, content))
 
 
-@irc_client.on('PING')
+#@irc_client.on('PING')
 def keepalive(message, **kwargs):
     irc_client.send('PONG', message=message)
 
 
-@unsafe_always_command()
+#@unsafe_always_command()
 async def ircrelay(message):
     if isbanned(message.author, bantypes.irc):
         return
@@ -138,7 +139,7 @@ def prevent_ping(name: str):
     return name[:1] + "\u200B" + name[1:]
 
 
-@irc_transform
+#@irc_transform
 def convert_disc_mention(message, author, irc_client, discord_server):
     try:
         return MENTION_RE.sub(lambda match: "@{}".format(prevent_ping(discord_server.get_member(match.group(1)).name)), message)
@@ -146,7 +147,7 @@ def convert_disc_mention(message, author, irc_client, discord_server):
         return message
 
 
-@irc_transform
+#@irc_transform
 def convert_disc_channel(message, author, irc_client, discord_server: Server):
     try:
         return CHANNEL_RE.sub(lambda match: "#{}".format(discord_server.get_channel(match.group(1)).name), message)
@@ -155,7 +156,7 @@ def convert_disc_channel(message, author, irc_client, discord_server: Server):
         return message
 
 
-@irc_transform
+#@irc_transform
 def convert_role_mention(message, author, irc_client, discord_server: Server):
     try:
         return ROLE_RE.sub(lambda match: "@{}".format(getrole(discord_server, match.group(1)).name), message)
@@ -164,7 +165,7 @@ def convert_role_mention(message, author, irc_client, discord_server: Server):
         return message
 
 
-@irc_transform
+#@irc_transform
 def convert_custom_emoji(message, author, irc_client, discord_server: Server):
     try:
         return EMOJI_RE.sub(lambda match: ":{}:".format(match.group(1)), message)
@@ -173,7 +174,7 @@ def convert_custom_emoji(message, author, irc_client, discord_server: Server):
         return message
 
 
-@discord_transform
+#@discord_transform
 def convert_irc_mention(message, author, discord_server, irc_client):
     try:
         return IRC_MENTION_RE.sub(lambda match: "<@{}>".format(discord_server.get_member_named(match.group(1)).id), message)
