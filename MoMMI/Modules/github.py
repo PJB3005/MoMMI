@@ -22,6 +22,8 @@ REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]",
 REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
 
+REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
+
 COLOR_GITHUB_RED = Color(0xFF4444)
 COLOR_GITHUB_GREEN = Color(0x6CC644)
 COLOR_GITHUB_PURPLE = Color(0x6E5494)
@@ -39,6 +41,13 @@ GITHUB_ISSUE_MAX_MESSAGES = 5
 VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
 
 KNOWN_MERGE_COMMITS: Set[str] = set()
+
+
+EVENT_MUTED_REPOS = set()
+
+
+def is_repo_muted(repo: str) -> bool:
+    return repo in EVENT_MUTED_REPOS
 
 
 async def load(loop: asyncio.AbstractEventLoop) -> None:
@@ -212,6 +221,9 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
         embed.description = new_body
     embed.description += "\n\u200B"
 
+    if is_repo_muted(repository["full_name"]):
+        return
+
     await channel.send(embed=embed)
 
 
@@ -299,6 +311,55 @@ async def secret_repo_check(message: Any, meta: str) -> None:
         async with session.delete(url + "/" + quote_plus(label_name)):
             logger.info("Deleting secret repo conflicts label on PR #%s returned status code %s!",
                         message["number"], postresp.status)
+
+@global_comm_event("issue_auto_label")
+async def issue_auto_label(message: Any, meta: str) -> None:
+    if "event" not in message or (message["event"] != "pull_request" and message["event"] != "issues"):
+        return
+
+    event = message["event"]
+    message = message["content"]
+    action = message["action"]
+    if action != "opened":
+        return
+
+    repo_name = message["repository"]["full_name"]
+    autolabels: Dict[str, str] = master.config.get_module(
+        f"github.repos.{repo_name}.autolabels", {})
+    if not autolabels:
+        return
+
+    if event == "pull_request":
+        body_content = message["pull_request"]["body"]
+        issue_url = message["pull_request"]["issue_url"]
+    else:
+        body_content = message["issue"]["body"]
+        issue_url = message["issue"]["url"]
+
+    label_url = issue_url + "/labels"
+
+    to_add = set()
+
+    for match in REG_AUTOLABEL.finditer(body_content):
+        label = match.group(1)
+
+        matched_label = autolabels.get(label.lower())
+        if matched_label:
+            to_add.add(matched_label)
+
+    if not to_add:
+        return
+
+    to_add_list = [*to_add]
+
+    session: aiohttp.ClientSession = master.get_cache(GITHUB_SESSION)
+    headers = {
+        "Accept": "application/vnd.github.symmetra-preview+json"
+    }
+
+    async with session.post(label_url, json=to_add_list, headers=headers) as req:
+        logger.info(f"{req.status}")
+
 
 # Indent 2: the indent
 # handling of stuff like [2000] and [world.dm]

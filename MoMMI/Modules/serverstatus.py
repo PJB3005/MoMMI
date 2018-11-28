@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import struct
+import aiohttp
 from typing import Match, Union, Any, Dict, List, cast
 from urllib.parse import parse_qs
 from discord import Message
@@ -35,22 +36,32 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         await channel.send(f"Unknown key '{servername}`")
         return
 
-    server_config = config[servername]
-    address = server_config["address"]
-    port = server_config["port"]
 
+    server_config = config[servername]
+    server_type = server_config.get("type", "ss13")
     await channel.server.master.client.add_reaction(message, "⌛")
 
     try:
-        response = await asyncio.wait_for(server_topic(address, port, b"?status"), timeout=5)
+        if server_type == "ss13":
+            address = server_config["address"]
+            port = server_config["port"]
+            await get_status_ss13(address, port, channel)
+
+        elif server_type == "bluespess":
+            url = server_config["url"]
+            await get_status_bluespess(url, channel)
 
     except asyncio.TimeoutError:
         await channel.send("Server timed out.")
         return
 
     except:
+        logger.exception("shit")
         await channel.send("Unknown error occured.")
         return
+
+async def get_status_ss13(address: str, port: int, channel: MChannel) -> None:
+    response = await asyncio.wait_for(server_topic(address, port, b"?status"), timeout=5)
 
     mapname: str
     players: str
@@ -59,14 +70,35 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         if not isinstance(response, Dict):
             raise NotImplementedError("Non-list returns are not accepted.")
 
-        mapname = response["map_name"][0]
+        mapname = None
+        if "map_name" in response:
+            mapname = response["map_name"][0]
         players = response["players"][0]
 
     except:
         await channel.send("Server sent unsupported response.")
         return
 
-    await channel.send(f"{players} players online, map is {mapname}.")
+    if mapname:
+        await channel.send(f"{players} players online, map is {mapname}.")
+
+    else:
+        await channel.send(f"{players} players online.")
+
+
+async def get_status_bluespess(url: str, channel: MChannel) -> None:
+
+
+    async with aiohttp.ClientSession() as session:
+        async def load() -> Any:
+            async with session.get(url) as resp:
+                return await resp.json()
+
+        json = await asyncio.wait_for(load(), timeout=5)
+
+        count = json["player_count"]
+        await channel.send(f"{count} players online.")
+
 
 async def server_topic(address: str, port: int, message: bytes) -> Union[float, Dict[str, List[str]]]:
     if message[0] != 63:

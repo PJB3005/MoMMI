@@ -5,6 +5,7 @@ import time
 import shutil
 import sys
 import aiofiles
+import tempfile
 from distutils import spawn
 from pathlib import Path
 from random import choice
@@ -97,106 +98,105 @@ class DMCodeHandler(MCodeHandler):
             await channel.send("Unable to execute DM code, since this MoMMI is hosted on Windows.")
             return
 
-        path = await self.make_project_folder()
+        with tempfile.TemporaryDirectory() as dirname:
+            path = Path(dirname)
 
-        me = channel.server.get_server().me
+            me = channel.server.get_server().me
 
-        #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "⌛"))
+            #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "⌛"))
 
-        try:
-            firejail: List[str] = []
-            firejail_name = ""
-
-            # Use firejail if at all possible.
-            if channel.module_config("dm.firejail", "") != "":
-                firejail_profile: str = channel.module_config("dm.firejail")
-                firejail_name = "mommi_dm_" + DMCodeHandler.random_string()
-                firejail = ["firejail", "--quiet",
-                            f"--profile={firejail_profile}",
-                            f"--private={path}",
-                            f"--name={firejail_name}"]
-
-            dmepath = await self.make_project(code, path)
-
-            proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), str(dmepath), stdout=asyncio.subprocess.PIPE)
-            fail_reason = None
             try:
-                await asyncio.wait_for(proc.wait(), timeout=30)
-            except asyncio.TimeoutError:
-                if firejail_name:
-                    fjail_proc = await asyncio.create_subprocess_exec("firejail", f"--shutdown={firejail_name}")
-                    await fjail_proc.wait()
-                else:
-                    proc.kill()
+                firejail: List[str] = []
+                firejail_name = ""
 
-                fail_reason = "**Compilation failed** due to **timeout** (30 seconds)."
+                # Use firejail if at all possible.
+                if channel.module_config("dm.firejail", "") != "":
+                    firejail_profile: str = channel.module_config("dm.firejail")
+                    firejail_name = "mommi_dm_" + DMCodeHandler.random_string()
+                    firejail = ["firejail", "--quiet",
+                                f"--profile={firejail_profile}",
+                                f"--private={path}",
+                                f"--name={firejail_name}"]
 
-            assert proc.stdout is not None
-            data = await proc.stdout.read()
-            compile_log = data.decode("Windows-1252", "replace")
+                dmepath = await self.make_project(code, path)
 
-            # Discord max size of field is 1024 chars.
-            if len(compile_log) > 900:
-                log = compile_log[:900] + "\n<truncated due to size>"
+                proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), str(dmepath), stdout=asyncio.subprocess.PIPE)
+                fail_reason = None
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=30)
+                except asyncio.TimeoutError:
+                    if firejail_name:
+                        fjail_proc = await asyncio.create_subprocess_exec("firejail", f"--shutdown={firejail_name}")
+                        await fjail_proc.wait()
+                    else:
+                        proc.kill()
 
-            if fail_reason or proc.returncode:
+                    fail_reason = "**Compilation failed** due to **timeout** (30 seconds)."
+
+                assert proc.stdout is not None
+                data = await proc.stdout.read()
+                compile_log = data.decode("Windows-1252", "replace")
+
+                # Discord max size of field is 1024 chars.
+                if len(compile_log) > 900:
+                    log = compile_log[:900] + "\n<truncated due to size>"
+
+                if fail_reason or proc.returncode:
+                    embed = Embed()
+                    embed.color = COLOR_COMPILE_FAIL
+                    embed.description = fail_reason or "**Compilation failed**"
+                    embed.add_field(name="Compiler Output",
+                                    value=f"```{compile_log}```", inline=False)
+                    await channel.send(embed=embed)
+                    return
+
+                #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "⌛", me))
+                #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "🔨"))
+
+                proc = await asyncio.create_subprocess_exec(*firejail, self.dd_executable_path(channel), str(dmepath.with_name("code.dmb")), "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=30)
+                except asyncio.TimeoutError:
+                    if firejail_name:
+                        fjail_proc = await asyncio.create_subprocess_exec("firejail", f"--shutdown={firejail_name}")
+                        await fjail_proc.wait()
+                    else:
+                        proc.kill()
+
+                    fail_reason = "**Execution failed** due to **timeout** (30 seconds)."
+
+                assert proc.stdout is not None and proc.stderr is not None
+                data = await proc.stderr.read() + await proc.stdout.read()
+                log = data.decode("Windows-1252", "replace")
+                if len(log) > 900:  # Discord max size of field is 1024 chars.
+                    log = log[:900] + "\n<truncated due to size>"
+
                 embed = Embed()
-                embed.color = COLOR_COMPILE_FAIL
-                embed.description = fail_reason or "**Compilation failed**"
                 embed.add_field(name="Compiler Output",
                                 value=f"```{compile_log}```", inline=False)
-                await channel.send(embed=embed)
-                return
+                embed.add_field(name="Execution Output",
+                                value=f"```{log}```", inline=False)
 
-            #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "⌛", me))
-            #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "🔨"))
+                #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "🔨", channel.server.get_server().me))
 
-            proc = await asyncio.create_subprocess_exec(*firejail, self.dd_executable_path(channel), str(dmepath.with_name("code.dmb")), "-invisible", "-ultrasafe", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=30)
-            except asyncio.TimeoutError:
-                if firejail_name:
-                    fjail_proc = await asyncio.create_subprocess_exec("firejail", f"--shutdown={firejail_name}")
-                    await fjail_proc.wait()
+                if fail_reason:
+                    embed.color = COLOR_RUN_FAIL
+                    embed.description = fail_reason
+                    #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "❌"))
+
                 else:
-                    proc.kill()
+                    embed.color = COLOR_RUN_SUCCESS
+                    #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "✅"))
 
-                fail_reason = "**Execution failed** due to **timeout** (30 seconds)."
+                await channel.send(embed=embed)
 
-            assert proc.stdout is not None and proc.stderr is not None
-            data = await proc.stderr.read() + await proc.stdout.read()
-            log = data.decode("Windows-1252", "replace")
-            if len(log) > 900:  # Discord max size of field is 1024 chars.
-                log = log[:900] + "\n<truncated due to size>"
+            except:
+                await channel.send("Unknown error occured while executing code. Tell PJB to check the log files.")
+                logger.exception("Exception while executing DM code")
+                #await channel.server.master.client.remove_reaction(message, "🔨", me)
+                #await channel.server.master.client.remove_reaction(message, "⌛", me)
+                #await channel.server.master.client.add_reaction(message, "❌")
 
-            embed = Embed()
-            embed.add_field(name="Compiler Output",
-                            value=f"```{compile_log}```", inline=False)
-            embed.add_field(name="Execution Output",
-                            value=f"```{log}```", inline=False)
-
-            #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "🔨", channel.server.get_server().me))
-
-            if fail_reason:
-                embed.color = COLOR_RUN_FAIL
-                embed.description = fail_reason
-                #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "❌"))
-
-            else:
-                embed.color = COLOR_RUN_SUCCESS
-                #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "✅"))
-
-            await channel.send(embed=embed)
-
-        except:
-            await channel.send("Unknown error occured while executing code. Check the log files.")
-            logger.exception("Exception while executing DM code")
-            #await channel.server.master.client.remove_reaction(message, "🔨", me)
-            #await channel.server.master.client.remove_reaction(message, "⌛", me)
-            #await channel.server.master.client.add_reaction(message, "❌")
-
-        finally:
-            await self.cleanup(path)
 
     def dm_executable_path(self, channel: MChannel) -> str:
         try:

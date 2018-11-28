@@ -129,6 +129,7 @@ class IrcConnection:
 
 
     async def message(self, nick: str, target: str, message: str, **kwargs: Any) -> None:
+        from MoMMI.util import utcnow
         if nick in IGNORED_NAMES:
             return
 
@@ -138,7 +139,7 @@ class IrcConnection:
             # Channel we don't know about, probably a PM or something.
             return
 
-        messagelogger.info(f"(IRC {target}) {nick}: {message}")
+        messagelogger.info(f"[{utcnow().isoformat()}](IRC {target}) {nick}: {message}")
 
         for handler in discord_target.iter_handlers(MDiscordTransform):
             message = await handler.transform(message, nick, discord_target, self.client)

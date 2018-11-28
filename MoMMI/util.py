@@ -1,9 +1,12 @@
 import os
 import pickle
+from datetime import datetime
 from typing import Any
 import aiofiles
+import pytz
 from discord import Message
 from MoMMI.master import master
+
 
 async def pickle_dump(obj: Any, filename: os.PathLike) -> None:
     """
@@ -23,8 +26,14 @@ async def pickle_load(filename: os.PathLike) -> Any:
 
     return pickle.loads(byte)
 
+
 async def add_reaction(message: Message, reaction: str) -> None:
     await master.client.add_reaction(message, reaction)
 
+
 async def remove_reaction(message: Message, reaction: str) -> None:
     await master.client.remove_reaction(message, reaction)
+
+
+def utcnow() -> datetime:
+    return datetime.now(pytz.utc)

@@ -266,6 +266,7 @@ class MoMMI(object):
 
     async def on_message(self, message: discord.Message) -> None:
         from MoMMI.commands import MCommand
+        from MoMMI.util import utcnow
         if not self.initialized or self.shutting_down:
             return
 
@@ -276,7 +277,7 @@ class MoMMI(object):
         server = self.get_server(SnowflakeID(message.server.id))
         channel = server.get_channel(SnowflakeID(message.channel.id))
 
-        logmsg = f"({server.name}/{message.channel.name}) {message.author.name}: {message.content}"
+        logmsg = f"[{utcnow().isoformat()}]({server.name}/{message.channel.name}) {message.author.name}#{message.author.discriminator}: {message.content}"
 
         if message.attachments:
             logmsg += "[Attachments]"
@@ -482,5 +483,6 @@ class MoMMI(object):
 
         except:
             LOGGER.exception(f"Failed to load global storage {module}")
+
 
 master = MoMMI()

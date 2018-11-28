@@ -46,7 +46,6 @@ async def unload(loop: asyncio.AbstractEventLoop) -> None:
 
 async def reminder_loop() -> None:
     while True:
-        print("tick")
         await asyncio.sleep(LOOP_INTERVAL)
         try:
             await check_reminders()
