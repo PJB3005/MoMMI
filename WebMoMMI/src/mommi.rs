@@ -1,16 +1,16 @@
 //! Interfacing with MoMMIv2.
 
-use std::net::{ToSocketAddrs, TcpStream};
-use std::io::{Write, Error as IoError};
-use serde::Serialize;
-use crypto::sha2::Sha512;
+use crate::config::MoMMIConfig;
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use crypto::hmac::Hmac;
 use crypto::mac::Mac;
-use byteorder::{NetworkEndian, WriteBytesExt, ReadBytesExt};
-use rocket::State;
-use crate::config::MoMMIConfig;
-use serde_json::json;
+use crypto::sha2::Sha512;
 use rocket::request::Form;
+use rocket::State;
+use serde::Serialize;
+use serde_json::json;
+use std::io::{Error as IoError, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 
 /// Sends a message to the MoMMI commloop.
 /// Really can't get simpler than this.
@@ -25,7 +25,8 @@ pub fn commloop<A: ToSocketAddrs, S: Serialize>(
         "type": message_type,
         "meta": meta,
         "cont": content
-    }).to_string();
+    })
+    .to_string();
 
     let mut hmac = Hmac::new(Sha512::new(), password.as_bytes());
     hmac.input(json.as_bytes());
@@ -34,9 +35,7 @@ pub fn commloop<A: ToSocketAddrs, S: Serialize>(
     let mut socket = TcpStream::connect(address)?;
     socket.write_all(b"\x30\x05")?;
     socket.write_all(result.code())?;
-    socket.write_u32::<NetworkEndian>(
-        json.as_bytes().len() as u32,
-    )?;
+    socket.write_u32::<NetworkEndian>(json.as_bytes().len() as u32)?;
     socket.write_all(json.as_bytes())?;
     socket.flush()?;
 
@@ -73,7 +72,6 @@ impl From<IoError> for MoMMIError {
         MoMMIError::Io(error)
     }
 }
-
 
 // Damnit past me for forcing current me to do this so future me has to clean it up sometime!
 
@@ -123,30 +121,35 @@ pub fn get_nudgeold(
 }
 
 #[get("/mommi?<nudge..>", rank = 2)]
-pub fn get_nudge(nudge: Form<Nudge>, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+pub fn get_nudge(
+    nudge: Form<Nudge>,
+    config: State<MoMMIConfig>,
+) -> Result<&'static str, MoMMIError> {
     get_nudge_internal(&nudge, config)
 }
 
 #[get("/mommi/nudge?<nudge..>")]
-pub fn get_nudge_new(nudge: Form<Nudge>, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+pub fn get_nudge_new(
+    nudge: Form<Nudge>,
+    config: State<MoMMIConfig>,
+) -> Result<&'static str, MoMMIError> {
     get_nudge_internal(&nudge, config)
 }
 
-fn get_nudge_internal(nudge: &Nudge, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+fn get_nudge_internal(
+    nudge: &Nudge,
+    config: State<MoMMIConfig>,
+) -> Result<&'static str, MoMMIError> {
     // This route does not get mounted when there's no commloop.
-    let (addr, pass) = config.get_commloop().expect("Nudge route requested without commloop config.");
+    let (addr, pass) = config
+        .get_commloop()
+        .expect("Nudge route requested without commloop config.");
 
     let message = json!({
         "password": nudge.pass.clone(),
         "message": nudge.content.clone()
     });
 
-    commloop(
-        addr,
-        pass,
-        "gamenudge",
-        &nudge.meta,
-        &message,
-    )?;
+    commloop(addr, pass, "gamenudge", &nudge.meta, &message)?;
     Ok("MoMMI successfully received the message.")
 }

@@ -1,16 +1,16 @@
+use crate::github::data::{PullRequestAction, PullRequestEvent};
+use lazy_static::lazy_static;
+use regex::{Regex, RegexBuilder};
+use rocket::Config;
+use serde::de::{Error, MapAccess, Visitor};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 use std::sync::{Mutex, MutexGuard};
 use std::thread;
-use std::time::{Instant, Duration};
-use rocket::Config;
-use lazy_static::lazy_static;
-use crate::github::data::{PullRequestEvent, PullRequestAction};
-use serde::{Serializer, Serialize, Deserialize, Deserializer};
-use serde::ser::SerializeMap;
-use serde::de::{Visitor, MapAccess, Error};
-use std::fmt;
-use regex::{Regex, RegexBuilder};
+use std::time::{Duration, Instant};
 
-pub fn try_handle_changelog(event: &PullRequestEvent)  {
+pub fn try_handle_changelog(event: &PullRequestEvent) {
     if event.action != PullRequestAction::Closed || !event.pull_request.merged {
         // Not a merge
         return;
@@ -23,28 +23,31 @@ pub fn try_handle_changelog(event: &PullRequestEvent)  {
 
     let content = match header_re.captures(&event.pull_request.body) {
         Some(capture) => capture.get(1).unwrap().as_str(),
-        _ => return
+        _ => return,
     };
 
-    let additions: Vec<_> = entry_re.captures_iter(content).map(|m| {
-        let entry_type = match m.get(1).unwrap().as_str() {
-            "bugfix" => ChangelogEntryType::Bugfix,
-            "wip" => ChangelogEntryType::Wip,
-            "tweak" => ChangelogEntryType::Tweak,
-            "soundadd" => ChangelogEntryType::Soundadd,
-            "sounddel" => ChangelogEntryType::Sounddel,
-            "rscdel" => ChangelogEntryType::Rscdel,
-            "rscadd" => ChangelogEntryType::Rscadd,
-            "imageadd" => ChangelogEntryType::Imageadd,
-            "imagedel" => ChangelogEntryType::Imagedel,
-            "spellcheck" => ChangelogEntryType::Spellcheck,
-            "experiment" => ChangelogEntryType::Experiment,
-            "tgs" => ChangelogEntryType::Tgs,
-            _ => unreachable!()
-        };
+    let additions: Vec<_> = entry_re
+        .captures_iter(content)
+        .map(|m| {
+            let entry_type = match m.get(1).unwrap().as_str() {
+                "bugfix" => ChangelogEntryType::Bugfix,
+                "wip" => ChangelogEntryType::Wip,
+                "tweak" => ChangelogEntryType::Tweak,
+                "soundadd" => ChangelogEntryType::Soundadd,
+                "sounddel" => ChangelogEntryType::Sounddel,
+                "rscdel" => ChangelogEntryType::Rscdel,
+                "rscadd" => ChangelogEntryType::Rscadd,
+                "imageadd" => ChangelogEntryType::Imageadd,
+                "imagedel" => ChangelogEntryType::Imagedel,
+                "spellcheck" => ChangelogEntryType::Spellcheck,
+                "experiment" => ChangelogEntryType::Experiment,
+                "tgs" => ChangelogEntryType::Tgs,
+                _ => unreachable!(),
+            };
 
-        ChangelogEntry(entry_type, m.get(2).unwrap().as_str().to_owned())
-    }).collect();
+            ChangelogEntry(entry_type, m.get(2).unwrap().as_str().to_owned())
+        })
+        .collect();
 
     if additions.len() == 0 {
         return;
@@ -53,24 +56,23 @@ pub fn try_handle_changelog(event: &PullRequestEvent)  {
     let changelog = Changelog {
         author: "placeholder".into(),
         additions,
-        delete_after: true
+        delete_after: true,
     };
 }
 
 lazy_static! {
-    pub static ref CHANGELOG_MANAGER: Mutex<ChangelogManager> = {
-        Mutex::new(ChangelogManager {last_time: None})
-    };
+    pub static ref CHANGELOG_MANAGER: Mutex<ChangelogManager> =
+        { Mutex::new(ChangelogManager { last_time: None }) };
 }
 
 pub struct ChangelogManager {
     // If None, no thread is currently on it.
-    last_time: Option<Instant>
+    last_time: Option<Instant>,
 }
 
 /// Represents a new changelog entry.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Changelog {
     pub author: String,
     pub additions: Vec<ChangelogEntry>,
@@ -81,8 +83,10 @@ pub struct Changelog {
 pub struct ChangelogEntry(ChangelogEntryType, String);
 
 impl Serialize for ChangelogEntry {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where
-        S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut map = serializer.serialize_map(Some(1))?;
         map.serialize_entry(&self.0, &self.1)?;
         map.end()
@@ -90,8 +94,10 @@ impl Serialize for ChangelogEntry {
 }
 
 impl<'de> Deserialize<'de> for ChangelogEntry {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where
-        D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         deserializer.deserialize_map(ChangelogEntryVisitor)
     }
 }
@@ -105,24 +111,25 @@ impl<'de> Visitor<'de> for ChangelogEntryVisitor {
         formatter.write_str("A single-element map")
     }
 
-    fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error> where M: MapAccess<'de> {
+    fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+    where
+        M: MapAccess<'de>,
+    {
         match access.next_entry()? {
             Some((key, value)) => {
                 let value = ChangelogEntry(key, value);
                 match access.next_key::<ChangelogEntryType>()? {
                     Some(_) => Err(M::Error::invalid_length(2, &"A single-element map.")),
-                    _ => Ok(value)
+                    _ => Ok(value),
                 }
-            },
-            None => {
-                Err(M::Error::invalid_length(0, &"A single-element map."))
             }
+            None => Err(M::Error::invalid_length(0, &"A single-element map.")),
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum ChangelogEntryType {
     Bugfix,
     Wip,
@@ -135,7 +142,7 @@ pub enum ChangelogEntryType {
     Imagedel,
     Spellcheck,
     Experiment,
-    Tgs
+    Tgs,
 }
 
 pub fn process_changelogs() {
@@ -150,13 +157,18 @@ pub fn process_changelogs() {
             .name("Changelog thread".into())
             .spawn(|| {
                 handle_changelog_thread();
-            }).unwrap();
+            })
+            .unwrap();
     }
 }
 
 fn handle_changelog_thread() {
     let config = Config::active().unwrap();
-    let delay = config.extras.get("changelog-delay").and_then(|x| x.as_integer()).unwrap_or(5) as u64;
+    let delay = config
+        .extras
+        .get("changelog-delay")
+        .and_then(|x| x.as_integer())
+        .unwrap_or(5) as u64;
 
     loop {
         let time = {
@@ -168,7 +180,7 @@ fn handle_changelog_thread() {
 
             match Duration::from_secs(delay).checked_sub(elapsed) {
                 Some(t) => t,
-                None => return do_changelog(lock)
+                None => return do_changelog(lock),
             }
         };
         thread::sleep(time);
@@ -183,7 +195,4 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>) {
     //lock.pending.truncate(0);
     lock.last_time = None;
     drop(lock);
-
-
-
 }

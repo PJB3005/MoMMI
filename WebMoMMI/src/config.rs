@@ -1,5 +1,5 @@
-use rocket::{Config};
 use rocket::config::ConfigError;
+use rocket::Config;
 
 pub struct MoMMIConfig {
     /// Address, Password
@@ -20,11 +20,15 @@ impl MoMMIConfig {
             Err(x) => return Err(format!("Unable to fetch commloop password config: {}", x)),
         };
 
-        let commloop = match (commloop_address, commloop_password) {
-            (Some(addr), Some(pass)) => Some((addr, pass)),
-            (None, None) => None,
-            _ => return Err("commloop-address and commloop-password must either both or neither be set.".to_owned())
-        };
+        let commloop =
+            match (commloop_address, commloop_password) {
+                (Some(addr), Some(pass)) => Some((addr, pass)),
+                (None, None) => None,
+                _ => return Err(
+                    "commloop-address and commloop-password must either both or neither be set."
+                        .to_owned(),
+                ),
+            };
 
         Ok(MoMMIConfig {
             commloop,
@@ -39,7 +43,7 @@ impl MoMMIConfig {
     pub fn get_commloop(&self) -> Option<(&str, &str)> {
         match self.commloop {
             None => None,
-            Some((ref addr, ref pass)) => Some((addr.as_str(), pass.as_str()))
+            Some((ref addr, ref pass)) => Some((addr.as_str(), pass.as_str())),
         }
     }
 

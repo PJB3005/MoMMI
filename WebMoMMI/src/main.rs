@@ -5,9 +5,9 @@ extern crate rocket;
 #[macro_use]
 extern crate serde_derive;
 
-mod mommi;
-mod github;
 mod config;
+mod github;
+mod mommi;
 
 use crate::config::MoMMIConfig;
 
@@ -31,18 +31,14 @@ fn main() {
         Ok(x) => x,
         Err(x) => {
             println!("Failed to launch, broken config: {}", x);
-            return
+            return;
         }
     };
 
     if config.has_commloop() {
         rocket = rocket.mount(
             "/",
-            routes![
-                mommi::get_nudgeold,
-                mommi::get_nudge,
-                mommi::get_nudge_new,
-            ]
+            routes![mommi::get_nudgeold, mommi::get_nudge, mommi::get_nudge_new,],
         )
     }
 

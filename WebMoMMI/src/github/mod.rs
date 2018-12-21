@@ -1,18 +1,17 @@
 //! Handles GitHub changelog generation and MoMMI GitHub relaying.
 
-// use rocket_contrib::{JSON, Value}
-use crate::mommi::commloop;
 use crate::config::MoMMIConfig;
-use rocket::data::Data;
-use rocket::{request, Outcome, State};
-use rocket::request::{FromRequest, Request};
-use rocket::http::{Status, RawStr};
-use serde_json::Value;
-use serde_json::json;
-use crypto::sha1::Sha1;
+use crate::mommi::commloop;
 use crypto::hmac::Hmac;
 use crypto::mac::{Mac, MacResult};
+use crypto::sha1::Sha1;
+use rocket::data::Data;
+use rocket::http::{RawStr, Status};
+use rocket::request::{FromRequest, Request};
+use rocket::{request, Outcome, State};
 use rustc_serialize::hex::FromHex;
+use serde_json::json;
+use serde_json::Value;
 use std::io::Read;
 
 pub mod changelog;
@@ -40,9 +39,9 @@ impl GitHubData {
 
     pub fn verify_signature(&self, data: Data, config: &MoMMIConfig) -> Result<Value, Status> {
         let mut buffer = Vec::new();
-        data.open().read_to_end(&mut buffer).map_err(|_| {
-            Status::InternalServerError
-        })?;
+        data.open()
+            .read_to_end(&mut buffer)
+            .map_err(|_| Status::InternalServerError)?;
         let password = config.get_github_key();
         let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
         hmac.input(&buffer);
@@ -86,7 +85,8 @@ impl<'a, 'r> FromRequest<'a, 'r> for GitHubData {
             .headers()
             .get_one("X-Hub-Signature")
             .map(|x| x.split('='))
-            .map(|mut x| (x.next(), x.next())) {
+            .map(|mut x| (x.next(), x.next()))
+        {
             Some((Some("sha1"), Some(hex))) => hex.to_owned(),
             Some((Some(_), Some(_))) => return Outcome::Failure((Status::NotImplemented, ())),
             _ => return Outcome::Failure((Status::BadRequest, ())),
@@ -129,7 +129,7 @@ pub fn post_github_new_specific(
     github: GitHubData,
     body: Data,
     config: State<MoMMIConfig>,
-    id: &RawStr
+    id: &RawStr,
 ) -> Result<String, Status> {
     post_github(github, body, config)
 }
@@ -145,18 +145,21 @@ pub fn post_github(
     let event = github.get_event();
     match event {
         "ping" => return Ok("pong".into()),
-        "pull_request" => event_pull_request(&serde_json::from_value(data.clone()).map_err(|_| Status::BadRequest)?),
+        "pull_request" => event_pull_request(
+            &serde_json::from_value(data.clone()).map_err(|_| Status::BadRequest)?,
+        ),
         _ => {}
     };
 
     if !config.has_commloop() {
-        return Ok("Worked!".into())
+        return Ok("Worked!".into());
     }
 
     let (addr, pass) = config.get_commloop().unwrap();
 
     // Code for relaying each event to MoMMI.
-    let meta = data.pointer("/repository/full_name")
+    let meta = data
+        .pointer("/repository/full_name")
         .and_then(|x| x.as_str())
         .unwrap_or("");
 
@@ -165,13 +168,7 @@ pub fn post_github(
         "data": data
     });
 
-    commloop(
-        addr,
-        pass,
-        "github_event",
-        meta,
-        &json,
-    ).map_err(|_| Status::InternalServerError)?;
+    commloop(addr, pass, "github_event", meta, &json).map_err(|_| Status::InternalServerError)?;
 
     Ok("Worked!".into())
 }
@@ -185,13 +182,13 @@ mod tests {
     #[test]
     fn test_github_auth() {
         use crate::config::MoMMIConfig;
-        use rocket;
-        use rocket::config::{Environment, Config};
-        use rocket::local::Client;
-        use rocket::http::{Header, ContentType, Status};
-        use crypto::sha1::Sha1;
         use crypto::hmac::Hmac;
         use crypto::mac::Mac;
+        use crypto::sha1::Sha1;
+        use rocket;
+        use rocket::config::{Config, Environment};
+        use rocket::http::{ContentType, Header, Status};
+        use rocket::local::Client;
         use rustc_serialize::hex::ToHex;
         use serde_json::json;
 
@@ -202,14 +199,16 @@ mod tests {
             .extra("github-key", GITHUB_KEY)
             .unwrap();
 
-        let mut rocket = rocket::custom(config).mount("/", routes![super::post_github, super::post_github_alt]);
+        let mut rocket =
+            rocket::custom(config).mount("/", routes![super::post_github, super::post_github_alt]);
 
         let config = MoMMIConfig::new(rocket.config()).unwrap();
         rocket = rocket.manage(config);
 
         let json = serde_json::to_string(&json!({
             "zen": "Non-blocking is better than blocking."
-        })).unwrap();
+        }))
+        .unwrap();
 
         let client = Client::new(rocket).unwrap();
 
@@ -225,7 +224,10 @@ mod tests {
             request.add_header(Header::new("X-Hub-Signature", format!("sha1={}", result)));
             let mut response = request.dispatch();
             assert_eq!(response.status(), Status::Ok);
-            assert_eq!(response.body().and_then(|f| f.into_string()), Some("pong".into()));
+            assert_eq!(
+                response.body().and_then(|f| f.into_string()),
+                Some("pong".into())
+            );
 
             let mut request = client.post(request_url).body(&json);
             request.add_header(ContentType::JSON);
@@ -257,4 +259,3 @@ mod tests {
         }
     }
 }
-
