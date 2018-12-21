@@ -1,15 +1,14 @@
 //! Handles GitHub changelog generation and MoMMI GitHub relaying.
 
 // use rocket_contrib::{JSON, Value}
-use super::mommi::commloop;
-use config::MoMMIConfig;
+use crate::mommi::commloop;
+use crate::config::MoMMIConfig;
 use rocket::data::Data;
 use rocket::{request, Outcome, State};
 use rocket::request::{FromRequest, Request};
-use rocket::http::Status;
-use rocket::response::Failure;
+use rocket::http::{Status, RawStr};
 use serde_json::Value;
-use serde_json;
+use serde_json::json;
 use crypto::sha1::Sha1;
 use crypto::hmac::Hmac;
 use crypto::mac::{Mac, MacResult};
@@ -17,6 +16,10 @@ use rustc_serialize::hex::FromHex;
 use std::io::Read;
 
 pub mod changelog;
+pub mod data;
+
+use self::data::*;
+use crate::github::changelog::try_handle_changelog;
 
 #[allow(dead_code)]
 pub struct GitHubData {
@@ -35,10 +38,10 @@ impl GitHubData {
         &self.signature
     }
 
-    pub fn verify_signature(&self, data: Data, config: &MoMMIConfig) -> Result<Value, Failure> {
+    pub fn verify_signature(&self, data: Data, config: &MoMMIConfig) -> Result<Value, Status> {
         let mut buffer = Vec::new();
         data.open().read_to_end(&mut buffer).map_err(|_| {
-            Failure(Status::InternalServerError)
+            Status::InternalServerError
         })?;
         let password = config.get_github_key();
         let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
@@ -49,19 +52,19 @@ impl GitHubData {
             Ok(bytes) => bytes,
             Err(x) => {
                 println!("{:?}", x);
-                return Err(Failure(Status::BadRequest));
+                return Err(Status::BadRequest);
             }
         };
 
         if result != MacResult::new(&signature) {
-            return Err(Failure(Status::Forbidden));
+            return Err(Status::Forbidden);
         }
 
         // ALRIGHT. VALIDATED.
         // Now we can parse the JSON and return it.
         match serde_json::from_slice::<Value>(&buffer) {
             Ok(x) => Ok(x),
-            Err(_) => Err(Failure(Status::BadRequest)),
+            Err(_) => Err(Status::BadRequest),
         }
     }
 
@@ -95,9 +98,9 @@ impl<'a, 'r> FromRequest<'a, 'r> for GitHubData {
         };
 
         Outcome::Success(GitHubData {
-            event: event,
-            signature: signature,
-            delivery: delivery,
+            event,
+            signature,
+            delivery,
         })
     }
 }
@@ -107,7 +110,27 @@ pub fn post_github_alt(
     github: GitHubData,
     body: Data,
     config: State<MoMMIConfig>,
-) -> Result<String, Failure> {
+) -> Result<String, Status> {
+    post_github(github, body, config)
+}
+
+#[post("/mommi/github", data = "<body>")]
+pub fn post_github_new(
+    github: GitHubData,
+    body: Data,
+    config: State<MoMMIConfig>,
+) -> Result<String, Status> {
+    post_github(github, body, config)
+}
+
+#[allow(unused_variables)]
+#[post("/mommi/github/<id>", data = "<body>")]
+pub fn post_github_new_specific(
+    github: GitHubData,
+    body: Data,
+    config: State<MoMMIConfig>,
+    id: &RawStr
+) -> Result<String, Status> {
     post_github(github, body, config)
 }
 
@@ -117,12 +140,12 @@ pub fn post_github(
     github: GitHubData,
     body: Data,
     config: State<MoMMIConfig>,
-) -> Result<String, Failure> {
+) -> Result<String, Status> {
     let data = github.verify_signature(body, &config)?;
     let event = github.get_event();
     match event {
         "ping" => return Ok("pong".into()),
-        //"pull_request" => {},
+        "pull_request" => event_pull_request(&serde_json::from_value(data.clone()).map_err(|_| Status::BadRequest)?),
         _ => {}
     };
 
@@ -148,26 +171,29 @@ pub fn post_github(
         "github_event",
         meta,
         &json,
-    ).map_err(|_| Failure(Status::InternalServerError))?;
+    ).map_err(|_| Status::InternalServerError)?;
 
     Ok("Worked!".into())
+}
+
+fn event_pull_request(event: &PullRequestEvent) {
+    try_handle_changelog(event);
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn test_github_auth() {
-        use config::MoMMIConfig;
+        use crate::config::MoMMIConfig;
         use rocket;
         use rocket::config::{Environment, Config};
         use rocket::local::Client;
-        use rocket::http::Method::*;
         use rocket::http::{Header, ContentType, Status};
         use crypto::sha1::Sha1;
         use crypto::hmac::Hmac;
         use crypto::mac::Mac;
         use rustc_serialize::hex::ToHex;
-        use serde_json;
+        use serde_json::json;
 
         const GITHUB_KEY: &'static str = "foobar";
 
@@ -176,7 +202,7 @@ mod tests {
             .extra("github-key", GITHUB_KEY)
             .unwrap();
 
-        let mut rocket = rocket::custom(config, false).mount("/", routes![super::post_github, super::post_github_alt]);
+        let mut rocket = rocket::custom(config).mount("/", routes![super::post_github, super::post_github_alt]);
 
         let config = MoMMIConfig::new(rocket.config()).unwrap();
         rocket = rocket.manage(config);
@@ -231,3 +257,4 @@ mod tests {
         }
     }
 }
+

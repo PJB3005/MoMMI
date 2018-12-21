@@ -11,12 +11,12 @@ impl MoMMIConfig {
     pub fn new(config: &Config) -> Result<MoMMIConfig, String> {
         let commloop_address = match config.get_str("commloop-address") {
             Ok(x) => Some(x.to_owned()),
-            Err(ConfigError::UnknownKey(_)) | Err(ConfigError::NotFound) => None,
+            Err(ConfigError::Missing(_)) => None,
             Err(x) => return Err(format!("Unable to fetch commloop address config: {}", x)),
         };
         let commloop_password = match config.get_str("commloop-password") {
             Ok(x) => Some(x.to_owned()),
-            Err(ConfigError::UnknownKey(_)) | Err(ConfigError::NotFound) => None,
+            Err(ConfigError::Missing(_)) => None,
             Err(x) => return Err(format!("Unable to fetch commloop password config: {}", x)),
         };
 
@@ -27,7 +27,7 @@ impl MoMMIConfig {
         };
 
         Ok(MoMMIConfig {
-            commloop: commloop,
+            commloop,
             github_key: config
                 .get_str("github-key")
                 .expect("Must set github key.")
@@ -36,7 +36,7 @@ impl MoMMIConfig {
     }
 
     // Order of the tuple is address, password.
-    pub fn get_commloop<'a>(&'a self) -> Option<(&'a str, &'a str)> {
+    pub fn get_commloop(&self) -> Option<(&str, &str)> {
         match self.commloop {
             None => None,
             Some((ref addr, ref pass)) => Some((addr.as_str(), pass.as_str()))

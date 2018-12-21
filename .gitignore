@@ -112,3 +112,4 @@ pyvenv.cfg
 .mypy_cache/
 
 .vscode/
+.idea/

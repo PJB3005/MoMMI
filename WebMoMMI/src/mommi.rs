@@ -8,9 +8,9 @@ use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use byteorder::{NetworkEndian, WriteBytesExt, ReadBytesExt};
 use rocket::State;
-use rocket::http::Status;
-use rocket::response::Failure;
-use config::MoMMIConfig;
+use crate::config::MoMMIConfig;
+use serde_json::json;
+use rocket::request::Form;
 
 /// Sends a message to the MoMMI commloop.
 /// Really can't get simpler than this.
@@ -114,16 +114,25 @@ impl From<NudgeOld> for Nudge {
 }
 
 // GET because >BYOND
-#[get("/mommi?<nudge>")]
+#[get("/mommi?<nudge..>")]
 pub fn get_nudgeold(
-    nudge: NudgeOld,
+    nudge: Form<NudgeOld>,
     config: State<MoMMIConfig>,
 ) -> Result<&'static str, MoMMIError> {
-    get_nudge(nudge.into(), config)
+    get_nudge_internal(&nudge.into_inner().into(), config)
 }
 
-#[get("/mommi?<nudge>", rank = 2)]
-pub fn get_nudge(nudge: Nudge, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+#[get("/mommi?<nudge..>", rank = 2)]
+pub fn get_nudge(nudge: Form<Nudge>, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+    get_nudge_internal(&nudge, config)
+}
+
+#[get("/mommi/nudge?<nudge..>")]
+pub fn get_nudge_new(nudge: Form<Nudge>, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
+    get_nudge_internal(&nudge, config)
+}
+
+fn get_nudge_internal(nudge: &Nudge, config: State<MoMMIConfig>) -> Result<&'static str, MoMMIError> {
     // This route does not get mounted when there's no commloop.
     let (addr, pass) = config.get_commloop().expect("Nudge route requested without commloop config.");
 
