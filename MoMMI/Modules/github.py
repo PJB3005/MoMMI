@@ -42,8 +42,7 @@ VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
 
 KNOWN_MERGE_COMMITS: Set[str] = set()
 
-
-EVENT_MUTED_REPOS = set()
+EVENT_MUTED_REPOS: Set[str] = set()
 
 
 def is_repo_muted(repo: str) -> bool:
@@ -697,12 +696,11 @@ def is_repo_valid_for_command(repo_config: Dict[str, Any], channel: MChannel, pr
     return True
 
 
-async def get_gh_help(channel: MChannel, message: Message) -> None:
+async def get_gh_help(channel: MChannel, message: Message) -> str:
     try:
         cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
     except:
-        await channel.send("This server has no repo configs. Sorry lad.")
-        return
+        return "This server has no repo configs. Sorry lad."
 
     has_nonprefixed = False
 
@@ -744,8 +742,8 @@ These prefixes are per-repo identifiers. FOR THIS DISCORD SERVER, the following 
         for repo_config in cfg:
             desc += f"* `{repo_config['repo']}`: `{repo_config['prefix']}`\n"
 
+    return desc
 
-    await channel.send(desc)
 
 def gh_register_help() -> None:
     from MoMMI.Modules.help import register_help

@@ -104,7 +104,6 @@ async def markov(channel: MChannel, match: Match, message: Message) -> None:
     finalmsg = ROLE_RE.sub(role_replace, finalmsg)
 
     def user_replace(match: Match) -> str:
-        logger.fatal("yes")
         snowflake = SnowflakeID(match.group(1))
         member = channel.get_member(snowflake)
 

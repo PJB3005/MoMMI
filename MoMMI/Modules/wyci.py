@@ -1,15 +1,17 @@
-from MoMMI import master, always_command
-import re
 import random
+import re
+from typing import Match
+from discord import Message
+from MoMMI import master, always_command, MChannel
 
 @always_command("wyci")
-async def wyci(channel, match, message) -> None:
-    match = re.search("\S\s+when[\s*?.!)]*$", message.content, re.IGNORECASE)
+async def wyci(channel: MChannel, _match: Match, message: Message) -> None:
+    match = re.search(r"\S\s+when[\s*?.!)]*$", message.content, re.IGNORECASE)
     if match is None:
         return
 
     if random.random() > 0.001:
         await channel.send("When You Code It.")
     else:
-        await channek.send("Never.")
+        await channel.send("Never.")
 

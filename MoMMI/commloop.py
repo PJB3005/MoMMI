@@ -190,8 +190,8 @@ class MCommEvent(MHandler):
 GlobalCommEventType = Callable[[Any, str], Awaitable[None]]
 
 
-def global_comm_event(name: str) -> Callable[[GlobalCommEventType], None]:
-    def inner(function: GlobalCommEventType):
+def global_comm_event(name: str) -> Callable[[GlobalCommEventType], GlobalCommEventType]:
+    def inner(function: GlobalCommEventType) -> GlobalCommEventType:
         from MoMMI.master import master
         event = MGlobalCommEvent(name, function.__module__, function)
         event.register(master)

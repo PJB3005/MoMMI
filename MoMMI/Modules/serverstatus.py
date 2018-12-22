@@ -2,7 +2,7 @@ import asyncio
 import logging
 import struct
 import aiohttp
-from typing import Match, Union, Any, Dict, List, cast
+from typing import Match, Union, Any, Dict, List, cast, Optional
 from urllib.parse import parse_qs
 from discord import Message
 from MoMMI import command, MChannel
@@ -60,10 +60,11 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         await channel.send("Unknown error occured.")
         return
 
+
 async def get_status_ss13(address: str, port: int, channel: MChannel) -> None:
     response = await asyncio.wait_for(server_topic(address, port, b"?status"), timeout=5)
 
-    mapname: str
+    mapname: Optional[str]
     players: str
 
     try:
@@ -132,6 +133,7 @@ async def server_topic(address: str, port: int, message: bytes) -> Union[float, 
 
     return ret
 
+
 # Turns the BYOND packet into either a string or a float.
 def decode_packet(packet: bytes) -> Union[float, str]:
     if packet[0] == 0x2a:
@@ -143,7 +145,7 @@ def decode_packet(packet: bytes) -> Union[float, str]:
     raise NotImplementedError(f"Unknown BYOND data code: 0x{packet[0]:x}")
 
 
-async def status_help(channel: MChannel, message: Message) -> None:
+async def status_help(channel: MChannel, message: Message) -> str:
     out = """REEEEE IS THE SERVER DOWN?
 
 The answer is quite simple: ~~yes.~~ just run @MoMMI status <server>.
@@ -154,6 +156,7 @@ On *this Discord server*, you can check status for the following servers: """
     out += ", ".join(config.keys())
 
     return out
+
 
 async def load(loop: asyncio.AbstractEventLoop) -> None:
     register_help(__name__, "status", status_help)

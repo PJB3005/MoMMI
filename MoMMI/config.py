@@ -51,15 +51,15 @@ class ConfigManager(object):
 
     async def load_main(self, path: Path) -> None:
         async with aiofiles.open(path.joinpath("main.toml"), "r") as f:
-            self.main = toml.loads(await f.read())
+            self.main = dict(toml.loads(await f.read()))
 
     async def load_servers(self, path: Path) -> None:
         async with aiofiles.open(path.joinpath("servers.toml"), "r") as f:
-            self.servers = toml.loads(await f.read())
+            self.servers = dict(toml.loads(await f.read()))
 
     async def load_modules(self, path: Path) -> None:
         async with aiofiles.open(path.joinpath("modules.toml"), "r") as f:
-            self.modules = toml.loads(await f.read())
+            self.modules = dict(toml.loads(await f.read()))
 
 
 def get_nested_dict_value(dictionary: Dict[str, Any], key: str) -> Any:
