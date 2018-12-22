@@ -9,6 +9,8 @@ mod config;
 mod github;
 mod mommi;
 
+use std::sync::Arc;
+
 use crate::config::MoMMIConfig;
 
 #[get("/twohundred")]
@@ -19,7 +21,7 @@ fn twohundred() -> &'static str {
 fn main() {
     let mut rocket = rocket::ignite();
     let config = match MoMMIConfig::new(rocket.config()) {
-        Ok(x) => x,
+        Ok(x) => Arc::new(x),
         Err(x) => {
             println!("Failed to launch, broken config: {}", x);
             return;
@@ -33,7 +35,7 @@ fn main() {
         )
     }
 
-    if config.has_github_key() {
+    if config.has_github_key() || !config.verify_github() {
         rocket = rocket.mount(
             "/",
             routes![

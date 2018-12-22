@@ -19,6 +19,7 @@ pub mod data;
 
 use self::data::*;
 use crate::github::changelog::try_handle_changelog;
+use std::sync::Arc;
 
 #[allow(dead_code)]
 pub struct GitHubData {
@@ -42,25 +43,29 @@ impl GitHubData {
         data.open()
             .read_to_end(&mut buffer)
             .map_err(|_| Status::InternalServerError)?;
-        let password = config
-            .get_github_key()
-            .expect("GitHub key config should be set!");
-        let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
-        hmac.input(&buffer);
-        let result = hmac.result();
 
-        let signature = match self.get_signature().from_hex() {
-            Ok(bytes) => bytes,
-            Err(x) => {
-                println!("{:?}", x);
-                return Err(Status::BadRequest);
+        if config.verify_github() {
+            let password = config
+                .get_github_key()
+                .expect("GitHub key config should be set!");
+
+            let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
+            hmac.input(&buffer);
+            let result = hmac.result();
+
+            let signature = match self.get_signature().from_hex() {
+                Ok(bytes) => bytes,
+                Err(x) => {
+                    println!("{:?}", x);
+                    return Err(Status::BadRequest);
+                }
+            };
+
+            if result != MacResult::new(&signature) {
+                return Err(Status::Forbidden);
             }
-        };
-
-        if result != MacResult::new(&signature) {
-            return Err(Status::Forbidden);
         }
-
+        println!("Yes");
         // ALRIGHT. VALIDATED.
         // Now we can parse the JSON and return it.
         match serde_json::from_slice::<Value>(&buffer) {
@@ -111,7 +116,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for GitHubData {
 pub fn post_github_alt(
     github: GitHubData,
     body: Data,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<String, Status> {
     post_github(github, body, config)
 }
@@ -120,7 +125,7 @@ pub fn post_github_alt(
 pub fn post_github_new(
     github: GitHubData,
     body: Data,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<String, Status> {
     post_github(github, body, config)
 }
@@ -130,7 +135,7 @@ pub fn post_github_new(
 pub fn post_github_new_specific(
     github: GitHubData,
     body: Data,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
     id: &RawStr,
 ) -> Result<String, Status> {
     post_github(github, body, config)
@@ -141,10 +146,15 @@ pub fn post_github_new_specific(
 pub fn post_github(
     github: GitHubData,
     body: Data,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<String, Status> {
     let data = github.verify_signature(body, &config)?;
     let event = github.get_event();
+    println!("yes");
+    println!(
+        "{:?}",
+        &serde_json::from_value::<PullRequestEvent>(data.clone())
+    );
     match event {
         "ping" => return Ok("pong".into()),
         "pull_request" => event_pull_request(
@@ -176,7 +186,7 @@ pub fn post_github(
     Ok("Worked!".into())
 }
 
-fn event_pull_request(event: &PullRequestEvent, config: &MoMMIConfig) {
+fn event_pull_request(event: &PullRequestEvent, config: &Arc<MoMMIConfig>) {
     try_handle_changelog(event, config);
 }
 
@@ -184,6 +194,7 @@ fn event_pull_request(event: &PullRequestEvent, config: &MoMMIConfig) {
 mod tests {
     #[test]
     fn test_github_auth() {
+        use std::sync::Arc;
         use crate::config::MoMMIConfig;
         use crypto::hmac::Hmac;
         use crypto::mac::Mac;
@@ -205,7 +216,7 @@ mod tests {
         let mut rocket =
             rocket::custom(config).mount("/", routes![super::post_github, super::post_github_alt]);
 
-        let config = MoMMIConfig::new(rocket.config()).unwrap();
+        let config = Arc::new(MoMMIConfig::new(rocket.config()).unwrap());
         rocket = rocket.manage(config);
 
         let json = serde_json::to_string(&json!({

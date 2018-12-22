@@ -13,8 +13,9 @@ use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
+use std::sync::Arc;
 
-pub fn try_handle_changelog(event: &PullRequestEvent, config: &MoMMIConfig) {
+pub fn try_handle_changelog(event: &PullRequestEvent, config: &Arc<MoMMIConfig>) {
     if event.action != PullRequestAction::Closed
         || !event.pull_request.merged
         || !config.has_changelog_repo_path()
@@ -36,15 +37,14 @@ pub fn try_handle_changelog(event: &PullRequestEvent, config: &MoMMIConfig) {
     };
 
     let mut changelog_path = config.get_changelog_repo_path().unwrap().to_path_buf();
-    changelog_path.push("html/changelogs");
-    changelog_path.push(&format!("PR-{}-temp.yml", event.number));
+    changelog_path.push(&format!("html/changelogs/PR-{}-temp.yml", event.number));
 
     match write_temp_changelog(&changelog_path, changelog) {
         Err(e) => eprintln!("Error writing changelog temp file: {:?}", e),
         _ => {}
     };
 
-    process_changelogs();
+    process_changelogs(config);
 }
 
 fn parse_body_changelog(body: &str) -> Vec<ChangelogEntry> {
@@ -174,7 +174,7 @@ pub enum ChangelogEntryType {
     Tgs,
 }
 
-pub fn process_changelogs() {
+pub fn process_changelogs(config: &Arc<MoMMIConfig>) {
     let mut lock = CHANGELOG_MANAGER.lock().unwrap();
     let should_spawn_thread = lock.last_time.is_none();
     lock.last_time = Some(Instant::now());
@@ -182,34 +182,30 @@ pub fn process_changelogs() {
     if should_spawn_thread {
         // Nobody currently processing.
         lock.last_time = Some(Instant::now());
+        let config = config.clone();
         thread::Builder::new()
             .name("Changelog thread".into())
-            .spawn(|| {
-                handle_changelog_thread();
+            .spawn(move || {
+                handle_changelog_thread(config);
             })
             .unwrap();
     }
 }
 
-fn handle_changelog_thread() {
-    let config = Config::active().unwrap();
-    let delay = config
-        .extras
-        .get("changelog-delay")
-        .and_then(|x| x.as_integer())
-        .unwrap_or(5) as u64;
+fn handle_changelog_thread(config: Arc<MoMMIConfig>) {
+    let delay = config.get_changelog_delay();
 
     loop {
         let time = {
             let lock = CHANGELOG_MANAGER.lock().unwrap();
             let elapsed = lock.last_time.as_ref().unwrap().elapsed();
             if elapsed.as_secs() > delay {
-                return do_changelog(lock);
+                return do_changelog(lock, config);
             }
 
             match Duration::from_secs(delay).checked_sub(elapsed) {
                 Some(t) => t,
-                None => return do_changelog(lock),
+                None => return do_changelog(lock, config),
             }
         };
         thread::sleep(time);
@@ -217,11 +213,69 @@ fn handle_changelog_thread() {
 }
 
 // Pass the lock directly so we don't risk race conditions.
-fn do_changelog(mut lock: MutexGuard<ChangelogManager>) {
+fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>) {
+    println!("Running changelogs!");
     // Get what we need and drop the lock.
     // so we don't hang everything for the time it takes for the git commands and stuff.
-    //let changelogs = lock.pending.clone();
-    //lock.pending.truncate(0);
     lock.last_time = None;
     drop(lock);
+
+    let path = config.get_changelog_repo_path().unwrap();
+
+    let ssh_path = config.get_ssh_key();
+
+    let repo = match git2::Repository::open(&path) {
+        Ok(repo) => repo,
+        Err(e) => {
+            println!("Unable to open repo! {:?}", e);
+            return;
+        }
+    };
+
+    let mut remote = repo.find_remote("origin").expect("Expected an origin remote to exist");
+
+    let fetch_result = match ssh_path {
+        Some(key_path) => {
+            let mut remote_callbacks = git2::RemoteCallbacks::new();
+            remote_callbacks.credentials(|_a, _b, _c| {
+                Ok(git2::Cred::ssh_key("github", None, Path::new(key_path), None).expect("Unable to load SSH key."))
+            });
+            let mut fetch_options = git2::FetchOptions::new();
+            fetch_options.remote_callbacks(remote_callbacks);
+
+            remote.fetch(&["Bleeding-Edge"], Some(&mut fetch_options), None)
+        },
+        _ => {
+            remote.fetch(&["Bleeding-Edge"], None, None)
+        },
+    };
+
+    match fetch_result {
+        Ok(()) => {},
+        Err(e) => {
+            eprintln!("Unable to fetch! {:?}", e);
+            return;
+        }
+    };
+
+    let mut be_ref= repo.find_reference("refs/heads/Bleeding-Edge").expect("Expected Bleeding-Edge head to exist.");
+    let origin_ref = repo.find_reference("refs/remotes/origin/Bleeding-Edge").expect("Expected origin Bleeding-Edge ref to exist.");
+
+    let be_commit = repo.reference_to_annotated_commit(&be_ref).unwrap();
+    let origin_be_commit = repo.reference_to_annotated_commit(&origin_ref).unwrap();
+
+    let heads = [&origin_be_commit];
+
+    let (analysis, _preference) = repo.merge_analysis(&heads).unwrap();
+    if !analysis.is_up_to_date() {
+        if !analysis.is_fast_forward() {
+            panic!("uuuh... can't fast forward apparently..?");
+        }
+
+        be_ref.set_target(origin_be_commit.id(), "").unwrap();
+    } else {
+        println!("Up to date");
+    }
+
+    println!("done");
 }

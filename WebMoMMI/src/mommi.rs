@@ -11,6 +11,7 @@ use serde::Serialize;
 use serde_json::json;
 use std::io::{Error as IoError, Write};
 use std::net::{TcpStream, ToSocketAddrs};
+use std::sync::Arc;
 
 /// Sends a message to the MoMMI commloop.
 /// Really can't get simpler than this.
@@ -115,7 +116,7 @@ impl From<NudgeOld> for Nudge {
 #[get("/mommi?<nudge..>")]
 pub fn get_nudgeold(
     nudge: Form<NudgeOld>,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<&'static str, MoMMIError> {
     get_nudge_internal(&nudge.into_inner().into(), config)
 }
@@ -123,7 +124,7 @@ pub fn get_nudgeold(
 #[get("/mommi?<nudge..>", rank = 2)]
 pub fn get_nudge(
     nudge: Form<Nudge>,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<&'static str, MoMMIError> {
     get_nudge_internal(&nudge, config)
 }
@@ -131,14 +132,14 @@ pub fn get_nudge(
 #[get("/mommi/nudge?<nudge..>")]
 pub fn get_nudge_new(
     nudge: Form<Nudge>,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<&'static str, MoMMIError> {
     get_nudge_internal(&nudge, config)
 }
 
 fn get_nudge_internal(
     nudge: &Nudge,
-    config: State<MoMMIConfig>,
+    config: State<Arc<MoMMIConfig>>,
 ) -> Result<&'static str, MoMMIError> {
     // This route does not get mounted when there's no commloop.
     let (addr, pass) = config
