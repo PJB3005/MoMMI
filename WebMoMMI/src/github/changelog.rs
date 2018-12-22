@@ -1,3 +1,4 @@
+use crate::config::MoMMIConfig;
 use crate::github::data::{PullRequestAction, PullRequestEvent};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -6,27 +7,58 @@ use serde::de::{Error, MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub fn try_handle_changelog(event: &PullRequestEvent) {
-    if event.action != PullRequestAction::Closed || !event.pull_request.merged {
+pub fn try_handle_changelog(event: &PullRequestEvent, config: &MoMMIConfig) {
+    if event.action != PullRequestAction::Closed
+        || !event.pull_request.merged
+        || !config.has_changelog_repo_path()
+    {
         // Not a merge
         return;
     }
 
+    let additions = parse_body_changelog(&event.pull_request.body);
+
+    if additions.len() == 0 {
+        return;
+    }
+
+    let changelog = Changelog {
+        author: "placeholder".into(),
+        additions,
+        delete_after: true,
+    };
+
+    let mut changelog_path = config.get_changelog_repo_path().unwrap().to_path_buf();
+    changelog_path.push("html/changelogs");
+    changelog_path.push(&format!("PR-{}-temp.yml", event.number));
+
+    match write_temp_changelog(&changelog_path, changelog) {
+        Err(e) => eprintln!("Error writing changelog temp file: {:?}", e),
+        _ => {}
+    };
+
+    process_changelogs();
+}
+
+fn parse_body_changelog(body: &str) -> Vec<ChangelogEntry> {
     lazy_static! {
         static ref header_re: Regex = RegexBuilder::new(r#"(?::cl:|🆑) *\r?\n(.+)$"#).dot_matches_new_line(true).build().unwrap();
         static ref entry_re: Regex = RegexBuilder::new(r#"^ *[*-]? *(bugfix|wip|tweak|soundadd|sounddel|rscdel|rscadd|imageadd|imagedel|spellcheck|experiment|tgs): *(\S[^\n\r]+)$"#).multi_line(true).build().unwrap();
     }
 
-    let content = match header_re.captures(&event.pull_request.body) {
+    let content = match header_re.captures(body) {
         Some(capture) => capture.get(1).unwrap().as_str(),
-        _ => return,
+        _ => return Vec::new(),
     };
 
-    let additions: Vec<_> = entry_re
+    entry_re
         .captures_iter(content)
         .map(|m| {
             let entry_type = match m.get(1).unwrap().as_str() {
@@ -47,17 +79,14 @@ pub fn try_handle_changelog(event: &PullRequestEvent) {
 
             ChangelogEntry(entry_type, m.get(2).unwrap().as_str().to_owned())
         })
-        .collect();
+        .collect()
+}
 
-    if additions.len() == 0 {
-        return;
-    }
-
-    let changelog = Changelog {
-        author: "placeholder".into(),
-        additions,
-        delete_after: true,
-    };
+fn write_temp_changelog(path: &Path, changelog: Changelog) -> std::io::Result<()> {
+    let mut file = File::create(path)?;
+    serde_yaml::to_writer(&file, &changelog).unwrap(); // TODO: Remove unwrap.
+    file.flush()?;
+    Ok(())
 }
 
 lazy_static! {

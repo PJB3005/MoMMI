@@ -17,16 +17,7 @@ fn twohundred() -> &'static str {
 }
 
 fn main() {
-    let mut rocket = rocket::ignite().mount(
-        "/",
-        routes![
-            twohundred,
-            github::post_github,
-            github::post_github_new,
-            github::post_github_new_specific,
-            github::post_github_alt,
-        ],
-    );
+    let mut rocket = rocket::ignite();
     let config = match MoMMIConfig::new(rocket.config()) {
         Ok(x) => x,
         Err(x) => {
@@ -39,6 +30,18 @@ fn main() {
         rocket = rocket.mount(
             "/",
             routes![mommi::get_nudgeold, mommi::get_nudge, mommi::get_nudge_new,],
+        )
+    }
+
+    if config.has_github_key() {
+        rocket = rocket.mount(
+            "/",
+            routes![
+                github::post_github,
+                github::post_github_new,
+                github::post_github_new_specific,
+                github::post_github_alt,
+            ],
         )
     }
 

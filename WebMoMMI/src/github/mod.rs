@@ -42,7 +42,9 @@ impl GitHubData {
         data.open()
             .read_to_end(&mut buffer)
             .map_err(|_| Status::InternalServerError)?;
-        let password = config.get_github_key();
+        let password = config
+            .get_github_key()
+            .expect("GitHub key config should be set!");
         let mut hmac = Hmac::new(Sha1::new(), password.as_bytes());
         hmac.input(&buffer);
         let result = hmac.result();
@@ -147,6 +149,7 @@ pub fn post_github(
         "ping" => return Ok("pong".into()),
         "pull_request" => event_pull_request(
             &serde_json::from_value(data.clone()).map_err(|_| Status::BadRequest)?,
+            &config,
         ),
         _ => {}
     };
@@ -173,8 +176,8 @@ pub fn post_github(
     Ok("Worked!".into())
 }
 
-fn event_pull_request(event: &PullRequestEvent) {
-    try_handle_changelog(event);
+fn event_pull_request(event: &PullRequestEvent, config: &MoMMIConfig) {
+    try_handle_changelog(event, config);
 }
 
 #[cfg(test)]

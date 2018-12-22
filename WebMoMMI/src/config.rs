@@ -1,10 +1,12 @@
 use rocket::config::ConfigError;
 use rocket::Config;
+use std::path::{Path, PathBuf};
 
 pub struct MoMMIConfig {
     /// Address, Password
     commloop: Option<(String, String)>,
-    github_key: String,
+    github_key: Option<String>,
+    changelog_repo_path: Option<PathBuf>,
 }
 
 impl MoMMIConfig {
@@ -30,12 +32,22 @@ impl MoMMIConfig {
                 ),
             };
 
+        let github_key = match config.get_str("github-key") {
+            Ok(x) => Some(x.to_owned()),
+            Err(ConfigError::Missing(_)) => None,
+            Err(x) => return Err(format!("Unable to fetch github key config: {}", x)),
+        };
+
+        let changelog_repo_path = match config.get_str("changelog-repo-path") {
+            Ok(x) => Some(x.into()),
+            Err(ConfigError::Missing(_)) => None,
+            Err(x) => return Err(format!("Unable to fetch changelog repo path config: {}", x)),
+        };
+
         Ok(MoMMIConfig {
             commloop,
-            github_key: config
-                .get_str("github-key")
-                .expect("Must set github key.")
-                .to_owned(),
+            github_key,
+            changelog_repo_path,
         })
     }
 
@@ -51,7 +63,19 @@ impl MoMMIConfig {
         self.commloop.is_some()
     }
 
-    pub fn get_github_key(&self) -> &str {
-        &self.github_key
+    pub fn has_github_key(&self) -> bool {
+        self.github_key.is_some()
+    }
+
+    pub fn get_github_key(&self) -> Option<&str> {
+        self.github_key.as_ref().map(String::as_ref)
+    }
+
+    pub fn has_changelog_repo_path(&self) -> bool {
+        self.changelog_repo_path.is_some()
+    }
+
+    pub fn get_changelog_repo_path(&self) -> Option<&Path> {
+        self.changelog_repo_path.as_ref().map(|p| &**p)
     }
 }
