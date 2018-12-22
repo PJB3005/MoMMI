@@ -14,6 +14,7 @@ use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::sync::Arc;
+use std::process::Command;
 
 pub fn try_handle_changelog(event: &PullRequestEvent, config: &Arc<MoMMIConfig>) {
     if event.action != PullRequestAction::Closed
@@ -224,6 +225,9 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
 
     let ssh_path = config.get_ssh_key();
 
+
+
+    /*
     let repo = match git2::Repository::open(&path) {
         Ok(repo) => repo,
         Err(e) => {
@@ -234,6 +238,7 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
 
     let mut remote = repo.find_remote("origin").expect("Expected an origin remote to exist");
 
+    println!("Fetching..");
     let fetch_result = match ssh_path {
         Some(key_path) => {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -249,6 +254,7 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
             remote.fetch(&["Bleeding-Edge"], None, None)
         },
     };
+    println!("Fetch done");
 
     match fetch_result {
         Ok(()) => {},
@@ -266,16 +272,21 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
 
     let heads = [&origin_be_commit];
 
+    println!("Starting merge analysis");
     let (analysis, _preference) = repo.merge_analysis(&heads).unwrap();
+    println!("Merge analysis done.");
     if !analysis.is_up_to_date() {
         if !analysis.is_fast_forward() {
             panic!("uuuh... can't fast forward apparently..?");
         }
 
+        let commit = repo.find_commit(origin_be_commit.id()).unwrap();
+        repo.checkout_tree(commit.as_object(), None).unwrap();
         be_ref.set_target(origin_be_commit.id(), "").unwrap();
     } else {
         println!("Up to date");
     }
+    */
 
     println!("done");
 }
