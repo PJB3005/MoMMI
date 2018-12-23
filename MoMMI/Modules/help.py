@@ -45,7 +45,7 @@ def register_help(module: str, topic: str, contents: Union[str, callback_type]) 
     """
     handler = HelpHandler(topic, module, contents)
     handler.register(master)
-    print(f"{module}: {topic}")
+    #print(f"{module}: {topic}")
 
 
 class HelpHandler(MHandler):

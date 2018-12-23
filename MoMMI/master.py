@@ -361,15 +361,27 @@ class MoMMI(object):
             LOGGER.debug("Closing commloop.")
             await self.commloop.stop()
 
+        async def try_unload_module(module: MModule) -> None:
+            try:
+                if hasattr(module.module, "unload"):
+                    await asyncio.wait_for(module.module.unload(self.client.loop), 5, loop=self.client.loop)
+            except:
+                LOGGER.exception(f"Exception while unloading module {module.name} for shutdown.")
+
+        async def try_shutdown_module(module: MModule) -> None:
+            try:
+                if hasattr(module.module, "shutdown"):
+                    await asyncio.wait_for(module.module.shutdown(self.client.loop), 5, loop=self.client.loop)
+            except:
+                LOGGER.exception(f"Exception while shutting down module {module.name} for shutdown.")
+
+        tasks = [try_unload_module(module) for module in self.modules.values()]
+        await asyncio.gather(*tasks)
+
+        tasks = [try_shutdown_module(module) for module in self.modules.values()]
+        await asyncio.gather(*tasks)
+
         await self.save_all_storage()
-
-        tasks = [module.module.unload(self.client.loop) for module in self.modules.values(
-        ) if hasattr(module.module, "unload")]
-        await asyncio.gather(*tasks)
-
-        tasks = [module.module.shutdown(self.client.loop) for module in self.modules.values(
-        ) if hasattr(module.module, "shutdown")]
-        await asyncio.gather(*tasks)
 
         LOGGER.info("Goodbye.")
 

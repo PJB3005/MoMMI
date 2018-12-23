@@ -167,6 +167,9 @@ class MServer(object):
             await f.write(data)
 
     async def save_all_storages(self) -> None:
+        if self.storagedir is None:
+            return
+
         logger.debug(f"Saving storage for server {self.name}!")
         await asyncio.gather(
             *(self.save_storage(x) for x in self.storage)

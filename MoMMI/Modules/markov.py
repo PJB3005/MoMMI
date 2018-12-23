@@ -10,7 +10,7 @@ from MoMMI.server import MChannel
 from MoMMI import SnowflakeID
 
 SENTENCE_RE = re.compile(r"([.,?\n]|(?<!@)!)")
-PARENT_RE = re.compile(r"[[\]{}()\"']")
+PARENT_RE = re.compile(r"[\[\]{}()\"']")
 CHAIN_TYPE = DefaultDict[str, DefaultDict[str, int]]
 MENTION_RE = re.compile(r"<@!?(\d+)>")
 ROLE_RE = re.compile(r"<@&(\d+)>")
