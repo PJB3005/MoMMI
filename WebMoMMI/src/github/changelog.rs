@@ -53,11 +53,15 @@ pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
         static ref is_changelog_re: Regex = Regex::new(r#"^html/changelogs/[^.].*\.yml$"#).unwrap();
     }
 
-    for filename in event.commits.iter().flat_map(|c| c.added.iter().chain(c.modified.iter())) {
+    for filename in event
+        .commits
+        .iter()
+        .flat_map(|c| c.added.iter().chain(c.modified.iter()))
+    {
         println!("{}", filename);
         if is_changelog_re.is_match(filename) {
             process_changelogs(config);
-            return
+            return;
         }
     }
 }

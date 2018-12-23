@@ -110,7 +110,7 @@ impl From<NudgeOld> for Nudge {
 }
 
 // GET because >BYOND
-#[get("/mommi?<nudge..>")]
+#[get("/discord?<nudge..>")]
 pub fn get_nudgeold(
     nudge: Form<NudgeOld>,
     config: State<Arc<MoMMIConfig>>,
@@ -118,7 +118,7 @@ pub fn get_nudgeold(
     get_nudge_internal(&nudge.into_inner().into(), config)
 }
 
-#[get("/mommi?<nudge..>", rank = 2)]
+#[get("/discord?<nudge..>", rank = 2)]
 pub fn get_nudge(
     nudge: Form<Nudge>,
     config: State<Arc<MoMMIConfig>>,
