@@ -110,9 +110,13 @@ class commloop(object):
             writer.write(ERROR_UNKNOWN)
 
     async def route(self, message: Dict[str, Any]) -> None:
+        print(message)
         # Do global comm events first.
         for globalhandler in self.master.iter_global_handlers(MGlobalCommEvent):
-            await globalhandler.execute(message["cont"], message["meta"])
+            try:
+                await globalhandler.execute(message["cont"], message["meta"])
+            except:
+                logger.exception("Exception inside global comm event.")
 
         if message["type"] not in self.routing:
             logger.warning(

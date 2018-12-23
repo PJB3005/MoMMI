@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 @comm_event("gamenudge")
 async def gamenudge(channel: MChannel, message: Any, meta: str) -> None:
-    # logger.debug(json.dumps(message))
+    logger.debug(json.dumps(message))
     try:
         password = message["pass"]
         content = message["content"]
