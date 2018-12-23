@@ -1,22 +1,22 @@
 use crate::config::MoMMIConfig;
-use crate::github::data::{PullRequestAction, PullRequestEvent};
+use crate::github::data::{PullRequestAction, PullRequestEvent, PushEvent};
+use crate::mommi::commloop;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
-use rocket::Config;
 use serde::de::{Error, MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
-use std::fs::File;
+use std::fs::{read_dir, File};
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
+use std::sync::Arc;
 use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
-use std::sync::Arc;
-use std::process::Command;
 
-pub fn try_handle_changelog(event: &PullRequestEvent, config: &Arc<MoMMIConfig>) {
+pub fn try_handle_changelog_pr(event: &PullRequestEvent, config: &Arc<MoMMIConfig>) {
     if event.action != PullRequestAction::Closed
         || !event.pull_request.merged
         || !config.has_changelog_repo_path()
@@ -32,9 +32,9 @@ pub fn try_handle_changelog(event: &PullRequestEvent, config: &Arc<MoMMIConfig>)
     }
 
     let changelog = Changelog {
-        author: "placeholder".into(),
-        additions,
-        delete_after: true,
+        author: event.pull_request.user.login.clone(),
+        changes: additions,
+        delete_after: Some(true),
     };
 
     let mut changelog_path = config.get_changelog_repo_path().unwrap().to_path_buf();
@@ -46,6 +46,20 @@ pub fn try_handle_changelog(event: &PullRequestEvent, config: &Arc<MoMMIConfig>)
     };
 
     process_changelogs(config);
+}
+
+pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
+    lazy_static! {
+        static ref is_changelog_re: Regex = Regex::new(r#"^html/changelogs/[^.].*\.yml$"#).unwrap();
+    }
+
+    for filename in event.commits.iter().flat_map(|c| c.added.iter().chain(c.modified.iter())) {
+        println!("{}", filename);
+        if is_changelog_re.is_match(filename) {
+            process_changelogs(config);
+            return
+        }
+    }
 }
 
 fn parse_body_changelog(body: &str) -> Vec<ChangelogEntry> {
@@ -105,8 +119,8 @@ pub struct ChangelogManager {
 #[serde(rename_all = "kebab-case")]
 pub struct Changelog {
     pub author: String,
-    pub additions: Vec<ChangelogEntry>,
-    pub delete_after: bool,
+    pub changes: Vec<ChangelogEntry>,
+    pub delete_after: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -222,71 +236,114 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
     drop(lock);
 
     let path = config.get_changelog_repo_path().unwrap();
+    let ssh_config = config
+        .get_ssh_key()
+        .map(|p| format!("ssh -i {}", p.to_string_lossy()));
 
-    let ssh_path = config.get_ssh_key();
-
-
-
-    /*
-    let repo = match git2::Repository::open(&path) {
-        Ok(repo) => repo,
-        Err(e) => {
-            println!("Unable to open repo! {:?}", e);
-            return;
-        }
-    };
-
-    let mut remote = repo.find_remote("origin").expect("Expected an origin remote to exist");
-
-    println!("Fetching..");
-    let fetch_result = match ssh_path {
-        Some(key_path) => {
-            let mut remote_callbacks = git2::RemoteCallbacks::new();
-            remote_callbacks.credentials(|_a, _b, _c| {
-                Ok(git2::Cred::ssh_key("github", None, Path::new(key_path), None).expect("Unable to load SSH key."))
-            });
-            let mut fetch_options = git2::FetchOptions::new();
-            fetch_options.remote_callbacks(remote_callbacks);
-
-            remote.fetch(&["Bleeding-Edge"], Some(&mut fetch_options), None)
-        },
-        _ => {
-            remote.fetch(&["Bleeding-Edge"], None, None)
-        },
-    };
-    println!("Fetch done");
-
-    match fetch_result {
-        Ok(()) => {},
-        Err(e) => {
-            eprintln!("Unable to fetch! {:?}", e);
-            return;
-        }
-    };
-
-    let mut be_ref= repo.find_reference("refs/heads/Bleeding-Edge").expect("Expected Bleeding-Edge head to exist.");
-    let origin_ref = repo.find_reference("refs/remotes/origin/Bleeding-Edge").expect("Expected origin Bleeding-Edge ref to exist.");
-
-    let be_commit = repo.reference_to_annotated_commit(&be_ref).unwrap();
-    let origin_be_commit = repo.reference_to_annotated_commit(&origin_ref).unwrap();
-
-    let heads = [&origin_be_commit];
-
-    println!("Starting merge analysis");
-    let (analysis, _preference) = repo.merge_analysis(&heads).unwrap();
-    println!("Merge analysis done.");
-    if !analysis.is_up_to_date() {
-        if !analysis.is_fast_forward() {
-            panic!("uuuh... can't fast forward apparently..?");
-        }
-
-        let commit = repo.find_commit(origin_be_commit.id()).unwrap();
-        repo.checkout_tree(commit.as_object(), None).unwrap();
-        be_ref.set_target(origin_be_commit.id(), "").unwrap();
-    } else {
-        println!("Up to date");
+    // Git pull the repo.
+    let mut command = Command::new("git");
+    command
+        .arg("pull")
+        .arg("origin")
+        .arg("--ff-only")
+        .current_dir(&path);
+    if let Some(ref ssh_command) = ssh_config {
+        command.env("GIT_SSH_COMMAND", &ssh_command);
     }
-    */
+    let status = command.status().unwrap();
+
+    assert!(status.success());
+
+    let mut changelog_dir_path = path.to_owned();
+    changelog_dir_path.push("html/changelogs");
+
+    // Send changelog files over to MoMMI maybe.
+    if let Some((addr, pass)) = config.get_commloop() {
+        for entry in read_dir(&changelog_dir_path).unwrap() {
+            let entry = entry.unwrap();
+            let os_file_name = entry.file_name();
+            let file_name = os_file_name.to_str().unwrap();
+            if file_name.starts_with(".")
+                || !file_name.ends_with(".yml")
+                || file_name == "example.yml"
+            {
+                continue;
+            }
+
+            println!("{}", file_name);
+
+            let file = File::open(entry.path()).unwrap();
+            let data: Changelog = serde_yaml::from_reader(&file).unwrap();
+
+            if data.changes.len() == 0 {
+                continue;
+            }
+
+            commloop(addr, pass, "changelog", "", data).unwrap();
+        }
+    }
+
+    // Run changelog script.
+    let status = Command::new("python2")
+        .arg("tools/changelog/ss13_genchangelog.py")
+        .arg("html/changelog.html")
+        .arg("html/changelogs")
+        .current_dir(&path)
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    Command::new("git")
+        .arg("update-index")
+        .arg("--refresh")
+        .current_dir(&path)
+        .status()
+        .unwrap();
+
+    // See if repo is dirty.
+    let status = Command::new("git")
+        .arg("diff-index")
+        .arg("--exit-code")
+        .arg("HEAD")
+        .current_dir(&path)
+        .status()
+        .unwrap();
+
+    if status.code().unwrap_or(0) == 0 {
+        // No changes, nothing to commit.
+        return;
+    }
+
+    let status = Command::new("git")
+        .arg("add")
+        .arg(".")
+        .arg("-A")
+        .current_dir(&path)
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .arg("commit")
+        .arg("-m")
+        .arg("[ci skip] Automatic changelog update.")
+        .current_dir(&path)
+        .status()
+        .unwrap();
+
+    assert!(status.success());
+
+    // Git push the repo.
+    let mut command = Command::new("git");
+    command.arg("push").arg("origin").current_dir(&path);
+    if let Some(ref ssh_command) = ssh_config {
+        command.env("GIT_SSH_COMMAND", &ssh_command);
+    }
+    let status = command.status().unwrap();
+
+    assert!(status.success());
 
     println!("done");
 }

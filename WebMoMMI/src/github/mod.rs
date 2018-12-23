@@ -18,7 +18,7 @@ pub mod changelog;
 pub mod data;
 
 use self::data::*;
-use crate::github::changelog::try_handle_changelog;
+use crate::github::changelog::{try_handle_changelog_pr, try_handle_changelog_push};
 use std::sync::Arc;
 
 #[allow(dead_code)]
@@ -65,7 +65,6 @@ impl GitHubData {
                 return Err(Status::Forbidden);
             }
         }
-        println!("Yes");
         // ALRIGHT. VALIDATED.
         // Now we can parse the JSON and return it.
         match serde_json::from_slice::<Value>(&buffer) {
@@ -150,14 +149,13 @@ pub fn post_github(
 ) -> Result<String, Status> {
     let data = github.verify_signature(body, &config)?;
     let event = github.get_event();
-    println!("yes");
-    println!(
-        "{:?}",
-        &serde_json::from_value::<PullRequestEvent>(data.clone())
-    );
     match event {
         "ping" => return Ok("pong".into()),
         "pull_request" => event_pull_request(
+            &serde_json::from_value(data.clone()).map_err(|_| Status::BadRequest)?,
+            &config,
+        ),
+        "push" => event_push(
             &serde_json::from_value(data.clone()).map_err(|_| Status::BadRequest)?,
             &config,
         ),
@@ -171,30 +169,39 @@ pub fn post_github(
     let (addr, pass) = config.get_commloop().unwrap();
 
     // Code for relaying each event to MoMMI.
-    let meta = data
+    let mut meta = data
         .pointer("/repository/full_name")
         .and_then(|x| x.as_str())
         .unwrap_or("");
 
+    if meta.starts_with("space-wizards/") {
+        meta = "ss14";
+    } else if meta.starts_with("Bluespess/") {
+        meta = "bluespess";
+    }
+
     let json = json!({
         "event": event,
-        "data": data
+        "content": data
     });
 
-    commloop(addr, pass, "github_event", meta, &json).map_err(|_| Status::InternalServerError)?;
+    commloop(addr, pass, "github", meta, &json).map_err(|_| Status::InternalServerError)?;
 
     Ok("Worked!".into())
 }
 
 fn event_pull_request(event: &PullRequestEvent, config: &Arc<MoMMIConfig>) {
-    try_handle_changelog(event, config);
+    try_handle_changelog_pr(event, config);
+}
+
+fn event_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
+    try_handle_changelog_push(event, config);
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn test_github_auth() {
-        use std::sync::Arc;
         use crate::config::MoMMIConfig;
         use crypto::hmac::Hmac;
         use crypto::mac::Mac;
@@ -205,6 +212,7 @@ mod tests {
         use rocket::local::Client;
         use rustc_serialize::hex::ToHex;
         use serde_json::json;
+        use std::sync::Arc;
 
         const GITHUB_KEY: &'static str = "foobar";
 

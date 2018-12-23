@@ -2,8 +2,6 @@ use rocket::config::ConfigError;
 use rocket::Config;
 use std::path::{Path, PathBuf};
 
-
-
 #[derive(Debug)]
 pub struct MoMMIConfig {
     /// Address, Password
@@ -17,7 +15,7 @@ pub struct MoMMIConfig {
 
 impl MoMMIConfig {
     pub fn new(config: &Config) -> Result<MoMMIConfig, String> {
-        println!("{:?}", config.extras);
+        //println!("{:?}", config.extras);
         let commloop_address = match config.get_str("commloop-address") {
             Ok(x) => Some(x.to_owned()),
             Err(ConfigError::Missing(_)) => None,
@@ -111,7 +109,11 @@ impl MoMMIConfig {
         self.verify_github
     }
 
-    pub fn get_changelog_delay(&self) -> u64 { self.changelog_delay }
+    pub fn get_changelog_delay(&self) -> u64 {
+        self.changelog_delay
+    }
 
-    pub fn get_ssh_key(&self) -> Option<&Path> { self.ssh_key.as_ref().map(|p| &**p) }
+    pub fn get_ssh_key(&self) -> Option<&Path> {
+        self.ssh_key.as_ref().map(|p| &**p)
+    }
 }

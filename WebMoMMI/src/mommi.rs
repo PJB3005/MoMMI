@@ -6,6 +6,7 @@ use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha2::Sha512;
 use rocket::request::Form;
+use rocket::response::status::Accepted;
 use rocket::State;
 use serde::Serialize;
 use serde_json::json;
@@ -89,6 +90,7 @@ pub struct Nudge {
     meta: String,
     pass: String,
     content: String,
+    ping: Option<bool>,
 }
 
 // Kill this monstrosity.
@@ -97,17 +99,12 @@ impl From<NudgeOld> for Nudge {
     fn from(old: NudgeOld) -> Nudge {
         Nudge {
             meta: match old.admin {
-                Some(true) => "admin".into(),
-                _ => "regular".into(),
+                Some(true) => "adminhelp".into(),
+                _ => "server_status".into(),
             },
             pass: old.pass,
-            content: {
-                if let Some(true) = old.ping {
-                    old.content + "{{PING}}"
-                } else {
-                    old.content
-                }
-            },
+            content: old.content,
+            ping: old.ping,
         }
     }
 }
@@ -117,7 +114,7 @@ impl From<NudgeOld> for Nudge {
 pub fn get_nudgeold(
     nudge: Form<NudgeOld>,
     config: State<Arc<MoMMIConfig>>,
-) -> Result<&'static str, MoMMIError> {
+) -> Result<Accepted<&'static str>, MoMMIError> {
     get_nudge_internal(&nudge.into_inner().into(), config)
 }
 
@@ -125,7 +122,7 @@ pub fn get_nudgeold(
 pub fn get_nudge(
     nudge: Form<Nudge>,
     config: State<Arc<MoMMIConfig>>,
-) -> Result<&'static str, MoMMIError> {
+) -> Result<Accepted<&'static str>, MoMMIError> {
     get_nudge_internal(&nudge, config)
 }
 
@@ -133,24 +130,25 @@ pub fn get_nudge(
 pub fn get_nudge_new(
     nudge: Form<Nudge>,
     config: State<Arc<MoMMIConfig>>,
-) -> Result<&'static str, MoMMIError> {
+) -> Result<Accepted<&'static str>, MoMMIError> {
     get_nudge_internal(&nudge, config)
 }
 
 fn get_nudge_internal(
     nudge: &Nudge,
     config: State<Arc<MoMMIConfig>>,
-) -> Result<&'static str, MoMMIError> {
+) -> Result<Accepted<&'static str>, MoMMIError> {
     // This route does not get mounted when there's no commloop.
     let (addr, pass) = config
         .get_commloop()
         .expect("Nudge route requested without commloop config.");
 
     let message = json!({
-        "password": nudge.pass.clone(),
-        "message": nudge.content.clone()
+        "pass": nudge.pass.clone(),
+        "content": nudge.content.clone(),
+        "ping": nudge.ping.unwrap_or(false),
     });
 
     commloop(addr, pass, "gamenudge", &nudge.meta, &message)?;
-    Ok("MoMMI successfully received the message.")
+    Ok(Accepted(Some("MoMMI successfully received the message.")))
 }
