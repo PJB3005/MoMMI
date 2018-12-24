@@ -11,6 +11,7 @@ pub struct MoMMIConfig {
     verify_github: bool,
     changelog_delay: u64,
     ssh_key: Option<PathBuf>,
+    changelog_repo_name: Option<String>,
 }
 
 impl MoMMIConfig {
@@ -49,6 +50,12 @@ impl MoMMIConfig {
             Err(x) => return Err(format!("Unable to fetch changelog repo path config: {}", x)),
         };
 
+        let changelog_repo_name = match config.get_str("changelog-repo-name") {
+            Ok(x) => Some(x.into()),
+            Err(ConfigError::Missing(_)) => None,
+            Err(x) => return Err(format!("Unable to fetch changelog repo name config: {}", x)),
+        };
+
         let verify_github = match config.get_bool("verify-github") {
             Ok(x) => x,
             Err(ConfigError::Missing(_)) => true,
@@ -74,6 +81,7 @@ impl MoMMIConfig {
             verify_github,
             ssh_key,
             changelog_delay,
+            changelog_repo_name,
         })
     }
 
@@ -115,5 +123,9 @@ impl MoMMIConfig {
 
     pub fn get_ssh_key(&self) -> Option<&Path> {
         self.ssh_key.as_ref().map(|p| &**p)
+    }
+
+    pub fn get_changelog_repo_name(&self) -> Option<&str> {
+        self.changelog_repo_name.as_ref().map(|p| &**p)
     }
 }

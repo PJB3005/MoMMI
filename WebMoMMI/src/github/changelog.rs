@@ -25,6 +25,12 @@ pub fn try_handle_changelog_pr(event: &PullRequestEvent, config: &Arc<MoMMIConfi
         return;
     }
 
+    if let Some(name) = config.get_changelog_repo_name() {
+        if name != event.repository.full_name {
+            return;
+        }
+    }
+
     let additions = parse_body_changelog(&event.pull_request.body);
 
     if additions.len() == 0 {
@@ -49,6 +55,12 @@ pub fn try_handle_changelog_pr(event: &PullRequestEvent, config: &Arc<MoMMIConfi
 }
 
 pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
+    if let Some(name) = config.get_changelog_repo_name() {
+        if name != event.repository.full_name {
+            return;
+        }
+    }
+
     lazy_static! {
         static ref is_changelog_re: Regex = Regex::new(r#"^html/changelogs/[^.].*\.yml$"#).unwrap();
     }
