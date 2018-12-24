@@ -69,7 +69,7 @@ pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
 fn parse_body_changelog(body: &str) -> Vec<ChangelogEntry> {
     lazy_static! {
         static ref header_re: Regex = RegexBuilder::new(r#"(?::cl:|🆑) *\r?\n(.+)$"#).dot_matches_new_line(true).build().unwrap();
-        static ref entry_re: Regex = RegexBuilder::new(r#"^ *[*-]? *(bugfix|wip|tweak|soundadd|sounddel|rscdel|rscadd|imageadd|imagedel|spellcheck|experiment|tgs): *(\S[^\n\r]+)$"#).multi_line(true).build().unwrap();
+        static ref entry_re: Regex = RegexBuilder::new(r#"^ *[*-]? *(bugfix|wip|tweak|soundadd|sounddel|rscdel|rscadd|imageadd|imagedel|spellcheck|experiment|tgs): *(\S[^\n\r]+)\r?$"#).multi_line(true).build().unwrap();
     }
 
     let content = match header_re.captures(body) {
@@ -96,7 +96,7 @@ fn parse_body_changelog(body: &str) -> Vec<ChangelogEntry> {
                 _ => unreachable!(),
             };
 
-            ChangelogEntry(entry_type, m.get(2).unwrap().as_str().to_owned())
+            ChangelogEntry(entry_type, m.get(2).unwrap().as_str().trim().to_owned())
         })
         .collect()
 }
@@ -127,7 +127,7 @@ pub struct Changelog {
     pub delete_after: Option<bool>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ChangelogEntry(ChangelogEntryType, String);
 
 impl Serialize for ChangelogEntry {
@@ -350,4 +350,20 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
     assert!(status.success());
 
     println!("done");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn body_parse_test() {
+        // vgstation-coders/vgstation13#21025
+        const TEST: &str = "Ghosts can now possess dionae and mushmonkeys via clicking on them, should they have no client controlling them.\r\n\r\n:cl:\r\n * rscadd: Ghosts can now possess inactive diona nymphs and mushrum monkeys by clicking on them.  \r\n * rscadd: Dionae now don't expire after harvesting, should they not be possessed in the given time.  ";
+
+        let entries = parse_body_changelog(TEST);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0], ChangelogEntry(ChangelogEntryType::Rscadd, "Ghosts can now possess inactive diona nymphs and mushrum monkeys by clicking on them.".into()));
+        assert_eq!(entries[1], ChangelogEntry(ChangelogEntryType::Rscadd, "Dionae now don't expire after harvesting, should they not be possessed in the given time.".into()));
+    }
 }
