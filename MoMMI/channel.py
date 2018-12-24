@@ -114,7 +114,7 @@ class MChannel(object):
             if SnowflakeID(role.id) == snowflake:
                 return role
 
-        return ValueError(f"Unknown role {snowflake}")
+        raise ValueError(f"Unknown role {snowflake}")
 
     """
     TODO: Doesn't work because we support multiple roles now.
