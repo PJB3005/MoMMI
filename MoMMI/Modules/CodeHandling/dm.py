@@ -72,7 +72,7 @@ class DMCodeHandler(MCodeHandler):
                 if line.find('#include "'):
                     library = line[10:-1]; # Fetch the library name within the ""
                     libToCopy = libsDir.glob(library+".dm")
-                    copyfile(libToCopy, path/library".dm")
+                    copyfile(libToCopy, path/library+".dm")
 
             output += "\n".join(lines)
 
