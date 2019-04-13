@@ -4,6 +4,7 @@ from discord import Channel, Role, Member
 from MoMMI.types import SnowflakeID
 from MoMMI.config import get_nested_dict_value, ConfigError
 from MoMMI.role import MRoleType
+from MoMMI.types import MIdentifier
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -31,6 +32,15 @@ class MChannel(object):
     @property
     def name(self) -> str:
         return cast(str, self.get_channel().name)
+
+    def is_identifier(self, identifier: MIdentifier) -> bool:
+        if isinstance(identifier, SnowflakeID):
+            return self.discordpy_channel.id == str(identifier)
+
+        elif isinstance(identifier, str):
+            return self.internal_name is not None and self.internal_name == identifier
+
+        return False
 
     def get_channel(self) -> Channel:
         """

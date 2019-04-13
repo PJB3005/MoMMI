@@ -120,7 +120,7 @@ class DMCodeHandler(MCodeHandler):
 
                 dmepath = await self.make_project(code, path)
 
-                proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), str(dmepath), stdout=asyncio.subprocess.PIPE)
+                proc = await asyncio.create_subprocess_exec(*firejail, self.dm_executable_path(channel), str(dmepath), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
                 fail_reason = None
                 try:
                     await asyncio.wait_for(proc.wait(), timeout=30)

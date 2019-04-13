@@ -114,7 +114,7 @@ class commloop(object):
         # Do global comm events first.
         for globalhandler in self.master.iter_global_handlers(MGlobalCommEvent):
             try:
-                await globalhandler.execute(message["cont"], message["meta"])
+                await globalhandler.execute(message["type"], message["cont"], message["meta"])
             except:
                 logger.exception("Exception inside global comm event.")
 
@@ -214,5 +214,5 @@ class MGlobalCommEvent(MHandler):
 
         self.func: GlobalCommEventType = func
 
-    async def execute(self, message: Any, meta: str) -> None:
-        await self.func(message, meta)
+    async def execute(self, type: str, message: Any, meta: str) -> None:
+        await self.func(type, message, meta)

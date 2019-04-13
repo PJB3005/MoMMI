@@ -7,6 +7,7 @@ from urllib.parse import parse_qs
 from discord import Message
 from MoMMI import command, MChannel
 from MoMMI.Modules.help import register_help
+from MoMMI.types import MIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +46,16 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         if server_type == "ss13":
             address = server_config["address"]
             port = server_config["port"]
-            await get_status_ss13(address, port, channel)
+            admindata = server_config.get("admindata")
+            await get_status_ss13(address, port, channel, admindata)
 
         elif server_type == "bluespess":
             url = server_config["url"]
             await get_status_bluespess(url, channel)
+            
+        elif server_type == "ss14":
+            url = server_config["url"]
+            await get_status_ss14(url, channel)
 
     except asyncio.TimeoutError:
         await channel.send("Server timed out.")
@@ -61,11 +67,12 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         return
 
 
-async def get_status_ss13(address: str, port: int, channel: MChannel) -> None:
+async def get_status_ss13(address: str, port: int, channel: MChannel, admindata: Optional[List[MIdentifier]]) -> None:
     response = await asyncio.wait_for(server_topic(address, port, b"?status"), timeout=5)
 
     mapname: Optional[str]
     players: str
+    admins: Optional[int] = None
 
     try:
         if not isinstance(response, Dict):
@@ -75,21 +82,32 @@ async def get_status_ss13(address: str, port: int, channel: MChannel) -> None:
         if "map_name" in response:
             mapname = response["map_name"][0]
         players = response["players"][0]
+        if admindata and "admins" in response:
+            for identifier in admindata:
+                if channel.is_identifier(identifier):
+                    admins = int(response["admins"][0])
+                    break
 
     except:
         await channel.send("Server sent unsupported response.")
+        logger.exception("Got unsupported response")
         return
 
+    out = f"{players} players online"
+
     if mapname:
-        await channel.send(f"{players} players online, map is {mapname}.")
+        out += f", map is {mapname}"
+
+    if admins is not None:
+        out += f", **{admins}** admins online. *Note: unable to provide AFK statistics for administrators.*"
 
     else:
-        await channel.send(f"{players} players online.")
+        out += "."
+
+    await channel.send(out)
 
 
 async def get_status_bluespess(url: str, channel: MChannel) -> None:
-
-
     async with aiohttp.ClientSession() as session:
         async def load() -> Any:
             async with session.get(url) as resp:
@@ -98,6 +116,18 @@ async def get_status_bluespess(url: str, channel: MChannel) -> None:
         json = await asyncio.wait_for(load(), timeout=5)
 
         count = json["player_count"]
+        await channel.send(f"{count} players online.")
+        
+        
+async def get_status_ss14(url: str, channel: MChannel) -> None:
+    async with aiohttp.ClientSession() as session:
+        async def load() -> Any:
+            async with session.get(url + "/status") as resp:
+                return await resp.json()
+
+        json = await asyncio.wait_for(load(), timeout=5)
+
+        count = json["players"]
         await channel.send(f"{count} players online.")
 
 

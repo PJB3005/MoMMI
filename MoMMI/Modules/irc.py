@@ -75,6 +75,7 @@ class IrcConnection:
         self.username: str = config["user"]["name"]
         self.realname: str = config["user"]["realname"]
         self.nick: str = config["user"]["nick"]
+        self.server_password: Optional[str] = config.get("password")
 
         self.channels: List[Tuple[str, SnowflakeID]] = []
         for server in master.config.servers["servers"]:
@@ -106,6 +107,9 @@ class IrcConnection:
 
     async def connect(self, **kwargs: Any) -> None:
         logger.info(f"Connected to IRC server {self.name}.")
+        if self.server_password:
+            self.client.send("PASS", password=self.server_password)
+
         self.client.send("NICK", nick=self.nick)
         self.client.send("USER", user=self.username, realname=self.realname)
 

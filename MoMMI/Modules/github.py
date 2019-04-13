@@ -261,7 +261,9 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str) ->
 
 
 @global_comm_event("secret_repo_pr_checker")
-async def secret_repo_check(message: Any, meta: str) -> None:
+async def secret_repo_check(type: str, message: Any, meta: str) -> None:
+    if type != "github":
+        return
     if "event" not in message or message["event"] != "pull_request":
         return
 
@@ -312,7 +314,9 @@ async def secret_repo_check(message: Any, meta: str) -> None:
                         message["number"], postresp.status)
 
 @global_comm_event("issue_auto_label")
-async def issue_auto_label(message: Any, meta: str) -> None:
+async def issue_auto_label(type: str, message: Any, meta: str) -> None:
+    if type != "github":
+        return
     if "event" not in message or (message["event"] != "pull_request" and message["event"] != "issues"):
         return
 
@@ -749,3 +753,24 @@ def gh_register_help() -> None:
     from MoMMI.Modules.help import register_help
 
     register_help(__name__, "github", get_gh_help)
+
+
+
+@global_comm_event("jenkins_handicapping")
+async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
+    if type != "github":
+        return
+    if "event" not in message or message["event"] != "push":
+        return
+
+    message = message["content"]
+    repo_name = message["repository"]["full_name"]
+    post = master.config.get_module(
+        f"github.send_post_on_push.{repo_name}.post", "")
+
+    if post:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(post) as resp:
+                await resp.text()
+
+
