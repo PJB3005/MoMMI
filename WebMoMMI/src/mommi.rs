@@ -9,7 +9,7 @@ use rocket::request::Form;
 use rocket::response::status::Accepted;
 use rocket::State;
 use rocket_contrib::json::Json;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use serde_json::json;
 use std::io::{Error as IoError, Write};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -135,14 +135,6 @@ pub fn get_nudge_new(
     nudge_internal(&nudge, config)
 }
 
-#[post("/mommi/nudge", data="<nudge>")]
-pub fn post_nudge(
-    nudge: Json<Nudge>,
-    config: State<Arc<MoMMIConfig>>,
-) -> Result<Accepted<&'static str>, MoMMIError> {
-    nudge_internal(&nudge, config)
-}
-
 fn nudge_internal(
     nudge: &Nudge,
     config: State<Arc<MoMMIConfig>>,
@@ -159,5 +151,19 @@ fn nudge_internal(
     });
 
     commloop(addr, pass, "gamenudge", &nudge.meta, &message)?;
+    Ok(Accepted(Some("MoMMI successfully received the message.")))
+}
+
+#[post("/mommi/ss14/<id>", format="json", data="<message>")]
+pub fn post_ss14(
+    id: String,
+    message: Json<serde_json::Value>,
+    config: State<Arc<MoMMIConfig>>,
+) -> Result<Accepted<&'static str>, MoMMIError> {
+    let (addr, pass) = config
+        .get_commloop()
+        .expect("SS14 route requested without commloop config.");
+
+    commloop(addr, pass, "ss14", &id, message.into_inner())?;
     Ok(Accepted(Some("MoMMI successfully received the message.")))
 }
