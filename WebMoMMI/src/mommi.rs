@@ -8,7 +8,8 @@ use crypto::sha2::Sha512;
 use rocket::request::Form;
 use rocket::response::status::Accepted;
 use rocket::State;
-use serde::Serialize;
+use rocket_contrib::json::Json;
+use serde::{Serialize, Deserialize};
 use serde_json::json;
 use std::io::{Error as IoError, Write};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -85,7 +86,7 @@ pub struct NudgeOld {
     ping: Option<bool>,
 }
 
-#[derive(Clone, Debug, FromForm)]
+#[derive(Clone, Debug, FromForm, Deserialize)]
 pub struct Nudge {
     meta: String,
     pass: String,
@@ -115,7 +116,7 @@ pub fn get_nudgeold(
     nudge: Form<NudgeOld>,
     config: State<Arc<MoMMIConfig>>,
 ) -> Result<Accepted<&'static str>, MoMMIError> {
-    get_nudge_internal(&nudge.into_inner().into(), config)
+    nudge_internal(&nudge.into_inner().into(), config)
 }
 
 #[get("/discord?<nudge..>", rank = 2)]
@@ -123,7 +124,7 @@ pub fn get_nudge(
     nudge: Form<Nudge>,
     config: State<Arc<MoMMIConfig>>,
 ) -> Result<Accepted<&'static str>, MoMMIError> {
-    get_nudge_internal(&nudge, config)
+    nudge_internal(&nudge, config)
 }
 
 #[get("/mommi/nudge?<nudge..>")]
@@ -131,10 +132,18 @@ pub fn get_nudge_new(
     nudge: Form<Nudge>,
     config: State<Arc<MoMMIConfig>>,
 ) -> Result<Accepted<&'static str>, MoMMIError> {
-    get_nudge_internal(&nudge, config)
+    nudge_internal(&nudge, config)
 }
 
-fn get_nudge_internal(
+#[post("/mommi/nudge", data="<nudge>")]
+pub fn post_nudge(
+    nudge: Json<Nudge>,
+    config: State<Arc<MoMMIConfig>>,
+) -> Result<Accepted<&'static str>, MoMMIError> {
+    nudge_internal(&nudge, config)
+}
+
+fn nudge_internal(
     nudge: &Nudge,
     config: State<Arc<MoMMIConfig>>,
 ) -> Result<Accepted<&'static str>, MoMMIError> {
