@@ -95,3 +95,18 @@ Simple, just run @MoMMI magic 'Do I delete the Discord server?' and let NT's lat
     register_help(__name__, "pick", """Man can you believe this? People actually want to do *fair* 50/50 picks between things? Kids these days.
 
 Fine, just run @MoMMI pick(a,b,c) with as many comma separated values as you need. Normies.""")
+
+@command("giveissue", r"(?:giveissue)\s+(\w*)(?:\s+\((.*)\))?")
+async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
+    repo = match.group(1).strip()
+    #text_params = [x.strip() for x in match.group(2).split(",")]
+    #r_params = re.compile(r"(\w*)=(\w*)")
+    #param_list = re.findAll(r_params, text_params)
+    #for param in param_list:
+        #add params
+    
+    url = github_url(f"/repos/{repo}/issuesidk")
+    commits = await get_github_object(url)
+
+    choice = random.choice(choices)
+    await channel.send(f"[{choice}]")
