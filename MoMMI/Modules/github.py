@@ -410,7 +410,7 @@ async def test_merger(content, match, message):
 
             index += 1
 
-        await client.send_message(message.channel, f"✅ PR testmerge success. `{get_config('github.testmerge-address')}` will be up soon.")
+        await client.send_message(message.channel, f"✅ PR testmerge success. <{get_config('github.testmerge-address')}> will be up soon.")
 
 
 async def self_reaction_check(number: int, wait: float):
