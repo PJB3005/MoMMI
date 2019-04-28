@@ -812,9 +812,9 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     issues = await get_github_object(url, {"labels" : labels})
 
-    sort = sorted(issues, key=lambda i: get_github_object(f"{i["url"]}/reactions?content={emote}").len)
+    sort = sorted(issues, key=lambda i: get_github_object(f"{i["url"]}/reactions?content={emote}").len)[20:]
 
-    rand_issue = await random.choice(issues).number
+    rand_issue = await random.choice(sort).number
 
     await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
     #await channel.send(f"[{choice}]")
