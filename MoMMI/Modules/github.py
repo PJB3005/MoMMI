@@ -777,6 +777,8 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
 # todo
 # support short label codes like qol, bugfix etc, so not search for labels literally
 # filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
+#   /repos/:owner/:repo/issues/:issue_number/reactions?content=+1 (or hooray, heart, confused, laugh, -1)
+#   needs Accept: application/json in header
 # make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
 #   would also be nice to have when the emojicracy-filter gets to be a thing
 @command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+([\w\/]*))?")
