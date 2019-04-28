@@ -99,6 +99,8 @@ Fine, just run @MoMMI pick(a,b,c) with as many comma separated values as you nee
 # todo
 # support short label codes like qol, bugfix etc, so not search for labels literally
 # filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
+# make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
+#   would also be nice to have when the emojicracy-filter gets to be a thing
 @command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+(\w\/))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
     channel.send(":hourglass_flowing_sand: Fetching random issue")
