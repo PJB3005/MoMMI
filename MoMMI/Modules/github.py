@@ -798,16 +798,16 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     
     for param in text_params:
         temp = param.split("=")
-        if(temp[0] == "repo")
+        if temp[0] == "repo":
             repo = temp[1].strip()
             continue
-        if(temp[0] == "labels")
+        if temp[0] == "labels":
             labels = temp[1].strip()
             continue
-        if(temp[0] == "emote")
+        if temp[0] == "emote":
             emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
             continue
-        if(temp[0] == "limit")
+        if temp[0] == "limit":
             ranking_limit = int(temp[1])
             continue
         await channel.send(f"Warning: Unknown parameter: {temp[0]}")
@@ -816,7 +816,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     issues = await get_github_object(url, {"labels" : labels})
 
-    sort = sorted(issues, key=lambda i: get_github_object(f"{i["url"]}/reactions?content={emote}").len)[ranking_limit:]
+    sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions?content={emote}").len)[ranking_limit:]
 
     rand_issue = await random.choice(sort).number
 
