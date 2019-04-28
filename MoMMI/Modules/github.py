@@ -779,7 +779,7 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
 # filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
 # make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
 #   would also be nice to have when the emojicracy-filter gets to be a thing
-@command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+(\w\/))?")
+@command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+([\w\/]*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
     await channel.send(":hourglass_flowing_sand: Fetching random issue")
 
