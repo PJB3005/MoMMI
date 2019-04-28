@@ -789,7 +789,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     #getting repo
     repo = "vgstation-coders/vgstation13"
-    if match.group(2)
+    if match.group(2):
         repo = match.group(2).strip()
 
     url = github_url(f"/repos/{repo}/issues", params)
