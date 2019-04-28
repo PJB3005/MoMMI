@@ -810,7 +810,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if temp[0] == "limit":
             ranking_limit = int(temp[1])
             continue
-        await channel.send(f"Warning: Unknown parameter: {temp[0]}")
+        await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
 
     url = github_url(f"/repos/{repo}/issues")
 
@@ -821,4 +821,3 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     rand_issue = await random.choice(sort).number
 
     await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
-    #await channel.send(f"[{choice}]")
