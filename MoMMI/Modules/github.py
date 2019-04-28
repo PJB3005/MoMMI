@@ -143,7 +143,7 @@ async def on_github_push(channel: MChannel, message: Any, meta: str) -> None:
     if not found:
         return
 
-    embed.description = content
+    embed.description = format_desc(content)
 
     await channel.send(embed=embed)
 
@@ -174,6 +174,8 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
         embed.description = issue["body"][:MAX_BODY_LENGTH] + "..."
     else:
         embed.description = issue["body"]
+
+    embed.description = format_desc(embed.description)    
 
     embed.description += "\n\u200B"
 
@@ -218,6 +220,9 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
         embed.description = new_body[:MAX_BODY_LENGTH] + "..."
     else:
         embed.description = new_body
+
+    embed.description = format_desc(embed.description)
+
     embed.description += "\n\u200B"
 
     if is_repo_muted(repository["full_name"]):
@@ -256,6 +261,8 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str) ->
         embed.description = comment["body"][:MAX_BODY_LENGTH] + "..."
     else:
         embed.description = comment["body"]
+
+    embed.description = format_desc(embed.description)
 
     await channel.send(embed=embed)
 
@@ -431,6 +438,9 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
                 embed.description = content["body"][:MAX_BODY_LENGTH] + "..."
             else:
                 embed.description = content["body"]
+
+            embed.description = format_desc(embed.description)
+
             embed.description += "\n\u200B"
 
             await channel.send(embed=embed)
@@ -463,7 +473,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
                 text=f"{repo} {sha} by {commit['author']['name']}")
             embed.url = commit["html_url"]
             embed.title = title
-            embed.description = desc
+            embed.description = format_desc(desc)
 
             await channel.send(embed=embed)
 
@@ -773,4 +783,6 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
             async with session.post(post) as resp:
                 await resp.text()
 
-
+def format_desc(desc: str) -> str:
+    var res = re.subn(MD_COMMENT_RE, "", desc)
+    return res[0]
