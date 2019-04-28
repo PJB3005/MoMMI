@@ -95,29 +95,3 @@ Simple, just run @MoMMI magic 'Do I delete the Discord server?' and let NT's lat
     register_help(__name__, "pick", """Man can you believe this? People actually want to do *fair* 50/50 picks between things? Kids these days.
 
 Fine, just run @MoMMI pick(a,b,c) with as many comma separated values as you need. Normies.""")
-
-# todo
-# support short label codes like qol, bugfix etc, so not search for labels literally
-# filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
-# make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
-#   would also be nice to have when the emojicracy-filter gets to be a thing
-@command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+(\w\/))?")
-async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
-    channel.send(":hourglass_flowing_sand: Fetching random issue")
-
-    #getting labels
-    t_labels = [x.strip() for x in match.group(1).split(",")] # strip whitespaces
-    params = {"labels" : t_labels.join(",")}
-
-    #getting repo
-    repo = "vgstation-coders/vgstation13"
-    if match.group(2)
-        repo = match.group(2).strip()
-
-    url = github_url(f"/repos/{repo}/issues", params)
-    issues = await get_github_object(url)
-
-    rand_issue = random.choice(issues).number
-
-    await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
-    #await channel.send(f"[{choice}]")
