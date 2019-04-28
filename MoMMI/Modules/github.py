@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
+REG_GIT_EMOTE = re.compile(r"\+1|-1|laugh|confused|heart|hooray")
 
 REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
 
@@ -774,28 +775,44 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
             async with session.post(post) as resp:
                 await resp.text()
 
-# todo
+#todo
 # support short label codes like qol, bugfix etc, so not search for labels literally
 # filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
 #   /repos/:owner/:repo/issues/:issue_number/reactions?content=+1 (or hooray, heart, confused, laugh, -1)
 #   needs Accept: application/json in header
 # make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
 #   would also be nice to have when the emojicracy-filter gets to be a thing
-@command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+([\w\/]*))?")
+# dont use \w
+@command("giveissue", r"giveissue(?:\s+(\w+=\w+(?:,\w+=\w+)*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
     await channel.send(":hourglass_flowing_sand: Fetching random issue")
 
-    #getting labels
-    t_labels = [x.strip() for x in match.group(1).split(",")] # strip whitespaces
-    params = {"labels" : t_labels.join(",")}
-
-    #getting repo
+    #default params
     repo = "vgstation-coders/vgstation13"
-    if match.group(2):
-        repo = match.group(2).strip()
+    labels = ""
+    emote = "+1"
+
+    #getting params
+    text_params = [x.strip() for x in match.group(1).split(",")] # strip whitespaces
+    
+    for param in text_params:
+        temp = param.split("=")
+        if(temp[0] == "repo")
+            repo = temp[1].strip()
+            continue
+        if(temp[0] == "labels")
+            labels = temp[1].strip()
+            continue
+        if(temp[0] == "emote")
+            emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
+            continue
+        await channel.send(f"Warning: Unknown parameter: {temp[0]}")
 
     url = github_url(f"/repos/{repo}/issues")
-    issues = await get_github_object(url, params)
+
+    issues = await get_github_object(url, {"labels" : labels})
+
+    sort = sorted(issues, key=lambda i: get_github_object(f"{i["url"]}/reactions?content={emote}").len)
 
     rand_issue = await random.choice(issues).number
 
