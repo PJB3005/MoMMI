@@ -791,6 +791,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     repo = "vgstation-coders/vgstation13"
     labels = ""
     emote = "+1"
+    ranking_limit = 20
 
     #getting params
     text_params = [x.strip() for x in match.group(1).split(",")] # strip whitespaces
@@ -806,13 +807,16 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if(temp[0] == "emote")
             emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
             continue
+        if(temp[0] == "limit")
+            ranking_limit = int(temp[1])
+            continue
         await channel.send(f"Warning: Unknown parameter: {temp[0]}")
 
     url = github_url(f"/repos/{repo}/issues")
 
     issues = await get_github_object(url, {"labels" : labels})
 
-    sort = sorted(issues, key=lambda i: get_github_object(f"{i["url"]}/reactions?content={emote}").len)[20:]
+    sort = sorted(issues, key=lambda i: get_github_object(f"{i["url"]}/reactions?content={emote}").len)[ranking_limit:]
 
     rand_issue = await random.choice(sort).number
 
