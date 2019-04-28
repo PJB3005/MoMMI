@@ -96,17 +96,26 @@ Simple, just run @MoMMI magic 'Do I delete the Discord server?' and let NT's lat
 
 Fine, just run @MoMMI pick(a,b,c) with as many comma separated values as you need. Normies.""")
 
-@command("giveissue", r"(?:giveissue)\s+(\w*)(?:\s+\((.*)\))?")
+# todo
+# support short label codes like qol, bugfix etc, so not search for labels literally
+# filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
+@command("giveissue", r"(?:giveissue)(?:\s+([\w\,]*))?(?:\s+(\w\/))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
-    repo = match.group(1).strip()
-    #text_params = [x.strip() for x in match.group(2).split(",")]
-    #r_params = re.compile(r"(\w*)=(\w*)")
-    #param_list = re.findAll(r_params, text_params)
-    #for param in param_list:
-        #add params
-    
-    url = github_url(f"/repos/{repo}/issuesidk")
-    commits = await get_github_object(url)
+    channel.send(":hourglass_flowing_sand: Fetching random issue")
 
-    choice = random.choice(choices)
-    await channel.send(f"[{choice}]")
+    #getting labels
+    t_labels = [x.strip() for x in match.group(1).split(",")] # strip whitespaces
+    params = {"labels" : t_labels.join(",")}
+
+    #getting repo
+    repo = "vgstation-coders/vgstation13"
+    if(match.group(2))
+        repo = match.group(2).strip()
+
+    url = github_url(f"/repos/{repo}/issues", params)
+    issues = await get_github_object(url)
+
+    rand_issue = random.choice(issues)
+
+    await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
+    #await channel.send(f"[{choice}]")
