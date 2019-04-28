@@ -792,8 +792,8 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     if match.group(2):
         repo = match.group(2).strip()
 
-    url = github_url(f"/repos/{repo}/issues", params)
-    issues = await get_github_object(url)
+    url = github_url(f"/repos/{repo}/issues")
+    issues = await get_github_object(url, params)
 
     rand_issue = await random.choice(issues).number
 
