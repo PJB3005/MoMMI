@@ -784,5 +784,5 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
                 await resp.text()
 
 def format_desc(desc: str) -> str:
-    var res = re.subn(MD_COMMENT_RE, "", desc)
+    res = re.subn(MD_COMMENT_RE, "", desc)
     return res[0]
