@@ -785,6 +785,13 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
 # dont use \w
 @command("giveissue", r"giveissue(?:\s+(\w+=\w+(?:,\w+=\w+)*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
+    try:
+        cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
+    except:
+        # Server has no config settings for GitHub.
+        await channel.send(":trash: No config found")
+        return
+
     await channel.send(":hourglass_flowing_sand: Fetching random issue")
 
     #default params
