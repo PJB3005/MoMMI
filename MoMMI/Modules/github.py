@@ -46,7 +46,6 @@ KNOWN_MERGE_COMMITS: Set[str] = set()
 
 EVENT_MUTED_REPOS: Set[str] = set()
 
-
 def is_repo_muted(repo: str) -> bool:
     return repo in EVENT_MUTED_REPOS
 
@@ -830,8 +829,10 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             else:
                 break
 
-
-        sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions",{"content" : emote, "per_page" : "100"}).len)[ranking_limit:]
+        if emote:
+            sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions",{"content" : emote, "per_page" : "100"}).len)[ranking_limit:]
+        else:
+            sort = issues
 
         rand_issue = await random.choice(sort).number
 
