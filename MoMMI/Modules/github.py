@@ -29,7 +29,7 @@ COLOR_GITHUB_GREEN = Color(0x6CC644)
 COLOR_GITHUB_PURPLE = Color(0x6E5494)
 MAX_BODY_LENGTH = 500
 MAX_COMMIT_LENGTH = 67
-MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
+MD_COMMENT_RE = re.compile(r"<!--[^(?:<!--)]*-->", flags=re.DOTALL)
 DISCORD_CODEBLOCK_RE = re.compile(
     r"```(?:([^\n]*)\n)?(.*)```", flags=re.DOTALL)
 
