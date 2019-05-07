@@ -787,18 +787,20 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     await channel.send(":hourglass_flowing_sand: Fetching random issue")
 
     #default params
-    repo = "vgstation-coders/vgstation13"
+    #repo = "vgstation-coders/vgstation13"
+    prefix = ""
     labels = ""
-    emote = "+1"
+    emote = ""
     ranking_limit = 20
 
+    
     #getting params
     text_params = [x.strip() for x in match.group(1).split(" -")] # strip whitespaces
     
     for param in text_params:
         temp = param.split("=")
-        if temp[0] == "repo":
-            repo = temp[1].strip()
+        if temp[0] == "prefix":
+            prefix = temp[1].strip()
             continue
         if temp[0] == "labels":
             labels = temp[1].strip()
@@ -811,23 +813,29 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             continue
         await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
 
-    issues = []
-    i = 1
-    while 1:
-        url = github_url(f"/repos/{repo}/issues")
-        part_issues = await get_github_object(url, {"labels" : labels, "page" : i, "per_page" : "100"})
-        if part_issues:
-            issues += part_issues
-            i += 1
-        else:
-            break
+    for repo_config in cfg:
+        repo = repo_config["repo"]
+
+        if not is_repo_valid_for_command(repo_config, channel, prefix):
+            continue
+
+        issues = []
+        i = 1
+        while 1:
+            url = github_url(f"/repos/{repo}/issues")
+            part_issues = await get_github_object(url, {"labels" : labels, "page" : i, "per_page" : "100"})
+            if part_issues:
+                issues += part_issues
+                i += 1
+            else:
+                break
 
 
-    sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions",{"content" : emote, "per_page" : "100"}).len)[ranking_limit:]
+        sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions",{"content" : emote, "per_page" : "100"}).len)[ranking_limit:]
 
-    rand_issue = await random.choice(sort).number
+        rand_issue = await random.choice(sort).number
 
-    await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
+        await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
 
 def format_desc(desc: str) -> str:
     res = re.subn(MD_COMMENT_RE, "", desc) # we need to use subn so it actually gets all the comments, not just the first
