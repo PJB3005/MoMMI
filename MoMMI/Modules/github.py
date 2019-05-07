@@ -809,7 +809,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             repo = temp[1].strip()
             continue
         if temp[0] == "labels":
-            labels = temp[1].strip().split("|").join(",")
+        	labels = temp[1].strip().split("|").join(",")
             continue
         if temp[0] == "emote":
             emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
@@ -819,11 +819,19 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             continue
         await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
 
-    url = github_url(f"/repos/{repo}/issues")
+    issues = []
+    i = 1
+    while(1)
+        url = github_url(f"/repos/{repo}/issues")
+        part_issues = await get_github_object(url, {"labels" : labels, "page" : i, "per_page" : "100"})
+        if part_issues:
+            issues += part_issues
+            i++
+        else:
+            break
 
-    issues = await get_github_object(url, {"labels" : labels})
 
-    sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions?content={emote}").len)[ranking_limit:]
+    sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions",{"content" : emote, "per_page" : "100"}).len)[ranking_limit:]
 
     rand_issue = await random.choice(sort).number
 
