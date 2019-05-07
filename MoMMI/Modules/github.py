@@ -170,10 +170,8 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
         name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
     embed.set_footer(text="{}#{} by {}".format(
         repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
-    if len(issue["body"]) > MAX_BODY_LENGTH:
-        embed.description = issue["body"][:MAX_BODY_LENGTH] + "..."
-    else:
-        embed.description = issue["body"]
+
+    embed.description = format_desc(issue["body"])    
 
     embed.description += "\n\u200B"
 
@@ -213,11 +211,8 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
     embed.set_footer(text="{}#{} by {}".format(
         repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
 
-    new_body = MD_COMMENT_RE.sub("", pull_request["body"])
-    if len(new_body) > MAX_BODY_LENGTH:
-        embed.description = new_body[:MAX_BODY_LENGTH] + "..."
-    else:
-        embed.description = new_body
+    embed.description = format_desc(pull_request["body"])
+
     embed.description += "\n\u200B"
 
     if is_repo_muted(repository["full_name"]):
@@ -252,10 +247,8 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str) ->
         text=f"{repo_name}#{issue['number']} by {issue['user']['login']}")
     embed.title = f"New Comment: {issue['title']}"
     embed.url = message["comment"]["html_url"]
-    if len(comment["body"]) > MAX_BODY_LENGTH:
-        embed.description = comment["body"][:MAX_BODY_LENGTH] + "..."
-    else:
-        embed.description = comment["body"]
+
+    embed.description = format_desc(comment["body"])
 
     await channel.send(embed=embed)
 
@@ -427,10 +420,9 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
             embed.url = content["html_url"]
             embed.set_footer(
                 text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
-            if len(content["body"]) > MAX_BODY_LENGTH:
-                embed.description = content["body"][:MAX_BODY_LENGTH] + "..."
-            else:
-                embed.description = content["body"]
+
+            embed.description = format_desc(content["body"])
+
             embed.description += "\n\u200B"
 
             await channel.send(embed=embed)
@@ -463,7 +455,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
                 text=f"{repo} {sha} by {commit['author']['name']}")
             embed.url = commit["html_url"]
             embed.title = title
-            embed.description = desc
+            embed.description = format_desc(desc)
 
             await channel.send(embed=embed)
 
@@ -773,4 +765,9 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
             async with session.post(post) as resp:
                 await resp.text()
 
+def format_desc(desc: str) -> str:
+    res = re.subn(MD_COMMENT_RE, "", desc) # we need to use subn so it actually gets all the comments, not just the first
 
+    if len(res) > MAX_BODY_LENGTH:
+        res = res[:MAX_BODY_LENGTH] + "..."
+    return res[0]
