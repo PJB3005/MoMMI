@@ -775,7 +775,7 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
 # make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
 #   would also be nice to have when the emojicracy-filter gets to be a thing
 # dont use \w
-@command("giveissue", r"giveissue(?:\s+(\w+=\w+(?:,\w+=\w+)*))?")
+@command("giveissue", r"giveissue(?:\s+(-\w+=\w+(?:\s+-\w+=\w+)*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
     try:
         cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
@@ -793,7 +793,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     ranking_limit = 20
 
     #getting params
-    text_params = [x.strip() for x in match.group(1).split(",")] # strip whitespaces
+    text_params = [x.strip() for x in match.group(1).split(" -")] # strip whitespaces
     
     for param in text_params:
         temp = param.split("=")
@@ -801,7 +801,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             repo = temp[1].strip()
             continue
         if temp[0] == "labels":
-            labels = temp[1].strip().split("|").join(",")
+            labels = temp[1].strip()
             continue
         if temp[0] == "emote":
             emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
