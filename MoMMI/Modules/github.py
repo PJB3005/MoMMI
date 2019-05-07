@@ -821,7 +821,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     issues = []
     i = 1
-    while(1)
+    while 1:
         url = github_url(f"/repos/{repo}/issues")
         part_issues = await get_github_object(url, {"labels" : labels, "page" : i, "per_page" : "100"})
         if part_issues:
