@@ -818,7 +818,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         part_issues = await get_github_object(url, {"labels" : labels, "page" : i, "per_page" : "100"})
         if part_issues:
             issues += part_issues
-            i++
+            i += 1
         else:
             break
 
