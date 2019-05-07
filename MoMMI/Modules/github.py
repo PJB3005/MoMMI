@@ -809,7 +809,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             repo = temp[1].strip()
             continue
         if temp[0] == "labels":
-        	labels = temp[1].strip().split("|").join(",")
+            labels = temp[1].strip().split("|").join(",")
             continue
         if temp[0] == "emote":
             emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
