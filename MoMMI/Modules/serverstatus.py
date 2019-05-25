@@ -52,7 +52,7 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         elif server_type == "bluespess":
             url = server_config["url"]
             await get_status_bluespess(url, channel)
-            
+
         elif server_type == "ss14":
             url = server_config["url"]
             await get_status_ss14(url, channel)
@@ -117,8 +117,8 @@ async def get_status_bluespess(url: str, channel: MChannel) -> None:
 
         count = json["player_count"]
         await channel.send(f"{count} players online.")
-        
-        
+
+
 async def get_status_ss14(url: str, channel: MChannel) -> None:
     async with aiohttp.ClientSession() as session:
         async def load() -> Any:
