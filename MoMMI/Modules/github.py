@@ -760,33 +760,31 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     
     for param in text_params:
         temp = param.split("=")
-        switch(temp[0]) {
-            case "prefix":
-                prefix = temp[1].strip()
+        if temp[0] == "prefix":
+            prefix = temp[1].strip()
+            continue
+        if temp[0] == "labels":
+            autolabels: Dict[str, str] = master.config.get_module(
+                f"github.repos.{repo_name}.autolabels", {})
+            if not autolabels:
+                await channel.send(":x: Could not find autolabel config, skipping labels param")
                 continue
-            case "labels":
-                autolabels: Dict[str, str] = master.config.get_module(
-                    f"github.repos.{repo_name}.autolabels", {})
-                if not autolabels:
-                    await channel.send(":x: Could not find autolabel config, skipping labels param")
-                    continue
 
-                to_add = set()
-                param_labels = temp[1].strip().split(",")
-                for p_label in param_labels:
-                    matched_label = autolabels.get(p_label.lower())
-                    if matched_label:
-                        to_add.add(matched_label)
+            to_add = set()
+            param_labels = temp[1].strip().split(",")
+            for p_label in param_labels:
+                matched_label = autolabels.get(p_label.lower())
+                if matched_label:
+                    to_add.add(matched_label)
 
-                labels = ",".join(to_add)
-                continue
-            case "limit":
-                ranking_limit = int(temp[1])
-                continue
-            default:
-                await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
-            break;
-        }
+            labels = ",".join(to_add)
+            continue
+        if temp[0] == "limit":
+            ranking_limit = int(temp[1])
+            continue
+
+        await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
+
         
 
     for repo_config in cfg:
