@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
-REG_GIT_EMOTE = re.compile(r"\+1|-1|laugh|confused|heart|hooray")
+REG_GIT_HEADER_PAGENUM = re.compile("\?page=(\d+)[^,]+rel=\"last\"")
 
 REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
 
@@ -354,6 +354,7 @@ async def issue_auto_label(type: str, message: Any, meta: str) -> None:
         "Accept": "application/vnd.github.symmetra-preview+json"
     }
 
+
     async with session.post(label_url, json=to_add_list, headers=headers) as req:
         logger.info(f"{req.status}")
 
@@ -387,47 +388,8 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
             if not prefix and issueid < 30:
                 continue
 
-            url = github_url(f"/repos/{repo}/issues/{issueid}")
-            try:
-                content = await get_github_object(url)
-            except:
-                continue
-
-            # God forgive me.
-            embed = Embed()
-            emoji = ""
-            if content["state"] == "open":
-                if content.get("pull_request") is not None:
-                    emoji = "<:PRopened:245910125041287168>"
-                else:
-                    emoji = "<:ISSopened:246037149873340416>"
-                embed.color = COLOR_GITHUB_GREEN
-
-            elif content.get("pull_request") is not None:
-                url = github_url(f"/repos/{repo}/pulls/{issueid}")
-                prcontent = await get_github_object(url)
-                if prcontent["merged"]:
-                    emoji = "<:PRmerged:437316952772444170>"
-                    embed.color = COLOR_GITHUB_PURPLE
-                else:
-                    emoji = "<:PRclosed:246037149839917056>"
-                    embed.color = COLOR_GITHUB_RED
-
-            else:
-                emoji = "<:ISSclosed:246037286322569216>"
-                embed.color = COLOR_GITHUB_RED
-
-            embed.title = emoji + content["title"]
-            embed.url = content["html_url"]
-            embed.set_footer(
-                text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
-
-            embed.description = format_desc(content["body"])
-
-            embed.description += "\n\u200B"
-
-            await channel.send(embed=embed)
-
+            post_embedded_issue(channel, repo, issueid)
+                    
             messages += 1
             if messages >= GITHUB_ISSUE_MAX_MESSAGES:
                 return
@@ -804,9 +766,6 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if temp[0] == "labels":
             labels = temp[1].strip()
             continue
-        if temp[0] == "emote":
-            emote = re.search(REG_GIT_EMOTE, temp[1]).group(0)
-            continue
         if temp[0] == "limit":
             ranking_limit = int(temp[1])
             continue
@@ -818,25 +777,20 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if not is_repo_valid_for_command(repo_config, channel, prefix):
             continue
 
-        issues = []
-        i = 1
-        while 1:
-            url = github_url(f"/repos/{repo}/issues")
-            part_issues = await get_github_object(url, {"labels" : labels, "page" : i, "per_page" : "100"})
-            if part_issues:
-                issues += part_issues
-                i += 1
-            else:
-                break
+        url = github_url(f"/repos/{repo}/issues")
 
-        if emote:
-            sort = sorted(issues, key=lambda i: get_github_object(f"{i.url}/reactions",{"content" : emote, "per_page" : "100"}).len)[ranking_limit:]
-        else:
-            sort = issues
+        page_get = await session.get(url, {"labels" : labels, "per_page" : "100"})
+        maxpage = re.search(page_get.headers["Link"], REG_GIT_HEADER_PAGENUM).group(1)
+        pagenum = random.randrange(1, maxpage)
 
-        rand_issue = await random.choice(sort).number
+        issue_page = await get_github_object(url, {"labels" : labels, "page" : pagenum, "per_page" : "100"})
+        rand_issue = await random.choice(issue_page).number
 
-        await issue_command(channel, f"[{rand_issue}]", f"[{rand_issue}]")
+        if(!rand_issue)
+            await channel.send(":x: No random issue found")
+            return
+
+        await post_embedded_issue(channel, repo, rand_issue)
 
 def format_desc(desc: str) -> str:
     res = re.subn(MD_COMMENT_RE, "", desc) # we need to use subn so it actually gets all the comments, not just the first
@@ -845,3 +799,58 @@ def format_desc(desc: str) -> str:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res[0]
 
+async def post_embedded_issue(channel: Channel, repo, issueid):
+    url = github_url(f"/repos/{repo}/issues/{issueid}")
+    try:
+        content = await get_github_object(url)
+    except:
+        return
+
+    # God forgive me.
+    embed = Embed()
+    emoji = ""
+    if content["state"] == "open":
+        if content.get("pull_request") is not None:
+            emoji = "<:PRopened:245910125041287168>"
+        else:
+            emoji = "<:ISSopened:246037149873340416>"
+        embed.color = COLOR_GITHUB_GREEN
+
+    elif content.get("pull_request") is not None:
+        url = github_url(f"/repos/{repo}/pulls/{issueid}")
+        prcontent = await get_github_object(url)
+        if prcontent["merged"]:
+            emoji = "<:PRmerged:437316952772444170>"
+            embed.color = COLOR_GITHUB_PURPLE
+        else:
+            emoji = "<:PRclosed:246037149839917056>"
+            embed.color = COLOR_GITHUB_RED
+
+    else:
+        emoji = "<:ISSclosed:246037286322569216>"
+        embed.color = COLOR_GITHUB_RED
+
+    embed.title = emoji + content["title"]
+    embed.url = content["html_url"]
+    embed.set_footer(
+        text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
+
+    embed.description = format_desc(content["body"])
+
+    embed.description += "\n\u200B"
+
+    await channel.send(embed=embed)
+
+def parse_link_header(header) -> Any:
+    links = header.split(",")
+    result = {}
+    for link in links:
+        link = link.strip()
+        elements = link.split(";")
+
+        pagenum = re.search(REG_GIT_PAGE, elements[0]).group(1)
+        index = re.search(REG_GIT_REL, elements[1]).group(1)
+        
+        result[index] = pagenum
+
+    return result
