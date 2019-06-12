@@ -856,17 +856,3 @@ async def post_embedded_issue(channel: Channel, repo, issueid):
     embed.description += "\n\u200B"
 
     await channel.send(embed=embed)
-
-def parse_link_header(header) -> Any:
-    links = header.split(",")
-    result = {}
-    for link in links:
-        link = link.strip()
-        elements = link.split(";")
-
-        pagenum = re.search(REG_GIT_PAGE, elements[0]).group(1)
-        index = re.search(REG_GIT_REL, elements[1]).group(1)
-        
-        result[index] = pagenum
-
-    return result
