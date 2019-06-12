@@ -804,7 +804,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             await channel.send(":x: No random issue found")
             return
         
-        rand_issue = await random.choice(issue_page).number
+        rand_issue = await random.choice(issue_page)["number"]
 
         await post_embedded_issue(channel, repo, rand_issue)
 
