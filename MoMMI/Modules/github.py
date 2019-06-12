@@ -800,11 +800,11 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         pagenum = random.randrange(1, maxpage)
 
         issue_page = await get_github_object(url, {"labels" : labels, "page" : pagenum, "per_page" : "100"})
-        rand_issue = await random.choice(issue_page).number
-
-        if(!rand_issue)
+        if len(issue_page) == 0:
             await channel.send(":x: No random issue found")
             return
+        
+        rand_issue = await random.choice(issue_page).number
 
         await post_embedded_issue(channel, repo, rand_issue)
 
