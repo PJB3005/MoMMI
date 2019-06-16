@@ -745,10 +745,11 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
     except:
         # Server has no config settings for GitHub.
-        await channel.send(":trash: No config found")
+        logger.debug(f"[ERROR] giveissue didn't find server config")
+        await master.client.add_reaction(message, "❌")
         return
 
-    await channel.send(":hourglass_flowing_sand: Fetching random issue")
+    await master.client.add_reaction(message, "⏳")
 
     #default params
     #repo = "vgstation-coders/vgstation13"
@@ -774,12 +775,10 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
                     shortlabels.add(p_label)
                 continue
 
-            await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
+            await channel.send(f"⚠ Unknown parameter: {temp[0]}")
 
 
     #logger.debug("uh oh")
-
-
 
     for repo_config in cfg:
         repo = repo_config["repo"]
@@ -792,7 +791,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         autolabels: Dict[str, str] = master.config.get_module(
             f"github.repos.{repo}.autolabels", {})
         if not autolabels:
-            await channel.send(":x: Could not find autolabel config, skipping labels param")
+            await channel.send("⚠ Could not find autolabel config, skipping labels param")
             labels = ""
         else:
             to_add = set()
@@ -813,6 +812,8 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         logger.debug(f"response link header: {page_get.headers['Link']}")
         lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
         if not lastpagematch:
+            await master.client.remove_reaction(message, "⏳")
+            await master.client.add_reaction(message, "❌")
             raise Exception("GitHub returned a weird Link header!")
 
         maxpage = int(lastpagematch.group(1))
@@ -823,9 +824,12 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             params["labels"] = labels
 
         issue_page = await get_github_object(url, params=params)
+        await master.client.remove_reaction(message, "⏳")
         if len(issue_page) == 0:
-            await channel.send(":x: No random issue found")
+            await master.client.add_reaction(message, "👎")
+            await channel.send("😕 No random issue found")
             return
+        await master.client.add_reaction(message, "👍")
 
         rand_issue = random.choice(issue_page)["number"]
 
