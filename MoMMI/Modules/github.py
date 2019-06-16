@@ -56,7 +56,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
         headers = {
             "Authorization": f"token {master.config.get_module('github.token')}",
             "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)",
-            "Accept": "application/vnd.github.symmetra-preview+json",
+            "Accept": "application/vnd.github.v3+json",
         }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
@@ -562,7 +562,7 @@ async def make_gist(contents: str, name: str, desc: str) -> str:
         return cast(str, output["html_url"])
 
 
-async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None) -> Any:
+async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None, accept: Optional[str] = None) -> Any:
     logger.debug(f"Fetching github object at URL {url}...")
 
     session = master.get_cache(GITHUB_SESSION)
@@ -571,14 +571,20 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
     response = None
     paramstr = str(params)
 
-    if (url, paramstr) in cache:
-        contents, date = cache[(url, paramstr)]
-        response = await session.get(url, headers={"If-Modified-Since": date}, params=params)
+    if (url, paramstr, accept) in cache:
+        contents, date = cache[(url, paramstr, accept)]
+        headers = {"If-Modified-Since": date}
+        if accept:
+            headers["Accept"] = accept
+        response = await session.get(url, headers=headers, params=params)
         if response.status == 304:
             return contents
 
     else:
-        response = await session.get(url, params=params)
+        headers = {}
+        if accept:
+            headers["Accept"] = accept
+        response = await session.get(url, params=params, headers=headers)
 
     if response.status != 200:
         txt = await response.text()
@@ -586,7 +592,7 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
 
     contents = await response.json()
     if "Last-Modified" in response.headers:
-        cache[(url, paramstr)] = contents, response.headers["Last-Modified"]
+        cache[(url, paramstr)] = contents, response.headers["Last-Modified"], accept
 
     return contents
 
@@ -690,7 +696,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
     except:
         # Server has no config settings for GitHub.
-        logger.debug(f"[ERROR] giveissue didn't find server config")
+        logger.error(f"giveissue didn't find server config")
         await master.client.add_reaction(message, "❌")
         return
 
@@ -722,12 +728,13 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
 
     #logger.debug("uh oh")
-
+    didthedeed = 0
     for repo_config in cfg:
         repo = repo_config["repo"]
 
         if not is_repo_valid_for_command(repo_config, channel, prefix):
             continue
+        didthedeed = 1
 
         url = github_url(f"/repos/{repo}/issues")
 
@@ -745,6 +752,8 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
                     matched_label = autolabels.get(s_label.lower())
                     if matched_label:
                         to_add.add(matched_label)
+                    else:
+                        await channel.send(f"⚠ Unknown autolabel: '{s_label.lower()}'. repo: '{repo}'")
 
                 labels = ",".join(to_add)
 
@@ -752,9 +761,9 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         reqparams = {}
         if labels:
             reqparams["labels"] = labels
-        logger.debug(f"reqparams are {repr(reqparams)}")
-        page_get = await session.get(url, params=reqparams)
-        logger.debug(f"response link header: {page_get.headers['Link']}")
+        #logger.debug(f"reqparams are {repr(reqparams)}")
+        page_get = await session.get(url, params=reqparams, headers={"Accept": "application/vnd.github.symmetra-preview+json"})
+        #logger.debug(f"response link header: {page_get.headers['Link']}")
         lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
         if not lastpagematch:
             await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
@@ -768,18 +777,23 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if labels:
             params["labels"] = labels
 
-        issue_page = await get_github_object(url, params=params)
-        await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
+        issue_page = await get_github_object(url, params=params, accept="application/vnd.github.symmetra-preview+json")
         if len(issue_page) == 0:
-            await master.client.add_reaction(message, "👎")
-            await channel.send("😕 No random issue found")
-            return
-        await master.client.add_reaction(message, "👍")
+            continue
 
         rand_issue = random.choice(issue_page)["number"]
 
         await post_embedded_issue_or_pr(channel, repo, rand_issue)
 
+    await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
+
+    if not didthedeed:
+        await master.client.add_reaction(message, "👎")
+        await channel.send("😕 No random issue found")
+        return
+
+    await master.client.add_reaction(message, "👍")
+          
 @command("autolabels", r"(?:(\S+)#)?(?:autolabels|autolabel)")
 async def autolabels_command(channel: MChannel, match: Match, message: Message) -> None:
     prefix = match.group(1)
@@ -795,15 +809,11 @@ async def autolabels_command(channel: MChannel, match: Match, message: Message) 
         if not autolabels:
             await master.client.add_reaction(message, "❌")
         else:
-            await master.client.add_reaction(message, "⏳")
-
             embed = Embed()
             embed.title = f"Autolabels for {repo}"
             for label in autolabels:
                 embed.description += f"{label} <> {autolabel.get(label)}\n"
 
-            await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
-            await master.client.add_reaction(message, "👍")
             await channel.send(embed=embed)
 
 def format_desc(desc: str) -> str:
@@ -817,7 +827,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
-        content = await get_github_object(url)
+        content: Dict[str, Any] = await get_github_object(url)
     except:
         return
 
@@ -836,7 +846,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         embed.color = COLOR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
-        
+
         if prcontent["merged"]:
             emoji = "<:PRmerged:437316952772444170>"
             embed.color = COLOR_GITHUB_PURPLE
@@ -855,47 +865,47 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
 
     embed.description = format_desc(content["body"]) + "\n"
 
-    merge_sha = prcontent["merge_commit_sha"]
-    check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
-
-    
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
-    reactions = await get_github_object(f"{url}/reactions")
-    all_reactions: Dict[str, int] = {}
+    reactions = await get_github_object(f"{url}/reactions", accept="application/vnd.github.squirrel-girl-preview+json")
+    all_reactions: DefaultDict[str, int] = defaultdict(int)
     for react in reactions:
-        content = react["content"]
-        if not all_reactions[content]: #not sure if this is necessary
-            all_reactions[content] = 1
-        all_reactions[content] += 1
+        all_reactions[react["content"]] += 1
 
-    if all_reactions["+1"]:
+    if all_reactions.get("+1"):
         up = all_reactions["+1"]
-        embed.description += f"`👍 {up}`"
+        embed.description += f"👍 {up}"
 
-    if all_reactions["-1"]:
-        down = all_reactions["+1"]
-        embed.description += f"`👎 {down}`"
+    if all_reactions.get("-1"):
+        down = all_reactions["-1"]
+        embed.description += f"👎 {down}"
 
-    #get the admemes to add icons for all the checks so we can do this prettier
-    checks = ""
-    for check in check_content["check_runs"]:
-        status = "❓"
-        if check["status"] == "queued":
-            status = "😴"
-        elif check["status"] == "in_progress":
-            status = "🏃"
-        elif check["status"] == "completed":
-            if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
-                status = "😐"
-            else:
-                con = check["conclusion"]
-                status = f"add {con}"
+    if content.get("pull_request") is not None:
+        merge_sha = prcontent["head"]["sha"]
+        check_content = await get_github_object(github_url(f"/repos/{repo}/commits/{merge_sha}/check-runs"), accept="application/vnd.github.antiope-preview+json")
 
-        cname = check["name"]
-        checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
+        #logger.debug(check_content)
+        #get the admemes to add icons for all the checks so we can do this prettier
+        checks = ""
+        for check in check_content["check_runs"]:
+            status = "❓"
+            if check["status"] == "queued":
+                status = "😴"
+            elif check["status"] == "in_progress":
+                status = "🏃"
+            elif check["status"] == "completed":
+                if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
+                    status = "😐"
+                else:
+                    con = check["conclusion"]
+                    status = f"add {con}"
 
-    embed.add_field(name="Checks",value=checks)
-    
+            cname = check["name"]
+            checks += f"{cname} {status}\n" #will only need \n as long as we got no icons
+
+        #logger.debug(checks)
+        if checks:
+            embed.add_field(name="Checks",value=checks)
+
     embed.description += "\u200B"
 
     await channel.send(embed=embed)
