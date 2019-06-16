@@ -820,7 +820,6 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         embed.color = COLOR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
-        
         if prcontent["merged"]:
             emoji = "<:PRmerged:437316952772444170>"
             embed.color = COLOR_GITHUB_PURPLE
@@ -871,9 +870,17 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         elif check["status"] == "completed":
             if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
                 status = "😐"
-            else:
-                con = check["conclusion"]
-                status = f"add {con}"
+            elif check["conclusion"] == "success":
+                status = "😄"
+            elif check["conclusion"] == "failure":
+                status = "😭"
+            elif check["conclusion"] == "cancelled":
+                status = "🛑"
+            elif check["conclusion"] == "timed_out":
+                status = "⌛"
+            elif check["conclusion"] == "action_required":
+                status = "🚧"
+
 
         cname = check["name"]
         checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
