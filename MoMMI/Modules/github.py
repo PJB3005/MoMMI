@@ -790,7 +790,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         url = github_url(f"/repos/{repo}/issues")
 
         autolabels: Dict[str, str] = master.config.get_module(
-            f"github.repos.{repo_name}.autolabels", {})
+            f"github.repos.{repo}.autolabels", {})
         if not autolabels:
             await channel.send(":x: Could not find autolabel config, skipping labels param")
             labels = ""
