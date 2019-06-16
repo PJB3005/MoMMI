@@ -881,7 +881,6 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
             elif check["conclusion"] == "action_required":
                 status = "🚧"
 
-
         cname = check["name"]
         checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
 
