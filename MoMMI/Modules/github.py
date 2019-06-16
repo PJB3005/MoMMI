@@ -863,7 +863,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
     reactions = await get_github_object(f"{url}/reactions")
-    all_reactions = {}
+    all_reactions = dict()
     for react in reactions:
         if not all_reactions[react["content"]]: #not sure if this is necessary
             all_reactions[react["content"]] = 1
