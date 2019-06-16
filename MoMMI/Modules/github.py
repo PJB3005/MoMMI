@@ -814,7 +814,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         logger.debug(f"response link header: {page_get.headers['Link']}")
         lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
         if not lastpagematch:
-            await master.client.remove_reaction(message, "⏳")
+            await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
             await master.client.add_reaction(message, "❌")
             raise Exception("GitHub returned a weird Link header!")
 
@@ -826,7 +826,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             params["labels"] = labels
 
         issue_page = await get_github_object(url, params=params)
-        await master.client.remove_reaction(message, "⏳")
+        await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
         if len(issue_page) == 0:
             await master.client.add_reaction(message, "👎")
             await channel.send("😕 No random issue found")
