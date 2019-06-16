@@ -779,12 +779,13 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
 
     #logger.debug("uh oh")
-
+    didthedeed = 0
     for repo_config in cfg:
         repo = repo_config["repo"]
 
         if not is_repo_valid_for_command(repo_config, channel, prefix):
             continue
+        didthedeed = 1
 
         url = github_url(f"/repos/{repo}/issues")
 
@@ -802,6 +803,8 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
                     matched_label = autolabels.get(s_label.lower())
                     if matched_label:
                         to_add.add(matched_label)
+                    else:
+                        await channel.send(f"⚠ Unknown autolabel: '{s_label.lower()}'. repo: '{repo}'")
 
                 labels = ",".join(to_add)
 
@@ -826,16 +829,21 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             params["labels"] = labels
 
         issue_page = await get_github_object(url, params=params)
-        await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
         if len(issue_page) == 0:
-            await master.client.add_reaction(message, "👎")
-            await channel.send("😕 No random issue found")
-            return
-        await master.client.add_reaction(message, "👍")
+            continue
 
         rand_issue = random.choice(issue_page)["number"]
 
         await post_embedded_issue(channel, repo, rand_issue)
+
+    await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
+
+    if !didthedeed:
+        await master.client.add_reaction(message, "👎")
+        await channel.send("😕 No random issue found")
+        return
+
+    await master.client.add_reaction(message, "👍")
 
 def format_desc(desc: str) -> str:
     res = MD_COMMENT_RE.sub("", desc) # we need to use subn so it actually gets all the comments, not just the first
