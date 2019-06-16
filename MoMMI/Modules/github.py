@@ -56,7 +56,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
         headers = {
             "Authorization": f"token {master.config.get_module('github.token')}",
             "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)",
-            "Accept": "application/vnd.github.symmetra-preview+json",
+            "Accept": "application/vnd.github.v3+json",
         }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
@@ -154,30 +154,7 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
-    issue = message["issue"]
-    sender = message["sender"]
-    repository = message["repository"]
-    pre = None
-    embed = Embed()
-    if message["action"] == "closed":
-        pre = "<:ISSclosed:246037286322569216>"
-        embed.color = COLOR_GITHUB_RED
-    else:
-        pre = "<:ISSopened:246037149873340416>"
-        embed.color = COLOR_GITHUB_GREEN
-
-    embed.title = pre + issue["title"]
-    embed.url = issue["html_url"]
-    embed.set_author(
-        name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
-    embed.set_footer(text="{}#{} by {}".format(
-        repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
-
-    embed.description = format_desc(issue["body"])
-
-    embed.description += "\n\u200B"
-
-    await channel.send(embed=embed)
+    await post_embedded_issue_or_pr(channel, message["repository"], message["issue"]["number"])
 
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
@@ -186,41 +163,17 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
         return
 
     pull_request = message["pull_request"]
-    sender = message["sender"]
     repository = message["repository"]
-    pre = None
-
-    embed = Embed()
-    if action == "closed":
-        pre = "<:PRclosed:246037149839917056>"
-        embed.color = COLOR_GITHUB_RED
-
-    else:
-        pre = "<:PRopened:245910125041287168>"
-        embed.color = COLOR_GITHUB_GREEN
 
     if action == "closed" and pull_request["merged"]:
-        pre = "<:PRmerged:437316952772444170>"
-        embed.color = COLOR_GITHUB_PURPLE
         KNOWN_MERGE_COMMITS.add(pull_request["merge_commit_sha"])
         asyncio.ensure_future(add_known_merge_commits(
             repository["full_name"], pull_request["number"]))
 
-    embed.title = pre + pull_request["title"]
-    embed.url = pull_request["html_url"]
-    embed.set_author(
-        name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
-    embed.set_footer(text="{}#{} by {}".format(
-        repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
-
-    embed.description = format_desc(pull_request["body"])
-
-    embed.description += "\n\u200B"
-
     if is_repo_muted(repository["full_name"]):
         return
 
-    await channel.send(embed=embed)
+    await post_embedded_issue_or_pr(channel, message["repository"], pull_request["number"])
 
 
 async def add_known_merge_commits(repo: str, number: int) -> None:
@@ -391,7 +344,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
                 continue
 
             #logger.debug("You what")
-            await post_embedded_issue(channel, repo, issueid)
+            await post_embedded_issue_or_pr(channel, repo, issueid)
 
             messages += 1
             if messages >= GITHUB_ISSUE_MAX_MESSAGES:
@@ -609,7 +562,7 @@ async def make_gist(contents: str, name: str, desc: str) -> str:
         return cast(str, output["html_url"])
 
 
-async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None) -> Any:
+async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None, accept: Optional[str] = None) -> Any:
     logger.debug(f"Fetching github object at URL {url}...")
 
     session = master.get_cache(GITHUB_SESSION)
@@ -618,14 +571,20 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
     response = None
     paramstr = str(params)
 
-    if (url, paramstr) in cache:
-        contents, date = cache[(url, paramstr)]
-        response = await session.get(url, headers={"If-Modified-Since": date}, params=params)
+    if (url, paramstr, accept) in cache:
+        contents, date = cache[(url, paramstr, accept)]
+        headers = {"If-Modified-Since": date}
+        if accept:
+            headers["Accept"] = accept
+        response = await session.get(url, headers=headers, params=params)
         if response.status == 304:
             return contents
 
     else:
-        response = await session.get(url, params=params)
+        headers = {}
+        if accept:
+            headers["Accept"] = accept
+        response = await session.get(url, params=params, headers=headers)
 
     if response.status != 200:
         txt = await response.text()
@@ -633,7 +592,7 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
 
     contents = await response.json()
     if "Last-Modified" in response.headers:
-        cache[(url, paramstr)] = contents, response.headers["Last-Modified"]
+        cache[(url, paramstr)] = contents, response.headers["Last-Modified"], accept
 
     return contents
 
@@ -745,7 +704,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
     except:
         # Server has no config settings for GitHub.
-        logger.debug(f"[ERROR] giveissue didn't find server config")
+        logger.error(f"giveissue didn't find server config")
         await master.client.add_reaction(message, "❌")
         return
 
@@ -812,9 +771,9 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         reqparams = {}
         if labels:
             reqparams["labels"] = labels
-        logger.debug(f"reqparams are {repr(reqparams)}")
-        page_get = await session.get(url, params=reqparams)
-        logger.debug(f"response link header: {page_get.headers['Link']}")
+        #logger.debug(f"reqparams are {repr(reqparams)}")
+        page_get = await session.get(url, params=reqparams, headers={"Accept": "application/vnd.github.symmetra-preview+json"})
+        #logger.debug(f"response link header: {page_get.headers['Link']}")
         lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
         if not lastpagematch:
             await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
@@ -828,13 +787,13 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if labels:
             params["labels"] = labels
 
-        issue_page = await get_github_object(url, params=params)
+        issue_page = await get_github_object(url, params=params, accept="application/vnd.github.symmetra-preview+json")
         if len(issue_page) == 0:
             continue
 
         rand_issue = random.choice(issue_page)["number"]
 
-        await post_embedded_issue(channel, repo, rand_issue)
+        await post_embedded_issue_or_pr(channel, repo, rand_issue)
 
     await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
 
@@ -852,13 +811,17 @@ def format_desc(desc: str) -> str:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res
 
-async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> None:
+async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) -> None:
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
-        content = await get_github_object(url)
+        content: Dict[str, Any] = await get_github_object(url)
     except:
         return
+
+    if content.get("pull_request") is not None:
+        pr_url = github_url(f"/repos/{repo}/pulls/{issueid}")
+        prcontent = await get_github_object(pr_url)
 
     # God forgive me.
     embed = Embed()
@@ -871,8 +834,7 @@ async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> Non
         embed.color = COLOR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
-        url = github_url(f"/repos/{repo}/pulls/{issueid}")
-        prcontent = await get_github_object(url)
+
         if prcontent["merged"]:
             emoji = "<:PRmerged:437316952772444170>"
             embed.color = COLOR_GITHUB_PURPLE
@@ -889,8 +851,49 @@ async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> Non
     embed.set_footer(
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
 
-    embed.description = format_desc(content["body"])
+    embed.description = format_desc(content["body"]) + "\n"
 
-    embed.description += "\n\u200B"
+    #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
+    reactions = await get_github_object(f"{url}/reactions", accept="application/vnd.github.squirrel-girl-preview+json")
+    all_reactions: DefaultDict[str, int] = defaultdict(int)
+    for react in reactions:
+        all_reactions[react["content"]] += 1
+
+    if all_reactions.get("+1"):
+        up = all_reactions["+1"]
+        embed.description += f"👍 {up}"
+
+    if all_reactions.get("-1"):
+        down = all_reactions["-1"]
+        embed.description += f"👎 {down}"
+
+    if content.get("pull_request") is not None:
+        merge_sha = prcontent["head"]["sha"]
+        check_content = await get_github_object(github_url(f"/repos/{repo}/commits/{merge_sha}/check-runs"), accept="application/vnd.github.antiope-preview+json")
+
+        #logger.debug(check_content)
+        #get the admemes to add icons for all the checks so we can do this prettier
+        checks = ""
+        for check in check_content["check_runs"]:
+            status = "❓"
+            if check["status"] == "queued":
+                status = "😴"
+            elif check["status"] == "in_progress":
+                status = "🏃"
+            elif check["status"] == "completed":
+                if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
+                    status = "😐"
+                else:
+                    con = check["conclusion"]
+                    status = f"add {con}"
+
+            cname = check["name"]
+            checks += f"{cname} {status}\n" #will only need \n as long as we got no icons
+
+        #logger.debug(checks)
+        if checks:
+            embed.add_field(name="Checks",value=checks)
+
+    embed.description += "\u200B"
 
     await channel.send(embed=embed)
