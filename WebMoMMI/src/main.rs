@@ -31,7 +31,7 @@ fn main() {
     if config.has_commloop() {
         rocket = rocket.mount(
             "/",
-            routes![mommi::get_nudgeold, mommi::get_nudge, mommi::get_nudge_new,],
+            routes![mommi::get_nudgeold, mommi::get_nudge, mommi::get_nudge_new, mommi::post_ss14],
         )
     }
 
