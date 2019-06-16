@@ -753,7 +753,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
     #default params
     #repo = "vgstation-coders/vgstation13"
     prefix = None
-    labels = ""
+    short_labels = set()
     emote = ""
     ranking_limit = 20
 
@@ -771,20 +771,9 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
                 prefix = temp[1].strip()
                 continue
             if temp[0] == "labels":
-                autolabels: Dict[str, str] = master.config.get_module(
-                    f"github.repos.{repo_name}.autolabels", {})
-                if not autolabels:
-                    await channel.send(":x: Could not find autolabel config, skipping labels param")
-                    continue
-
-                to_add = set()
                 param_labels = temp[1].strip().split(",")
                 for p_label in param_labels:
-                    matched_label = autolabels.get(p_label.lower())
-                    if matched_label:
-                        to_add.add(matched_label)
-
-                labels = ",".join(to_add)
+                    short_labels.add(p_label)
                 continue
             if temp[0] == "limit":
                 ranking_limit = int(temp[1])
@@ -802,6 +791,20 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
         if not is_repo_valid_for_command(repo_config, channel, prefix):
             continue
+
+        autolabels: Dict[str, str] = master.config.get_module(
+            f"github.repos.{repo_name}.autolabels", {})
+        if not autolabels:
+            labels = ""
+            await channel.send(":x: Could not find autolabel config, skipping labels param")
+        else:
+            to_add = set()
+            for s_label in short_labels:
+                matched_label = autolabels.get(s_label.lower())
+                if matched_label:
+                    to_add.add(matched_label)
+
+            labels = ",".join(to_add)
 
         url = github_url(f"/repos/{repo}/issues")
 
