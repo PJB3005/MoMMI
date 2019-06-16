@@ -94,7 +94,15 @@ async def github_event(channel: MChannel, message: Any, meta: str) -> None:
         logger.debug("No handler for this event, ignoring.")
         return
 
-    asyncio.ensure_future(func(channel, message["content"], meta))
+    async def wrap():
+        logger.debug("what the fuck seriously")
+        try:
+            logger.debug(repr(func))
+            await func(channel, message["content"], meta)
+        except:
+            logger.exception("Caught exception inside GitHub event handler.")
+
+    asyncio.ensure_future(wrap())
 
 
 async def on_github_push(channel: MChannel, message: Any, meta: str) -> None:
@@ -158,9 +166,12 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
 
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
+    #logger.debug("fuck you python")
     action = message["action"]
     if action not in VALID_ISSUES_ACTIONS:
         return
+
+    #logger.debug("fuck")
 
     pull_request = message["pull_request"]
     repository = message["repository"]
@@ -170,10 +181,12 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
         asyncio.ensure_future(add_known_merge_commits(
             repository["full_name"], pull_request["number"]))
 
+    #logger.debug("yes???")
+
     if is_repo_muted(repository["full_name"]):
         return
 
-    await post_embedded_issue_or_pr(channel, message["repository"], pull_request["number"])
+    await post_embedded_issue_or_pr(channel, repository["full_name"], pull_request["number"])
 
 
 async def add_known_merge_commits(repo: str, number: int) -> None:
@@ -830,6 +843,8 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         content: Dict[str, Any] = await get_github_object(url)
     except:
         return
+
+    #logger.debug("yes!")
 
     if content.get("pull_request") is not None:
         pr_url = github_url(f"/repos/{repo}/pulls/{issueid}")
