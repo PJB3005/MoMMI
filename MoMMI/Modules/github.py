@@ -835,7 +835,7 @@ def format_desc(desc: str) -> str:
 
     if len(res) > MAX_BODY_LENGTH:
         res = res[:MAX_BODY_LENGTH] + "..."
-    return res[0]
+    return res
 
 async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> None:
     #logger.debug(f"shitposting {issueid}")
