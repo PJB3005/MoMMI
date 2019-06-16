@@ -690,14 +690,6 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
             async with session.post(post) as resp:
                 await resp.text()
 
-#todo
-# support short label codes like qol, bugfix etc, so not search for labels literally
-# filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
-#   /repos/:owner/:repo/issues/:issue_number/reactions?content=+1 (or hooray, heart, confused, laugh, -1)
-#   needs Accept: application/json in header
-# make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
-#   would also be nice to have when the emojicracy-filter gets to be a thing
-# dont use \w
 @command("giveissue", r"giveissue(?:\s+(-\w+=\w+(?:\s+-\w+=\w+)*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
     try:
@@ -710,8 +702,6 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     await master.client.add_reaction(message, "⏳")
 
-    #default params
-    #repo = "vgstation-coders/vgstation13"
     prefix = None
     shortlabels = set()
 
@@ -803,6 +793,28 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         return
 
     await master.client.add_reaction(message, "👍")
+          
+@command("autolabels", r"(?:(\S+)#)?(?:autolabels|autolabel)")
+async def autolabels_command(channel: MChannel, match: Match, message: Message) -> None:
+    prefix = match.group(1)
+
+    for repo_config in cfg:
+        repo = repo_config["repo"]
+
+        if not is_repo_valid_for_command(repo_config, channel, prefix):
+            continue
+
+        autolabels: Dict[str, str] = master.config.get_module(
+                f"github.repos.{repo}.autolabels", {})
+        if not autolabels:
+            await master.client.add_reaction(message, "❌")
+        else:
+            embed = Embed()
+            embed.title = f"Autolabels for {repo}"
+            for label in autolabels:
+                embed.description += f"{label} <> {autolabel.get(label)}\n"
+
+            await channel.send(embed=embed)
 
 def format_desc(desc: str) -> str:
     res = MD_COMMENT_RE.sub("", desc) # we need to use subn so it actually gets all the comments, not just the first
