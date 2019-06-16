@@ -788,20 +788,22 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
         url = github_url(f"/repos/{repo}/issues")
 
-        autolabels: Dict[str, str] = master.config.get_module(
-            f"github.repos.{repo}.autolabels", {})
-        if not autolabels:
-            await channel.send("⚠ Could not find autolabel config, skipping labels param")
-            labels = ""
-        else:
-            to_add = set()
+        labels = ""
+        if shortlabels:
+            autolabels: Dict[str, str] = master.config.get_module(
+                f"github.repos.{repo}.autolabels", {})
+            if not autolabels:
+                await channel.send("⚠ Could not find autolabel config, skipping labels param")
+                labels = ""
+            else:
+                to_add = set()
 
-            for s_label in shortlabels:
-                matched_label = autolabels.get(s_label.lower())
-                if matched_label:
-                    to_add.add(matched_label)
+                for s_label in shortlabels:
+                    matched_label = autolabels.get(s_label.lower())
+                    if matched_label:
+                        to_add.add(matched_label)
 
-            labels = ",".join(to_add)
+                labels = ",".join(to_add)
 
         session: aiohttp.ClientSession = master.get_cache(GITHUB_SESSION)
         reqparams = {}
