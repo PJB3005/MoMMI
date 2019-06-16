@@ -842,7 +842,26 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     merge_sha = prcontent["merge_commit_sha"]
     check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
 
+    
+    #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
+    reactions = await get_github_object(f"{url}/reactions")
+    all_reactions: Dict[str, int] = {}
+    for react in reactions:
+        content = react["content"]
+        if not all_reactions[content]: #not sure if this is necessary
+            all_reactions[content] = 1
+        all_reactions[content] += 1
+
+    if all_reactions["+1"]:
+        up = all_reactions["+1"]
+        embed.description += f"`👍 {up}`"
+
+    if all_reactions["-1"]:
+        down = all_reactions["+1"]
+        embed.description += f"`👎 {down}`"
+
     #get the admemes to add icons for all the checks so we can do this prettier
+    checks = ""
     for check in check_content["check_runs"]:
         status = "❓"
         if check["status"] == "queued":
@@ -857,26 +876,10 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
                 status = f"add {con}"
 
         cname = check["name"]
-        embed.description += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
+        checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
 
-    embed.description += f"`Merge State: TODO`\n"
+    embed.add_field(name="Checks",value=checks)
     
-    #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
-    reactions = await get_github_object(f"{url}/reactions")
-    all_reactions = Dict[str, int]
-    for react in reactions:
-        if not all_reactions[react["content"]]: #not sure if this is necessary
-            all_reactions[react["content"]] = 1
-        all_reactions[react["content"]] += 1
-
-    if all_reactions["+1"]:
-        up = all_reactions["+1"]
-        embed.description += f"`👍 {up}`"
-
-    if all_reactions["-1"]:
-        down = all_reactions["+1"]
-        embed.description += f"`👎 {down}`"
-
-    embed.description += "\n\u200B"
+    embed.description += "\u200B"
 
     await channel.send(embed=embed)
