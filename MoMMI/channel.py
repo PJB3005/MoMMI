@@ -35,7 +35,8 @@ class MChannel(object):
 
     def is_identifier(self, identifier: MIdentifier) -> bool:
         if isinstance(identifier, SnowflakeID):
-            return self.discordpy_channel.id == str(identifier)
+            # Yeah mypy was giving me a "returning Any" here for some stupid reason.
+            return bool(self.discordpy_channel.id == str(identifier))
 
         elif isinstance(identifier, str):
             return self.internal_name is not None and self.internal_name == identifier

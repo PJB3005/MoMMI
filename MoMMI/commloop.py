@@ -191,7 +191,7 @@ class MCommEvent(MHandler):
         await self.func(channel, message, meta)
 
 
-GlobalCommEventType = Callable[[Any, str], Awaitable[None]]
+GlobalCommEventType = Callable[[str, Any, str], Awaitable[None]]
 
 
 def global_comm_event(name: str) -> Callable[[GlobalCommEventType], GlobalCommEventType]:
