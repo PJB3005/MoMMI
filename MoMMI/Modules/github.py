@@ -15,6 +15,7 @@ from MoMMI.commands import always_command
 from MoMMI.master import master
 from MoMMI.server import MServer
 from MoMMI.Modules.irc import irc_transform
+from MoMMI import command
 import random
 
 logger = logging.getLogger(__name__)
@@ -172,7 +173,7 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     embed.set_footer(text="{}#{} by {}".format(
         repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
 
-    embed.description = format_desc(issue["body"])    
+    embed.description = format_desc(issue["body"])
 
     embed.description += "\n\u200B"
 
@@ -379,6 +380,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
         repo = repo_config["repo"]
 
         for match in REG_ISSUE.finditer(message.content):
+            #logger.debug("did match")
             prefix = match.group(1)
 
             if not is_repo_valid_for_command(repo_config, channel, prefix):
@@ -388,8 +390,9 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
             if not prefix and issueid < 30:
                 continue
 
-            post_embedded_issue(channel, repo, issueid)
-                    
+            #logger.debug("You what")
+            await post_embedded_issue(channel, repo, issueid)
+
             messages += 1
             if messages >= GITHUB_ISSUE_MAX_MESSAGES:
                 return
@@ -749,43 +752,50 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     #default params
     #repo = "vgstation-coders/vgstation13"
-    prefix = ""
+    prefix = None
     labels = ""
     emote = ""
     ranking_limit = 20
 
-    
-    #getting params
-    text_params = [x.strip() for x in match.group(1).split(" -")] # strip whitespaces
-    
-    for param in text_params:
-        temp = param.split("=")
-        if temp[0] == "prefix":
-            prefix = temp[1].strip()
-            continue
-        if temp[0] == "labels":
-            autolabels: Dict[str, str] = master.config.get_module(
-                f"github.repos.{repo_name}.autolabels", {})
-            if not autolabels:
-                await channel.send(":x: Could not find autolabel config, skipping labels param")
+    #logger.debug("thinking")
+
+    if match.group(1):
+        # getting params
+        text_params = [x.strip() for x in match.group(1)[1:].split(" -")] # strip whitespaces
+
+        #logger.debug(f"{repr(text_params)}: {len(text_params)}")
+
+        for param in text_params:
+            temp = param.split("=")
+            if temp[0] == "prefix":
+                prefix = temp[1].strip()
+                continue
+            if temp[0] == "labels":
+                autolabels: Dict[str, str] = master.config.get_module(
+                    f"github.repos.{repo_name}.autolabels", {})
+                if not autolabels:
+                    await channel.send(":x: Could not find autolabel config, skipping labels param")
+                    continue
+
+                to_add = set()
+                param_labels = temp[1].strip().split(",")
+                for p_label in param_labels:
+                    matched_label = autolabels.get(p_label.lower())
+                    if matched_label:
+                        to_add.add(matched_label)
+
+                labels = ",".join(to_add)
+                continue
+            if temp[0] == "limit":
+                ranking_limit = int(temp[1])
                 continue
 
-            to_add = set()
-            param_labels = temp[1].strip().split(",")
-            for p_label in param_labels:
-                matched_label = autolabels.get(p_label.lower())
-                if matched_label:
-                    to_add.add(matched_label)
+            await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
 
-            labels = ",".join(to_add)
-            continue
-        if temp[0] == "limit":
-            ranking_limit = int(temp[1])
-            continue
 
-        await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
+    #logger.debug("uh oh")
 
-        
+
 
     for repo_config in cfg:
         repo = repo_config["repo"]
@@ -795,16 +805,20 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
         url = github_url(f"/repos/{repo}/issues")
 
-        page_get = await session.get(url, {"labels" : labels, "per_page" : "100"})
-        maxpage = re.search(page_get.headers["Link"], REG_GIT_HEADER_PAGENUM).group(1)
+        session: aiohttp.ClientSession = master.get_cache(GITHUB_SESSION)
+        headers = {"labels" : labels}
+        #logger.debug(f"headers are {repr(headers)}")
+        page_get = await session.get(url, headers=headers)
+        #logger.debug(f"response link header: {page_get.headers['Link']}")
+        maxpage = int(REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"]).group(1))
         pagenum = random.randrange(1, maxpage)
 
-        issue_page = await get_github_object(url, {"labels" : labels, "page" : pagenum, "per_page" : "100"})
+        issue_page = await get_github_object(url, params={"labels" : labels, "page" : pagenum})
         if len(issue_page) == 0:
             await channel.send(":x: No random issue found")
             return
-        
-        rand_issue = await random.choice(issue_page)["number"]
+
+        rand_issue = random.choice(issue_page)["number"]
 
         await post_embedded_issue(channel, repo, rand_issue)
 
@@ -815,7 +829,8 @@ def format_desc(desc: str) -> str:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res[0]
 
-async def post_embedded_issue(channel: Channel, repo, issueid):
+async def post_embedded_issue(channel: MChannel, repo, issueid):
+    #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
         content = await get_github_object(url)

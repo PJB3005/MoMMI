@@ -112,7 +112,10 @@ class MCommand(MHandler):
                 await channel.send(choice)
                 return
 
-        # TODO: type ignore because ALL commands take in a regex match,
-        # but that only exists if you give the command decorator an actual regex.
-        # Refactor this so that commands that don't take in a match are a different type.
-        await self.func(channel, match, message)  # type: ignore
+        try:
+            # TODO: type ignore because ALL commands take in a regex match,
+            # but that only exists if you give the command decorator an actual regex.
+            # Refactor this so that commands that don't take in a match are a different type.
+            await self.func(channel, match, message)  # type: ignore
+        except:
+            logger.exception("Exception in command handler!")
