@@ -56,7 +56,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
         headers = {
             "Authorization": f"token {master.config.get_module('github.token')}",
             "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)",
-            "Accept": "application/vnd.github.symmetra-preview+json",
+            "Accept": "application/vnd.github.v3+json",
         }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
@@ -562,7 +562,7 @@ async def make_gist(contents: str, name: str, desc: str) -> str:
         return cast(str, output["html_url"])
 
 
-async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None) -> Any:
+async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None, accept: Optional[str] = None) -> Any:
     logger.debug(f"Fetching github object at URL {url}...")
 
     session = master.get_cache(GITHUB_SESSION)
@@ -571,14 +571,20 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
     response = None
     paramstr = str(params)
 
-    if (url, paramstr) in cache:
-        contents, date = cache[(url, paramstr)]
-        response = await session.get(url, headers={"If-Modified-Since": date}, params=params)
+    if (url, paramstr, accept) in cache:
+        contents, date = cache[(url, paramstr, accept)]
+        headers = {"If-Modified-Since": date}
+        if accept:
+            headers["Accept"] = accept
+        response = await session.get(url, headers=headers, params=params)
         if response.status == 304:
             return contents
 
     else:
-        response = await session.get(url, params=params)
+        headers = {}
+        if accept:
+            headers["Accept"] = accept
+        response = await session.get(url, params=params, headers=headers)
 
     if response.status != 200:
         txt = await response.text()
@@ -586,7 +592,7 @@ async def get_github_object(url: str, *, params: Optional[Dict[str, str]] = None
 
     contents = await response.json()
     if "Last-Modified" in response.headers:
-        cache[(url, paramstr)] = contents, response.headers["Last-Modified"]
+        cache[(url, paramstr)] = contents, response.headers["Last-Modified"], accept
 
     return contents
 
@@ -684,28 +690,18 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
             async with session.post(post) as resp:
                 await resp.text()
 
-#todo
-# support short label codes like qol, bugfix etc, so not search for labels literally
-# filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
-#   /repos/:owner/:repo/issues/:issue_number/reactions?content=+1 (or hooray, heart, confused, laugh, -1)
-#   needs Accept: application/json in header
-# make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
-#   would also be nice to have when the emojicracy-filter gets to be a thing
-# dont use \w
 @command("giveissue", r"giveissue(?:\s+(-\w+=\w+(?:\s+-\w+=\w+)*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
     try:
         cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
     except:
         # Server has no config settings for GitHub.
-        logger.debug(f"[ERROR] giveissue didn't find server config")
+        logger.error(f"giveissue didn't find server config")
         await master.client.add_reaction(message, "❌")
         return
 
     await master.client.add_reaction(message, "⏳")
 
-    #default params
-    #repo = "vgstation-coders/vgstation13"
     prefix = None
     shortlabels = set()
 
@@ -732,12 +728,13 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
 
     #logger.debug("uh oh")
-
+    didthedeed = 0
     for repo_config in cfg:
         repo = repo_config["repo"]
 
         if not is_repo_valid_for_command(repo_config, channel, prefix):
             continue
+        didthedeed = 1
 
         url = github_url(f"/repos/{repo}/issues")
 
@@ -755,6 +752,8 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
                     matched_label = autolabels.get(s_label.lower())
                     if matched_label:
                         to_add.add(matched_label)
+                    else:
+                        await channel.send(f"⚠ Unknown autolabel: '{s_label.lower()}'. repo: '{repo}'")
 
                 labels = ",".join(to_add)
 
@@ -762,9 +761,9 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         reqparams = {}
         if labels:
             reqparams["labels"] = labels
-        logger.debug(f"reqparams are {repr(reqparams)}")
-        page_get = await session.get(url, params=reqparams)
-        logger.debug(f"response link header: {page_get.headers['Link']}")
+        #logger.debug(f"reqparams are {repr(reqparams)}")
+        page_get = await session.get(url, params=reqparams, headers={"Accept": "application/vnd.github.symmetra-preview+json"})
+        #logger.debug(f"response link header: {page_get.headers['Link']}")
         lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
         if not lastpagematch:
             await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
@@ -778,17 +777,44 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         if labels:
             params["labels"] = labels
 
-        issue_page = await get_github_object(url, params=params)
-        await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
+        issue_page = await get_github_object(url, params=params, accept="application/vnd.github.symmetra-preview+json")
         if len(issue_page) == 0:
-            await master.client.add_reaction(message, "👎")
-            await channel.send("😕 No random issue found")
-            return
-        await master.client.add_reaction(message, "👍")
+            continue
 
         rand_issue = random.choice(issue_page)["number"]
 
         await post_embedded_issue_or_pr(channel, repo, rand_issue)
+
+    await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
+
+    if not didthedeed:
+        await master.client.add_reaction(message, "👎")
+        await channel.send("😕 No random issue found")
+        return
+
+    await master.client.add_reaction(message, "👍")
+          
+@command("autolabels", r"(?:(\S+)#)?(?:autolabels|autolabel)")
+async def autolabels_command(channel: MChannel, match: Match, message: Message) -> None:
+    prefix = match.group(1)
+
+    for repo_config in cfg:
+        repo = repo_config["repo"]
+
+        if not is_repo_valid_for_command(repo_config, channel, prefix):
+            continue
+
+        autolabels: Dict[str, str] = master.config.get_module(
+                f"github.repos.{repo}.autolabels", {})
+        if not autolabels:
+            await master.client.add_reaction(message, "❌")
+        else:
+            embed = Embed()
+            embed.title = f"Autolabels for {repo}"
+            for label in autolabels:
+                embed.description += f"{label} <> {autolabel.get(label)}\n"
+
+            await channel.send(embed=embed)
 
 def format_desc(desc: str) -> str:
     res = MD_COMMENT_RE.sub("", desc) # we need to use subn so it actually gets all the comments, not just the first
@@ -801,7 +827,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
-        content = await get_github_object(url)
+        content: Dict[str, Any] = await get_github_object(url)
     except:
         return
 
@@ -837,28 +863,27 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
 
     embed.description = format_desc(content["body"]) + "\n"
-    
+
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
-    reactions = await get_github_object(f"{url}/reactions")
-    all_reactions: Dict[str, int] = {}
+    reactions = await get_github_object(f"{url}/reactions", accept="application/vnd.github.squirrel-girl-preview+json")
+    all_reactions: DefaultDict[str, int] = defaultdict(int)
     for react in reactions:
-        content = react["content"]
-        if not all_reactions[content]: #not sure if this is necessary
-            all_reactions[content] = 1
-        all_reactions[content] += 1
+        all_reactions[react["content"]] += 1
 
-    if all_reactions["+1"]:
+    if all_reactions.get("+1"):
         up = all_reactions["+1"]
-        embed.description += f"`👍 {up}`"
 
-    if all_reactions["-1"]:
-        down = all_reactions["+1"]
-        embed.description += f"`👎 {down}`"
+        embed.description += f"👍 {up}"
 
-    if prcontent:
-        merge_sha = prcontent["merge_commit_sha"]
-        check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
+    if all_reactions.get("-1"):
+        down = all_reactions["-1"]
+        embed.description += f"👎 {down}"
 
+    if content.get("pull_request") is not None:
+        merge_sha = prcontent["head"]["sha"]
+        check_content = await get_github_object(github_url(f"/repos/{repo}/commits/{merge_sha}/check-runs"), accept="application/vnd.github.antiope-preview+json")
+
+        #logger.debug(check_content)
         #get the admemes to add icons for all the checks so we can do this prettier
         checks = ""
         for check in check_content["check_runs"]:
@@ -884,11 +909,12 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
             cname = check["name"]
             checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
 
-        embed.add_field(name="Checks",value=checks)
+        if checks:
+            embed.add_field(name="Checks",value=checks)
 
         if not prcontent["mergeable"]:
             embed.add_field(name="🚨CONFLICTS🚨")
-    
+
     embed.description += "\u200B"
 
     await channel.send(embed=embed)

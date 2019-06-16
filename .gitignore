@@ -103,7 +103,7 @@ logs/*
 !/config/example/
 
 codeprojects/*
-data*
+data/
 pyvenv.cfg
 
 # I blame MacOS for this:

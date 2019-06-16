@@ -5,6 +5,9 @@ authors = ["PJB3005 <pieterjan.briers+bot@gmail.com>"]
 publish = false
 edition = "2018"
 
+[profile.release]
+lto = true
+
 [dependencies]
 rocket = "0.4"
 serde = "1"
