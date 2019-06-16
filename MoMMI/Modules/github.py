@@ -837,10 +837,6 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
 
     embed.description = format_desc(content["body"]) + "\n"
-
-    merge_sha = prcontent["merge_commit_sha"]
-    check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
-
     
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
     reactions = await get_github_object(f"{url}/reactions")
@@ -859,32 +855,39 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         down = all_reactions["+1"]
         embed.description += f"`👎 {down}`"
 
-    #get the admemes to add icons for all the checks so we can do this prettier
-    checks = ""
-    for check in check_content["check_runs"]:
-        status = "❓"
-        if check["status"] == "queued":
-            status = "😴"
-        elif check["status"] == "in_progress":
-            status = "🏃"
-        elif check["status"] == "completed":
-            if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
-                status = "😐"
-            elif check["conclusion"] == "success":
-                status = "😄"
-            elif check["conclusion"] == "failure":
-                status = "😭"
-            elif check["conclusion"] == "cancelled":
-                status = "🛑"
-            elif check["conclusion"] == "timed_out":
-                status = "⌛"
-            elif check["conclusion"] == "action_required":
-                status = "🚧"
+    if prcontent:
+        merge_sha = prcontent["merge_commit_sha"]
+        check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
 
-        cname = check["name"]
-        checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
+        #get the admemes to add icons for all the checks so we can do this prettier
+        checks = ""
+        for check in check_content["check_runs"]:
+            status = "❓"
+            if check["status"] == "queued":
+                status = "😴"
+            elif check["status"] == "in_progress":
+                status = "🏃"
+            elif check["status"] == "completed":
+                if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
+                    status = "😐"
+                elif check["conclusion"] == "success":
+                    status = "😄"
+                elif check["conclusion"] == "failure":
+                    status = "😭"
+                elif check["conclusion"] == "cancelled":
+                    status = "🛑"
+                elif check["conclusion"] == "timed_out":
+                    status = "⌛"
+                elif check["conclusion"] == "action_required":
+                    status = "🚧"
 
-    embed.add_field(name="Checks",value=checks)
+            cname = check["name"]
+            checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
+
+        embed.add_field(name="Checks",value=checks)
+
+        if not prcontent["mergeable"]:
+            embed.add_field(name="CONFLICTS")
     
     embed.description += "\u200B"
 
