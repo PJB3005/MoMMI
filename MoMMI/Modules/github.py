@@ -15,12 +15,14 @@ from MoMMI.commands import always_command
 from MoMMI.master import master
 from MoMMI.server import MServer
 from MoMMI.Modules.irc import irc_transform
+import random
 
 logger = logging.getLogger(__name__)
 
 REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
+REG_GIT_HEADER_PAGENUM = re.compile("\?page=(\d+)[^,]+rel=\"last\"")
 
 REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
 
@@ -43,7 +45,6 @@ VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
 KNOWN_MERGE_COMMITS: Set[str] = set()
 
 EVENT_MUTED_REPOS: Set[str] = set()
-
 
 def is_repo_muted(repo: str) -> bool:
     return repo in EVENT_MUTED_REPOS
@@ -353,6 +354,7 @@ async def issue_auto_label(type: str, message: Any, meta: str) -> None:
         "Accept": "application/vnd.github.symmetra-preview+json"
     }
 
+
     async with session.post(label_url, json=to_add_list, headers=headers) as req:
         logger.info(f"{req.status}")
 
@@ -386,47 +388,8 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
             if not prefix and issueid < 30:
                 continue
 
-            url = github_url(f"/repos/{repo}/issues/{issueid}")
-            try:
-                content = await get_github_object(url)
-            except:
-                continue
-
-            # God forgive me.
-            embed = Embed()
-            emoji = ""
-            if content["state"] == "open":
-                if content.get("pull_request") is not None:
-                    emoji = "<:PRopened:245910125041287168>"
-                else:
-                    emoji = "<:ISSopened:246037149873340416>"
-                embed.color = COLOR_GITHUB_GREEN
-
-            elif content.get("pull_request") is not None:
-                url = github_url(f"/repos/{repo}/pulls/{issueid}")
-                prcontent = await get_github_object(url)
-                if prcontent["merged"]:
-                    emoji = "<:PRmerged:437316952772444170>"
-                    embed.color = COLOR_GITHUB_PURPLE
-                else:
-                    emoji = "<:PRclosed:246037149839917056>"
-                    embed.color = COLOR_GITHUB_RED
-
-            else:
-                emoji = "<:ISSclosed:246037286322569216>"
-                embed.color = COLOR_GITHUB_RED
-
-            embed.title = emoji + content["title"]
-            embed.url = content["html_url"]
-            embed.set_footer(
-                text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
-
-            embed.description = format_desc(content["body"])
-
-            embed.description += "\n\u200B"
-
-            await channel.send(embed=embed)
-
+            post_embedded_issue(channel, repo, issueid)
+                    
             messages += 1
             if messages >= GITHUB_ISSUE_MAX_MESSAGES:
                 return
@@ -765,9 +728,131 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
             async with session.post(post) as resp:
                 await resp.text()
 
+#todo
+# support short label codes like qol, bugfix etc, so not search for labels literally
+# filter for emojicracy, just use emoji-modifiers to calc total value of issue, then choose between top ~10ish
+#   /repos/:owner/:repo/issues/:issue_number/reactions?content=+1 (or hooray, heart, confused, laugh, -1)
+#   needs Accept: application/json in header
+# make it possible to harddefine params eg. repo = bla/bla, so you don't have to give a label to search other repos
+#   would also be nice to have when the emojicracy-filter gets to be a thing
+# dont use \w
+@command("giveissue", r"giveissue(?:\s+(-\w+=\w+(?:\s+-\w+=\w+)*))?")
+async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:
+    try:
+        cfg: List[Dict[str, Any]] = channel.server_config("modules.github.repos")
+    except:
+        # Server has no config settings for GitHub.
+        await channel.send(":trash: No config found")
+        return
+
+    await channel.send(":hourglass_flowing_sand: Fetching random issue")
+
+    #default params
+    #repo = "vgstation-coders/vgstation13"
+    prefix = ""
+    labels = ""
+    emote = ""
+    ranking_limit = 20
+
+    
+    #getting params
+    text_params = [x.strip() for x in match.group(1).split(" -")] # strip whitespaces
+    
+    for param in text_params:
+        temp = param.split("=")
+        if temp[0] == "prefix":
+            prefix = temp[1].strip()
+            continue
+        if temp[0] == "labels":
+            autolabels: Dict[str, str] = master.config.get_module(
+                f"github.repos.{repo_name}.autolabels", {})
+            if not autolabels:
+                await channel.send(":x: Could not find autolabel config, skipping labels param")
+                continue
+
+            to_add = set()
+            param_labels = temp[1].strip().split(",")
+            for p_label in param_labels:
+                matched_label = autolabels.get(p_label.lower())
+                if matched_label:
+                    to_add.add(matched_label)
+
+            labels = ",".join(to_add)
+            continue
+        if temp[0] == "limit":
+            ranking_limit = int(temp[1])
+            continue
+
+        await channel.send(f":trash: Warning: Unknown parameter: {temp[0]}")
+
+        
+
+    for repo_config in cfg:
+        repo = repo_config["repo"]
+
+        if not is_repo_valid_for_command(repo_config, channel, prefix):
+            continue
+
+        url = github_url(f"/repos/{repo}/issues")
+
+        page_get = await session.get(url, {"labels" : labels, "per_page" : "100"})
+        maxpage = re.search(page_get.headers["Link"], REG_GIT_HEADER_PAGENUM).group(1)
+        pagenum = random.randrange(1, maxpage)
+
+        issue_page = await get_github_object(url, {"labels" : labels, "page" : pagenum, "per_page" : "100"})
+        if len(issue_page) == 0:
+            await channel.send(":x: No random issue found")
+            return
+        
+        rand_issue = await random.choice(issue_page)["number"]
+
+        await post_embedded_issue(channel, repo, rand_issue)
+
 def format_desc(desc: str) -> str:
     res = re.subn(MD_COMMENT_RE, "", desc) # we need to use subn so it actually gets all the comments, not just the first
 
     if len(res) > MAX_BODY_LENGTH:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res[0]
+
+async def post_embedded_issue(channel: Channel, repo, issueid):
+    url = github_url(f"/repos/{repo}/issues/{issueid}")
+    try:
+        content = await get_github_object(url)
+    except:
+        return
+
+    # God forgive me.
+    embed = Embed()
+    emoji = ""
+    if content["state"] == "open":
+        if content.get("pull_request") is not None:
+            emoji = "<:PRopened:245910125041287168>"
+        else:
+            emoji = "<:ISSopened:246037149873340416>"
+        embed.color = COLOR_GITHUB_GREEN
+
+    elif content.get("pull_request") is not None:
+        url = github_url(f"/repos/{repo}/pulls/{issueid}")
+        prcontent = await get_github_object(url)
+        if prcontent["merged"]:
+            emoji = "<:PRmerged:437316952772444170>"
+            embed.color = COLOR_GITHUB_PURPLE
+        else:
+            emoji = "<:PRclosed:246037149839917056>"
+            embed.color = COLOR_GITHUB_RED
+
+    else:
+        emoji = "<:ISSclosed:246037286322569216>"
+        embed.color = COLOR_GITHUB_RED
+
+    embed.title = emoji + content["title"]
+    embed.url = content["html_url"]
+    embed.set_footer(
+        text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
+
+    embed.description = format_desc(content["body"])
+
+    embed.description += "\n\u200B"
+
+    await channel.send(embed=embed)
