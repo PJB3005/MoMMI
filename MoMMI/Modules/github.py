@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
-REG_GIT_HEADER_PAGENUM = re.compile("\?page=(\d+)[^,]+rel=\"last\"")
+REG_GIT_HEADER_PAGENUM = re.compile(r"[?&]page=(\d+)[^,]+rel=\"last\"")
 
 REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
 
@@ -56,7 +56,7 @@ async def load(loop: asyncio.AbstractEventLoop) -> None:
         headers = {
             "Authorization": f"token {master.config.get_module('github.token')}",
             "User-Agent": "MoMMIv2 (@PJBot, @PJB3005)",
-            "Accept": "application/vnd.github.v3+json",
+            "Accept": "application/vnd.github.symmetra-preview+json",
         }
         session = aiohttp.ClientSession(headers=headers)
         master.set_cache(GITHUB_SESSION, session)
@@ -796,7 +796,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             labels = ""
         else:
             to_add = set()
-            
+
             for s_label in shortlabels:
                 matched_label = autolabels.get(s_label.lower())
                 if matched_label:
@@ -805,10 +805,12 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             labels = ",".join(to_add)
 
         session: aiohttp.ClientSession = master.get_cache(GITHUB_SESSION)
-        headers = {"labels" : labels}
-        #logger.debug(f"headers are {repr(headers)}")
-        page_get = await session.get(url, headers=headers)
-        #logger.debug(f"response link header: {page_get.headers['Link']}")
+        reqparams = {}
+        if labels:
+            reqparams["labels"] = labels
+        logger.debug(f"reqparams are {repr(reqparams)}")
+        page_get = await session.get(url, params=reqparams)
+        logger.debug(f"response link header: {page_get.headers['Link']}")
         lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
         if not lastpagematch:
             raise Exception("GitHub returned a weird Link header!")
@@ -818,7 +820,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
         params = {"page" : str(pagenum)}
         if labels:
-            params["labels"] = json.dumps(labels)
+            params["labels"] = labels
 
         issue_page = await get_github_object(url, params=params)
         if len(issue_page) == 0:
