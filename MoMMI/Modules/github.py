@@ -805,6 +805,10 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     except:
         return
 
+    if content.get("pull_request") is not None:
+        pr_url = github_url(f"/repos/{repo}/pulls/{issueid}")
+        prcontent = await get_github_object(pr_url)
+
     # God forgive me.
     embed = Embed()
     emoji = ""
@@ -816,8 +820,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         embed.color = COLOR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
-        url = github_url(f"/repos/{repo}/pulls/{issueid}")
-        prcontent = await get_github_object(url)
+        
         if prcontent["merged"]:
             emoji = "<:PRmerged:437316952772444170>"
             embed.color = COLOR_GITHUB_PURPLE
@@ -834,10 +837,26 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     embed.set_footer(
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
 
-    embed.description = format_desc(content["body"])
+    embed.description = format_desc(content["body"]) + "\n"
 
-    if content["mergeable_state"]:
-        embed.description += f"\nMerge State: {content["mergeable_state"]}\n"
+    check_content = await get_github_object(f"/repos/{repo}/commits/{prcontent["merge_commit_sha"]}/check-runs")
+
+    #get the admemes to add icons for all the checks so we can do this prettier
+    for check in check_content["check_runs"]:
+        status = "❓"
+        if check["status"] == "queued":
+            status = "😴"
+        elif check["status"] == "in_progress"
+            status = "🏃"
+        elif check["status"] == "completed"
+            if check["conclusion"] == "neutral" #would sure be nice to just know these huh GITHUB
+                status = "😐"
+            else
+                status = f"add {check["conclusion"]}"
+
+        embed.description += f"`{check["name"]} {status}`\n" #will only need \n as long as we got no icons
+
+    embed.description += f"`Merge State: TODO`\n"
     
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
     reactions = await get_github_object(f"{url}/reactions")
