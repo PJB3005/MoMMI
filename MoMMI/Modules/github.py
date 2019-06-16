@@ -154,30 +154,7 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
-    issue = message["issue"]
-    sender = message["sender"]
-    repository = message["repository"]
-    pre = None
-    embed = Embed()
-    if message["action"] == "closed":
-        pre = "<:ISSclosed:246037286322569216>"
-        embed.color = COLOR_GITHUB_RED
-    else:
-        pre = "<:ISSopened:246037149873340416>"
-        embed.color = COLOR_GITHUB_GREEN
-
-    embed.title = pre + issue["title"]
-    embed.url = issue["html_url"]
-    embed.set_author(
-        name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
-    embed.set_footer(text="{}#{} by {}".format(
-        repository["full_name"], issue["number"], issue["user"]["login"]), icon_url=issue["user"]["avatar_url"])
-
-    embed.description = format_desc(issue["body"])
-
-    embed.description += "\n\u200B"
-
-    await channel.send(embed=embed)
+    await post_embedded_issue_or_pr(channel, message["repository"], message["issue"]["number"])
 
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
@@ -186,41 +163,17 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
         return
 
     pull_request = message["pull_request"]
-    sender = message["sender"]
     repository = message["repository"]
-    pre = None
-
-    embed = Embed()
-    if action == "closed":
-        pre = "<:PRclosed:246037149839917056>"
-        embed.color = COLOR_GITHUB_RED
-
-    else:
-        pre = "<:PRopened:245910125041287168>"
-        embed.color = COLOR_GITHUB_GREEN
 
     if action == "closed" and pull_request["merged"]:
-        pre = "<:PRmerged:437316952772444170>"
-        embed.color = COLOR_GITHUB_PURPLE
         KNOWN_MERGE_COMMITS.add(pull_request["merge_commit_sha"])
         asyncio.ensure_future(add_known_merge_commits(
             repository["full_name"], pull_request["number"]))
 
-    embed.title = pre + pull_request["title"]
-    embed.url = pull_request["html_url"]
-    embed.set_author(
-        name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
-    embed.set_footer(text="{}#{} by {}".format(
-        repository["full_name"], pull_request["number"], pull_request["user"]["login"]), icon_url=pull_request["user"]["avatar_url"])
-
-    embed.description = format_desc(pull_request["body"])
-
-    embed.description += "\n\u200B"
-
     if is_repo_muted(repository["full_name"]):
         return
 
-    await channel.send(embed=embed)
+    await post_embedded_issue_or_pr(channel, message["repository"], pull_request["number"])
 
 
 async def add_known_merge_commits(repo: str, number: int) -> None:
@@ -391,7 +344,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
                 continue
 
             #logger.debug("You what")
-            await post_embedded_issue(channel, repo, issueid)
+            await post_embedded_issue_or_pr(channel, repo, issueid)
 
             messages += 1
             if messages >= GITHUB_ISSUE_MAX_MESSAGES:
@@ -835,7 +788,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
         rand_issue = random.choice(issue_page)["number"]
 
-        await post_embedded_issue(channel, repo, rand_issue)
+        await post_embedded_issue_or_pr(channel, repo, rand_issue)
 
 def format_desc(desc: str) -> str:
     res = MD_COMMENT_RE.sub("", desc) # we need to use subn so it actually gets all the comments, not just the first
@@ -844,13 +797,17 @@ def format_desc(desc: str) -> str:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res
 
-async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> None:
+async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) -> None:
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
         content = await get_github_object(url)
     except:
         return
+
+    if content.get("pull_request") is not None:
+        pr_url = github_url(f"/repos/{repo}/pulls/{issueid}")
+        prcontent = await get_github_object(pr_url)
 
     # God forgive me.
     embed = Embed()
@@ -863,8 +820,7 @@ async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> Non
         embed.color = COLOR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
-        url = github_url(f"/repos/{repo}/pulls/{issueid}")
-        prcontent = await get_github_object(url)
+        
         if prcontent["merged"]:
             emoji = "<:PRmerged:437316952772444170>"
             embed.color = COLOR_GITHUB_PURPLE
@@ -881,8 +837,49 @@ async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> Non
     embed.set_footer(
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
 
-    embed.description = format_desc(content["body"])
+    embed.description = format_desc(content["body"]) + "\n"
 
-    embed.description += "\n\u200B"
+    merge_sha = prcontent["merge_commit_sha"]
+    check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
+
+    
+    #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
+    reactions = await get_github_object(f"{url}/reactions")
+    all_reactions: Dict[str, int] = {}
+    for react in reactions:
+        content = react["content"]
+        if not all_reactions[content]: #not sure if this is necessary
+            all_reactions[content] = 1
+        all_reactions[content] += 1
+
+    if all_reactions["+1"]:
+        up = all_reactions["+1"]
+        embed.description += f"`👍 {up}`"
+
+    if all_reactions["-1"]:
+        down = all_reactions["+1"]
+        embed.description += f"`👎 {down}`"
+
+    #get the admemes to add icons for all the checks so we can do this prettier
+    checks = ""
+    for check in check_content["check_runs"]:
+        status = "❓"
+        if check["status"] == "queued":
+            status = "😴"
+        elif check["status"] == "in_progress":
+            status = "🏃"
+        elif check["status"] == "completed":
+            if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
+                status = "😐"
+            else:
+                con = check["conclusion"]
+                status = f"add {con}"
+
+        cname = check["name"]
+        checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
+
+    embed.add_field(name="Checks",value=checks)
+    
+    embed.description += "\u200B"
 
     await channel.send(embed=embed)
