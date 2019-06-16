@@ -838,7 +838,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
 
     await master.client.remove_reaction(message, "⏳", channel.server.get_server().me)
 
-    if !didthedeed:
+    if not didthedeed:
         await master.client.add_reaction(message, "👎")
         await channel.send("😕 No random issue found")
         return
