@@ -887,7 +887,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
         embed.add_field(name="Checks",value=checks)
 
         if not prcontent["mergeable"]:
-            embed.add_field(name="CONFLICTS")
+            embed.add_field(name="🚨CONFLICTS🚨")
     
     embed.description += "\u200B"
 
