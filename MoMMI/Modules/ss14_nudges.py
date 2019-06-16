@@ -1,5 +1,5 @@
 import logging
-from typing import Match, Any
+from typing import Match, Any, Dict
 import aiohttp
 from discord import Message
 from MoMMI import comm_event, command, MChannel, always_command
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 @comm_event("ss14")
 async def ss14_nudge(channel: MChannel, message: Any, meta: str) -> None:
     try:
-        config = channel.module_config(f"ss14.servers.{meta}")
+        config: Dict[str, Any] = channel.module_config(f"ss14.servers.{meta}")
     except ValueError:
         return
 
@@ -43,6 +43,7 @@ async def ss14_relay(channel: MChannel, match: Match, message: Message) -> None:
 
     server = None
 
+    config: Any
     for config in channel.server_config("modules.ss14", []):
         if config["discord_channel"] != channel.internal_name:
             continue
