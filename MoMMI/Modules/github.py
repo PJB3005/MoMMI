@@ -154,7 +154,7 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
-    await post_embedded_issue_or_pr(channel, message["repository"] message["issue"]["number"])
+    await post_embedded_issue_or_pr(channel, message["repository"], message["issue"]["number"])
 
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
@@ -839,22 +839,25 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
 
     embed.description = format_desc(content["body"]) + "\n"
 
-    check_content = await get_github_object(f"/repos/{repo}/commits/{prcontent["merge_commit_sha"]}/check-runs")
+    merge_sha = prcontent["merge_commit_sha"]
+    check_content = await get_github_object(f"/repos/{repo}/commits/{merge_sha}/check-runs")
 
     #get the admemes to add icons for all the checks so we can do this prettier
     for check in check_content["check_runs"]:
         status = "❓"
         if check["status"] == "queued":
             status = "😴"
-        elif check["status"] == "in_progress"
+        elif check["status"] == "in_progress":
             status = "🏃"
-        elif check["status"] == "completed"
-            if check["conclusion"] == "neutral" #would sure be nice to just know these huh GITHUB
+        elif check["status"] == "completed":
+            if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
                 status = "😐"
-            else
-                status = f"add {check["conclusion"]}"
+            else:
+                con = check["conclusion"]
+                status = f"add {con}"
 
-        embed.description += f"`{check["name"]} {status}`\n" #will only need \n as long as we got no icons
+        cname = check["name"]
+        embed.description += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
 
     embed.description += f"`Merge State: TODO`\n"
     
@@ -862,15 +865,17 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     reactions = await get_github_object(f"{url}/reactions")
     all_reactions = {}
     for react in reactions:
-        if !all_reactions[react["content"]]: #not sure if this is necessary
+        if not all_reactions[react["content"]]: #not sure if this is necessary
             all_reactions[react["content"]] = 1
         all_reactions[react["content"]] += 1
 
     if all_reactions["+1"]:
-        embed.add_field(value=f"`👍 {all_reactions["+1"]}`")
+        up = all_reactions["+1"]
+        embed.description += f"`👍 {up}`"
 
     if all_reactions["-1"]:
-        embed.add_field(value=f"`👎 {all_reactions["+1"]}`")
+        down = all_reactions["+1"]
+        embed.description += f"`👎 {down}`"
 
     embed.description += "\n\u200B"
 
