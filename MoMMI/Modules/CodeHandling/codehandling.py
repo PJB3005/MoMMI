@@ -40,26 +40,29 @@ async def runcode_command(channel: MChannel, match: Match, message: Message) -> 
 async def runcode_file_command(channel: MChannel, match: Match, message: Message) -> None:
     if not message.attachments:
         return
-    
+
     async with aiohttp.ClientSession(headers={"User-Agent": "MoMMIv2 (GitHub @PJBot, GitHub @PJB3005)"}) as session:
         for i, attach in enumerate(message.attachments):
             filename = FILE_EXTENSION_RE.match(attach["filename"])
+            if filename is None:
+                continue
+
             language = filename.group(1) or "dm"
             url = attach["url"]
-            
+
             try:
                 async with session.get(url) as request:
                     if request.status != 200:
                         await channel.send(f"Got bad HTTP code on attachment #{i}: {request.status}")
                         continue
-                
+
                     text = await request.text()
-                
+
             except Exception as e:
                 await channel.send("Got an error while downloading the attachment. Is it a text file?")
                 logger.exception("Bad codehandling download")
                 continue
-            
+
             if not await try_execute(text, language, channel, message):
                 await channel.send(f"No language with key: `{language}`.")
 

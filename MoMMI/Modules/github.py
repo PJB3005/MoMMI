@@ -770,22 +770,22 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
             if temp[0] == "prefix":
                 prefix = temp[1].strip()
                 continue
-            if temp[0] == "labels":
-                autolabels: Dict[str, str] = master.config.get_module(
-                    f"github.repos.{repo_name}.autolabels", {})
-                if not autolabels:
-                    await channel.send(":x: Could not find autolabel config, skipping labels param")
-                    continue
+            #if temp[0] == "labels":
+            #    autolabels: Dict[str, str] = master.config.get_module(
+            #        f"github.repos.{repo_name}.autolabels", {})
+            #    if not autolabels:
+            #        await channel.send(":x: Could not find autolabel config, skipping labels param")
+            #        continue
 
-                to_add = set()
-                param_labels = temp[1].strip().split(",")
-                for p_label in param_labels:
-                    matched_label = autolabels.get(p_label.lower())
-                    if matched_label:
-                        to_add.add(matched_label)
+            #    to_add = set()
+            #    param_labels = temp[1].strip().split(",")
+            #    for p_label in param_labels:
+            #        matched_label = autolabels.get(p_label.lower())
+            #        if matched_label:
+            #            to_add.add(matched_label)
 
-                labels = ",".join(to_add)
-                continue
+            #    labels = ",".join(to_add)
+            #    continue
             if temp[0] == "limit":
                 ranking_limit = int(temp[1])
                 continue
@@ -810,10 +810,18 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         #logger.debug(f"headers are {repr(headers)}")
         page_get = await session.get(url, headers=headers)
         #logger.debug(f"response link header: {page_get.headers['Link']}")
-        maxpage = int(REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"]).group(1))
+        lastpagematch = REG_GIT_HEADER_PAGENUM.search(page_get.headers["Link"])
+        if not lastpagematch:
+            raise Exception("GitHub returned a weird Link header!")
+
+        maxpage = int(lastpagematch.group(1))
         pagenum = random.randrange(1, maxpage)
 
-        issue_page = await get_github_object(url, params={"labels" : labels, "page" : pagenum})
+        params = {"page" : str(pagenum)}
+        if labels:
+            params["labels"] = json.dumps(labels)
+
+        issue_page = await get_github_object(url, params=params)
         if len(issue_page) == 0:
             await channel.send(":x: No random issue found")
             return
@@ -823,13 +831,13 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         await post_embedded_issue(channel, repo, rand_issue)
 
 def format_desc(desc: str) -> str:
-    res = re.subn(MD_COMMENT_RE, "", desc) # we need to use subn so it actually gets all the comments, not just the first
+    res = MD_COMMENT_RE.sub("", desc) # we need to use subn so it actually gets all the comments, not just the first
 
     if len(res) > MAX_BODY_LENGTH:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res[0]
 
-async def post_embedded_issue(channel: MChannel, repo, issueid):
+async def post_embedded_issue(channel: MChannel, repo: str, issueid: int) -> None:
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
