@@ -162,7 +162,7 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
-    await post_embedded_issue_or_pr(channel, message["repository"], message["issue"]["number"])
+    await post_embedded_issue_or_pr(channel, message["repository"]["full_name"], message["issue"]["number"], message["sender"])
 
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
@@ -186,7 +186,7 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
     if is_repo_muted(repository["full_name"]):
         return
 
-    await post_embedded_issue_or_pr(channel, repository["full_name"], pull_request["number"])
+    await post_embedded_issue_or_pr(channel, repository["full_name"], pull_request["number"], message["sender"])
 
 
 async def add_known_merge_commits(repo: str, number: int) -> None:
@@ -836,7 +836,7 @@ def format_desc(desc: str) -> str:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res
 
-async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) -> None:
+async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, sender_data: Optional[Dict[str, Any]] = None) -> None:
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
@@ -877,6 +877,10 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     embed.url = content["html_url"]
     embed.set_footer(
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
+
+    if sender_data is not None:
+        embed.set_author(
+            name=sender_data["login"], url=sender_data["html_url"], icon_url=sender_data["avatar_url"])
 
     embed.description = format_desc(content["body"]) + "\n"
 
