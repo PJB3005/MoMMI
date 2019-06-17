@@ -806,7 +806,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         return
 
     await master.client.add_reaction(message, "👍")
-          
+
 @command("autolabels", r"(?:(\S+)#)?(?:autolabels|autolabel)")
 async def autolabels_command(channel: MChannel, match: Match, message: Message) -> None:
     prefix = match.group(1)
@@ -881,18 +881,23 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     embed.description = format_desc(content["body"]) + "\n"
 
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
-    reactions = await get_github_object(f"{url}/reactions", accept="application/vnd.github.squirrel-girl-preview+json")
+    reactions = await get_github_object(f"{url}/reactions?per_page=100", accept="application/vnd.github.squirrel-girl-preview+json")
     all_reactions: DefaultDict[str, int] = defaultdict(int)
     for react in reactions:
         all_reactions[react["content"]] += 1
 
+    did_up = False
     if all_reactions.get("+1"):
         up = all_reactions["+1"]
-        embed.description += f"👍 {up}"
+        embed.description += f"<:upvote:590257887826411590> {up}"
+        did_up = True
 
     if all_reactions.get("-1"):
         down = all_reactions["-1"]
-        embed.description += f"👎 {down}"
+        if did_up:
+            embed.description += "   "
+        embed.description += f"<:downvote:590257835447812207> {down}"
+
 
     if content.get("pull_request") is not None:
         merge_sha = prcontent["head"]["sha"]
