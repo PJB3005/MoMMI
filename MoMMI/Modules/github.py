@@ -94,7 +94,15 @@ async def github_event(channel: MChannel, message: Any, meta: str) -> None:
         logger.debug("No handler for this event, ignoring.")
         return
 
-    asyncio.ensure_future(func(channel, message["content"], meta))
+    async def wrap():
+        logger.debug("what the fuck seriously")
+        try:
+            logger.debug(repr(func))
+            await func(channel, message["content"], meta)
+        except:
+            logger.exception("Caught exception inside GitHub event handler.")
+
+    asyncio.ensure_future(wrap())
 
 
 async def on_github_push(channel: MChannel, message: Any, meta: str) -> None:
@@ -154,13 +162,16 @@ async def on_github_issues(channel: MChannel, message: Any, meta: str) -> None:
     if message["action"] not in VALID_ISSUES_ACTIONS:
         return
 
-    await post_embedded_issue_or_pr(channel, message["repository"], message["issue"]["number"])
+    await post_embedded_issue_or_pr(channel, message["repository"]["full_name"], message["issue"]["number"], message["sender"])
 
 
 async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> None:
+    #logger.debug("fuck you python")
     action = message["action"]
     if action not in VALID_ISSUES_ACTIONS:
         return
+
+    #logger.debug("fuck")
 
     pull_request = message["pull_request"]
     repository = message["repository"]
@@ -170,10 +181,12 @@ async def on_github_pull_request(channel: MChannel, message: Any, meta: str) -> 
         asyncio.ensure_future(add_known_merge_commits(
             repository["full_name"], pull_request["number"]))
 
+    #logger.debug("yes???")
+
     if is_repo_muted(repository["full_name"]):
         return
 
-    await post_embedded_issue_or_pr(channel, message["repository"], pull_request["number"])
+    await post_embedded_issue_or_pr(channel, repository["full_name"], pull_request["number"], message["sender"])
 
 
 async def add_known_merge_commits(repo: str, number: int) -> None:
@@ -793,7 +806,7 @@ async def giveissue_command(channel: MChannel, match: Match, message: Message) -
         return
 
     await master.client.add_reaction(message, "👍")
-          
+
 @command("autolabels", r"(?:(\S+)#)?(?:autolabels|autolabel)")
 async def autolabels_command(channel: MChannel, match: Match, message: Message) -> None:
     prefix = match.group(1)
@@ -823,13 +836,15 @@ def format_desc(desc: str) -> str:
         res = res[:MAX_BODY_LENGTH] + "..."
     return res
 
-async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) -> None:
+async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, sender_data: Optional[Dict[str, Any]] = None) -> None:
     #logger.debug(f"shitposting {issueid}")
     url = github_url(f"/repos/{repo}/issues/{issueid}")
     try:
         content: Dict[str, Any] = await get_github_object(url)
     except:
         return
+
+    #logger.debug("yes!")
 
     if content.get("pull_request") is not None:
         pr_url = github_url(f"/repos/{repo}/pulls/{issueid}")
@@ -862,22 +877,31 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int) 
     embed.set_footer(
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
 
+    if sender_data is not None:
+        embed.set_author(
+            name=sender_data["login"], url=sender_data["html_url"], icon_url=sender_data["avatar_url"])
+
     embed.description = format_desc(content["body"]) + "\n"
 
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
-    reactions = await get_github_object(f"{url}/reactions", accept="application/vnd.github.squirrel-girl-preview+json")
+    reactions = await get_github_object(f"{url}/reactions?per_page=100", accept="application/vnd.github.squirrel-girl-preview+json")
     all_reactions: DefaultDict[str, int] = defaultdict(int)
     for react in reactions:
         all_reactions[react["content"]] += 1
 
+    did_up = False
     if all_reactions.get("+1"):
         up = all_reactions["+1"]
+        embed.description += f"<:upvote:590257887826411590> {up}"
+        did_up = True
 
-        embed.description += f"👍 {up}"
 
     if all_reactions.get("-1"):
         down = all_reactions["-1"]
-        embed.description += f"👎 {down}"
+        if did_up:
+            embed.description += "   "
+        embed.description += f"<:downvote:590257835447812207> {down}"
+
 
     if content.get("pull_request") is not None:
         merge_sha = prcontent["head"]["sha"]
