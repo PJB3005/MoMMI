@@ -934,10 +934,10 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
             checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
 
         if checks:
-            embed.add_field(name="Checks",value=checks)
+            embed.add_field(name="Checks", value=checks)
 
-        if not prcontent["mergeable"]:
-            embed.add_field(name="🚨CONFLICTS🚨")
+        if prcontent["mergeable"] is not None and not prcontent["mergeable"]:
+            embed.add_field(name="status", value="🚨CONFLICTS🚨")
 
     embed.description += "\u200B"
 
