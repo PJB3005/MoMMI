@@ -135,7 +135,7 @@ class DMCodeHandler(MCodeHandler):
 
                 assert proc.stdout is not None
                 data = await proc.stdout.read()
-                compile_log = data.decode("Windows-1252", "replace")
+                compile_log = data.decode("UTF-8", "replace")
 
                 # Discord max size of field is 1024 chars.
                 if len(compile_log) > 900:
@@ -167,7 +167,7 @@ class DMCodeHandler(MCodeHandler):
 
                 assert proc.stdout is not None and proc.stderr is not None
                 data = await proc.stderr.read() + await proc.stdout.read()
-                log = data.decode("Windows-1252", "replace")
+                log = data.decode("UTF-8", "replace")
                 if len(log) > 900:  # Discord max size of field is 1024 chars.
                     log = log[:900] + "\n<truncated due to size>"
 
