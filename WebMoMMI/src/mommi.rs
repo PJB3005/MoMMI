@@ -94,6 +94,13 @@ pub struct Nudge {
     ping: Option<bool>,
 }
 
+#[derive(Clone, Debug, FromForm, Deserialize)]
+pub struct PostNudgeData {
+    pass: String,
+    content: String,
+    ping: Option<bool>
+}
+
 // Kill this monstrosity.
 // NOW.
 impl From<NudgeOld> for Nudge {
@@ -134,6 +141,23 @@ pub fn get_nudge_new(
 ) -> Result<Accepted<&'static str>, MoMMIError> {
     nudge_internal(&nudge, config)
 }
+
+#[post("/mommi/nudge/<meta>", data="<nudge>")]
+pub fn post_nudge(
+    meta: String,
+    nudge: Json<PostNudgeData>,
+    config: State<Arc<MoMMIConfig>>,
+) -> Result<Accepted<&'static str>, MoMMIError> {
+    let data = Nudge {
+        meta,
+        pass: nudge.pass.clone(),
+        ping: nudge.ping,
+        content: nudge.content.clone()
+    };
+
+    nudge_internal(&data, config)
+}
+
 
 fn nudge_internal(
     nudge: &Nudge,

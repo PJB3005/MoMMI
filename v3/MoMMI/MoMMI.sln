@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MoMMI.Core", "MoMMI.Core\MoMMI.Core.csproj", "{93CA2331-F686-4C1A-BCEC-0CAF0485BDF9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MoMMI.Modules", "MoMMI.Modules\MoMMI.Modules.csproj", "{381AB3C8-2F90-41FE-9BE5-EEA9C7C7C8A9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MoMMI.Modules.Commands", "MoMMI.Modules.Commands\MoMMI.Modules.Commands.csproj", "{FBE3D623-B0F4-471D-807A-DED9B95977FB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{93CA2331-F686-4C1A-BCEC-0CAF0485BDF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93CA2331-F686-4C1A-BCEC-0CAF0485BDF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93CA2331-F686-4C1A-BCEC-0CAF0485BDF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93CA2331-F686-4C1A-BCEC-0CAF0485BDF9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{381AB3C8-2F90-41FE-9BE5-EEA9C7C7C8A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{381AB3C8-2F90-41FE-9BE5-EEA9C7C7C8A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{381AB3C8-2F90-41FE-9BE5-EEA9C7C7C8A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{381AB3C8-2F90-41FE-9BE5-EEA9C7C7C8A9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FBE3D623-B0F4-471D-807A-DED9B95977FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBE3D623-B0F4-471D-807A-DED9B95977FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBE3D623-B0F4-471D-807A-DED9B95977FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBE3D623-B0F4-471D-807A-DED9B95977FB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -36,6 +36,9 @@ pub enum PullRequestAction {
     Edited,
     Closed,
     Reopened,
+    Synchronize,
+    Locked,
+    Unlocked
 }
 
 #[derive(Deserialize, Debug, Clone)]

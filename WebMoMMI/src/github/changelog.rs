@@ -62,7 +62,7 @@ pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
     }
 
     lazy_static! {
-        static ref is_changelog_re: Regex = Regex::new(r#"^html/changelogs/[^.].*\.yml$"#).unwrap();
+        static ref IS_CHANGELOG_RE: Regex = Regex::new(r#"^html/changelogs/[^.].*\.yml$"#).unwrap();
     }
 
     for filename in event
@@ -71,7 +71,7 @@ pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
         .flat_map(|c| c.added.iter().chain(c.modified.iter()))
     {
         println!("{}", filename);
-        if is_changelog_re.is_match(filename) {
+        if IS_CHANGELOG_RE.is_match(filename) {
             process_changelogs(config);
             return;
         }
@@ -80,16 +80,16 @@ pub fn try_handle_changelog_push(event: &PushEvent, config: &Arc<MoMMIConfig>) {
 
 fn parse_body_changelog(body: &str) -> Vec<ChangelogEntry> {
     lazy_static! {
-        static ref header_re: Regex = RegexBuilder::new(r#"(?::cl:|🆑) *\r?\n(.+)$"#).dot_matches_new_line(true).build().unwrap();
-        static ref entry_re: Regex = RegexBuilder::new(r#"^ *[*-]? *(bugfix|wip|tweak|soundadd|sounddel|rscdel|rscadd|imageadd|imagedel|spellcheck|experiment|tgs): *(\S[^\n\r]+)\r?$"#).multi_line(true).build().unwrap();
+        static ref HEADER_RE: Regex = RegexBuilder::new(r#"(?::cl:|🆑) *\r?\n(.+)$"#).dot_matches_new_line(true).build().unwrap();
+        static ref ENTRY_RE: Regex = RegexBuilder::new(r#"^ *[*-]? *(bugfix|wip|tweak|soundadd|sounddel|rscdel|rscadd|imageadd|imagedel|spellcheck|experiment|tgs): *(\S[^\n\r]+)\r?$"#).multi_line(true).build().unwrap();
     }
 
-    let content = match header_re.captures(body) {
+    let content = match HEADER_RE.captures(body) {
         Some(capture) => capture.get(1).unwrap().as_str(),
         _ => return Vec::new(),
     };
 
-    entry_re
+    ENTRY_RE
         .captures_iter(content)
         .map(|m| {
             let entry_type = match m.get(1).unwrap().as_str() {
@@ -300,8 +300,7 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
     }
 
     // Run changelog script.
-    let status = Command::new("python2")
-        .arg("tools/changelog/ss13_genchangelog.py")
+    let status = Command::new("tools/changelog/ss13_genchangelog.py")
         .arg("html/changelog.html")
         .arg("html/changelogs")
         .current_dir(&path)
