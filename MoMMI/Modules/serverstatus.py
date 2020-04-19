@@ -81,6 +81,9 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
         mapname = None
         if "map_name" in response:
             mapname = response["map_name"][0]
+        station_time = None
+        if "station_time" in response:
+            station_time = response["station_time"][0]
         players = response["players"][0]
         if admindata and "admins" in response:
             for identifier in admindata:
@@ -97,7 +100,10 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
 
     if mapname:
         out += f", map is {mapname}"
-
+    
+    if station_time:
+        out += f" station time: {station_time}" 
+                           
     if admins is not None:
         out += f", **{admins}** admins online. *Note: unable to provide AFK statistics for administrators.*"
 
