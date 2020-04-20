@@ -21,7 +21,7 @@ def sizeof_fmt(num: Union[float, int]) -> str:
 
 
 # Returns (stdout to lines_returned lines, runtime log size)
-async def get_runtimes(file_date: date, lines_returned: int, condenser_path: str, base_url: str) -> Tuple[str, int]:
+async def get_runtimes(file_date: date, lines_returned: int, condenser_path: str, base_url: str) -> Tuple[str, int, str]:
     with tempfile.NamedTemporaryFile("w", encoding="utf-8") as input_file:
         LOGGER.debug(f"Grabbing file with date: {file_date.isoformat()}")
         url = f"{base_url}{file_date.isoformat()}-runtime.log"
@@ -39,7 +39,7 @@ async def get_runtimes(file_date: date, lines_returned: int, condenser_path: str
         for i in range(lines_returned):
             lines.append(stdout[i])
 
-        return ("\n".join(lines), size)
+        return ("\n".join(lines), size, url)
 
 
 @command("runtimelog", r"runtimelog(?:\s+(.*))?")
@@ -74,8 +74,8 @@ async def runtimelog_command(channel: MChannel, match: Match, message: Message) 
 
     asyncio.ensure_future(add_reaction(message, "🕒"))
     try:
-        msg, size = await get_runtimes(file_date, 12, runtime_condenser, base_url)
-        await channel.send(f"```\n{msg}```\nTotal runtime log file size: {sizeof_fmt(size)}")
+        msg, size, url = await get_runtimes(file_date, 12, runtime_condenser, base_url)
+        await channel.send(f"{url}\n```\n{msg}```\nTotal runtime log file size: {sizeof_fmt(size)}")
     except:
         LOGGER.exception("runtimelog exception")
         await channel.send("Something went wrong. You're not trying to do time travel, are you?")

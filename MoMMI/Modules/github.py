@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import asyncio
+import subprocess
 from typing import Match, Tuple, List, Optional, Any, Set, Dict, DefaultDict, cast, Union
 from urllib.parse import quote, quote_plus
 from collections import defaultdict
@@ -695,13 +696,11 @@ async def jenkins_handicap_support(type: str, message: Any, meta: str) -> None:
 
     message = message["content"]
     repo_name = message["repository"]["full_name"]
-    post = master.config.get_module(
-        f"github.send_post_on_push.{repo_name}.post", "")
+    command = master.config.get_module(
+        f"github.shell_exec_on_push.{repo_name}.command", "")
 
-    if post:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(post) as resp:
-                await resp.text()
+    if command:
+        subprocess.Popen([command])
 
 @command("giveissue", r"giveissue(?:\s+(-\w+=\w+(?:\s+-\w+=\w+)*))?")
 async def giveissue_command(channel: MChannel, match: Match, message: Message) -> None:

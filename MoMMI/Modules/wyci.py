@@ -9,7 +9,7 @@ async def wyci(channel: MChannel, _match: Match, message: Message) -> None:
     if not channel.server_config("wyci.enabled", True):
         return
 
-    match = re.search(r"\S\s+when[\s*?.!)]*$", message.content, re.IGNORECASE)
+    match = re.search(r"\S\s+(?:when|whence)[\s*?.!)]*$", message.content, re.IGNORECASE)
     if match is None:
         return
 
