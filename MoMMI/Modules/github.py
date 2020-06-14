@@ -89,6 +89,10 @@ async def github_event(channel: MChannel, message: Any, meta: str) -> None:
     logger.debug(
         f"Handling GitHub event '$YELLOW{event}$RESET' to '$YELLOW{meta}$RESET'")
 
+    # Don't do anything on private repos for now.
+    if message["content"]["repository"]["private"]:
+        return
+
     # Find a function by the name of `on_github_{event}` in globals and call it.
     func = globals().get(f"on_github_{event}")
     if func is None:
@@ -96,9 +100,7 @@ async def github_event(channel: MChannel, message: Any, meta: str) -> None:
         return
 
     async def wrap():
-        logger.debug("what the fuck seriously")
         try:
-            logger.debug(repr(func))
             await func(channel, message["content"], meta)
         except:
             logger.exception("Caught exception inside GitHub event handler.")
