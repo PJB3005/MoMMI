@@ -28,9 +28,9 @@ REG_GIT_HEADER_PAGENUM = re.compile(r"[?&]page=(\d+)[^,]+rel=\"last\"")
 
 REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
 
-COLOR_GITHUB_RED = Color(0xFF4444)
-COLOR_GITHUB_GREEN = Color(0x6CC644)
-COLOR_GITHUB_PURPLE = Color(0x6E5494)
+COLOUR_GITHUB_RED = Color(0xFF4444)
+COLOUR_GITHUB_GREEN = Color(0x6CC644)
+COLOUR_GITHUB_PURPLE = Color(0x6E5494)
 MAX_BODY_LENGTH = 500
 MAX_COMMIT_LENGTH = 67
 MD_COMMENT_RE = re.compile(r"<!--.*-->", flags=re.DOTALL)
@@ -133,7 +133,7 @@ async def on_github_push(channel: MChannel, message: Any, meta: str) -> None:
 
     if message["forced"]:
         embed.title = f"[FORCE PUSHED] {embed.title}"
-        embed.color = Color(0xFF0000)
+        embed.colour = Color(0xFF0000)
 
     content = ""
 
@@ -491,7 +491,7 @@ async def try_handle_file_embeds(message: str, channel: MChannel, cfg: List[Dict
 
     embed = Embed()
     if color != "Nope" and color is not None:
-        embed.color = color
+        embed.colour = color
 
     for repo, hits in output.items():
         value = ""
@@ -859,19 +859,19 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
             emoji = "<:PRopened:245910125041287168>"
         else:
             emoji = "<:ISSopened:246037149873340416>"
-        embed.color = COLOR_GITHUB_GREEN
+        embed.colour = COLOUR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
         if prcontent["merged"]:
             emoji = "<:PRmerged:437316952772444170>"
-            embed.color = COLOR_GITHUB_PURPLE
+            embed.colour = COLOUR_GITHUB_PURPLE
         else:
             emoji = "<:PRclosed:246037149839917056>"
-            embed.color = COLOR_GITHUB_RED
+            embed.colour = COLOUR_GITHUB_RED
 
     else:
         emoji = "<:ISSclosed:246037286322569216>"
-        embed.color = COLOR_GITHUB_RED
+        embed.colour = COLOUR_GITHUB_RED
 
     embed.title = emoji + content["title"]
     embed.url = content["html_url"]

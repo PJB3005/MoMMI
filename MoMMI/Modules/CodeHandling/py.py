@@ -1,7 +1,7 @@
 import traceback
 from discord import Message, Embed
 from MoMMI.channel import MChannel
-from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOR_COMPILE_FAIL, COLOR_RUN_FAIL
+from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOUR_COMPILE_FAIL, COLOUR_RUN_FAIL
 from MoMMI.role import MRoleType
 
 @codehandler
@@ -33,7 +33,7 @@ class PythonCodeHandler(MCodeHandler):
 
         except SyntaxError as e:
             embed = Embed()
-            embed.color = COLOR_COMPILE_FAIL
+            embed.colour = COLOUR_COMPILE_FAIL
             embed.add_field(name="Compiler Output", value=f"```{traceback.format_exc()}```", inline=False)
             await channel.send(embed=embed)
             return
@@ -43,7 +43,7 @@ class PythonCodeHandler(MCodeHandler):
             await func(message, channel)
         except:
             embed = Embed()
-            embed.color = COLOR_RUN_FAIL
+            embed.colour = COLOUR_RUN_FAIL
             embed.add_field(name="Exception", value=f"```{traceback.format_exc()}```", inline=False)
             await channel.send(embed=embed)
             return

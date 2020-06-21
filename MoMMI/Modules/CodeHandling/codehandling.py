@@ -12,9 +12,9 @@ from MoMMI.master import master
 logger = logging.getLogger(__name__)
 
 FILE_EXTENSION_RE  = re.compile(r".+?(?:\.(.+))?$")
-COLOR_RUN_SUCCESS  = Color(0x1ECF25)
-COLOR_RUN_FAIL     = Color(0xC0C333)
-COLOR_COMPILE_FAIL = Color(0xF90E0E)
+COLOUR_RUN_SUCCESS  = Color(0x1ECF25)
+COLOUR_RUN_FAIL     = Color(0xC0C333)
+COLOUR_COMPILE_FAIL = Color(0xF90E0E)
 #                     ```(?:([^\n]*)\n)?(.*)```
 @command("runcode", r"\s*```(?:(?P<Language>[^\r\n]*)\r?\n)?(?P<Code>.*)```", flags=re.DOTALL)
 async def runcode_command(channel: MChannel, match: Match, message: Message) -> None:

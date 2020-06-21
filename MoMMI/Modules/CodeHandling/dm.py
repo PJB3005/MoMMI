@@ -12,7 +12,7 @@ from random import choice
 from string import ascii_lowercase
 from typing import Optional, List
 from discord import Message, Embed
-from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOR_COMPILE_FAIL, COLOR_RUN_SUCCESS, COLOR_RUN_FAIL
+from MoMMI.Modules.CodeHandling.codehandling import codehandler, MCodeHandler, COLOUR_COMPILE_FAIL, COLOUR_RUN_SUCCESS, COLOUR_RUN_FAIL
 from MoMMI.Modules.help import register_help
 from MoMMI import MChannel
 
@@ -143,7 +143,7 @@ class DMCodeHandler(MCodeHandler):
 
                 if fail_reason or proc.returncode:
                     embed = Embed()
-                    embed.color = COLOR_COMPILE_FAIL
+                    embed.colour = COLOUR_COMPILE_FAIL
                     embed.description = fail_reason or "**Compilation failed**"
                     embed.add_field(name="Compiler Output",
                                     value=f"```{compile_log}```", inline=False)
@@ -180,12 +180,12 @@ class DMCodeHandler(MCodeHandler):
                 #asyncio.ensure_future(channel.server.master.client.remove_reaction(message, "🔨", channel.server.get_server().me))
 
                 if fail_reason:
-                    embed.color = COLOR_RUN_FAIL
+                    embed.colour = COLOUR_RUN_FAIL
                     embed.description = fail_reason
                     #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "❌"))
 
                 else:
-                    embed.color = COLOR_RUN_SUCCESS
+                    embed.colour = COLOUR_RUN_SUCCESS
                     #asyncio.ensure_future(channel.server.master.client.add_reaction(message, "✅"))
 
                 await channel.send(embed=embed)

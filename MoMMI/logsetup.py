@@ -7,13 +7,13 @@ import copy
 from pathlib import Path
 from typing import cast, Type
 
-COLOR_ESCAPE = re.compile(r"\$(BLACK|RED|GREEN|YELLOW|BLUE|MAGENTA|CYAN|WHITE|BOLD|RESET)")
+COLOUR_ESCAPE = re.compile(r"\$(BLACK|RED|GREEN|YELLOW|BLUE|MAGENTA|CYAN|WHITE|BOLD|RESET)")
 
 class NotColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         record = copy.copy(record)
         if isinstance(record.msg, str):
-            record.msg = COLOR_ESCAPE.sub("", record.msg)
+            record.msg = COLOUR_ESCAPE.sub("", record.msg)
         return super().format(record)
 
 ColorFormatter: Type[logging.Formatter]
@@ -49,7 +49,7 @@ try:
 
             record.name = f"{GREEN}{record.name}{RESET}"
             if isinstance(record.msg, str):
-                record.msg = COLOR_ESCAPE.sub(lambda x: cast(str, globals()[x.group(1)]), record.msg) + RESET
+                record.msg = COLOUR_ESCAPE.sub(lambda x: cast(str, globals()[x.group(1)]), record.msg) + RESET
 
             return super().format(record)
 
