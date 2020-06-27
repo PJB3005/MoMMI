@@ -19,6 +19,10 @@ async def based(channel: MChannel, _match: Match, message: Message) -> None:
     if match.group(1).lower() == "gebaseerd":
         based = "Gebaseerd op wat?"
         unbased = "Niet Gebaseerd."
+       
+    elif match.group(1).lower() == "basiert"
+        based = "Worüber?"
+        unbased = "Nich basiert."
         
     elif match.group(1).lower() == "basé":
         based = "Sur quoi?"
