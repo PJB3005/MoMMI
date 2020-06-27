@@ -9,7 +9,7 @@ async def based(channel: MChannel, _match: Match, message: Message) -> None:
     if not channel.server_config("based.enabled", True):
         return
 
-    match = re.search(r"^\s*(based|gebaseerd|basé|basato)[\s*?.!)]*$", message.content, re.IGNORECASE)
+    match = re.search(r"^\s*(based|gebaseerd|basé|basato|basado)[\s*?.!)]*$", message.content, re.IGNORECASE)
     if match is None:
         return
     
@@ -27,6 +27,10 @@ async def based(channel: MChannel, _match: Match, message: Message) -> None:
     elif match.group(1).lower() == "basé":
         based = "Sur quoi?"
         unbased = "Pas basé."
+
+    elif match.group(1).lower() == "basado":
+        based = "¿Basado en qué?"
+        unbased = "No basado."
         
     elif match.group(1).lower() == "basato":
         based = "Basato su cosa?"
