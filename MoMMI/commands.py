@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 import re
+import traceback
 from typing import Callable, Match, Pattern, Awaitable, Optional, List, Any, TYPE_CHECKING
 from discord import Message
 from MoMMI.handler import MHandler
@@ -118,4 +119,5 @@ class MCommand(MHandler):
             # Refactor this so that commands that don't take in a match are a different type.
             await self.func(channel, match, message)  # type: ignore
         except:
+            traceback.print_exc()
             logger.exception("Exception in command handler!")

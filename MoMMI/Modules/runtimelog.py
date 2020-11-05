@@ -22,13 +22,13 @@ def sizeof_fmt(num: Union[float, int]) -> str:
 
 # Returns (stdout to lines_returned lines, runtime log size)
 async def get_runtimes(file_date: date, lines_returned: int, condenser_path: str, base_url: str) -> Tuple[str, int, str]:
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8") as input_file:
+    with tempfile.NamedTemporaryFile("wb") as input_file:
         LOGGER.debug(f"Grabbing file with date: {file_date.isoformat()}")
         url = f"{base_url}{file_date.isoformat()}-runtime.log"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
-                input_file.write(await response.text())
+                input_file.write(await response.read())
 
         condenser = await asyncio.create_subprocess_exec(condenser_path, "--input", input_file.name, stdout=PIPE)
         stdout, stderr = await condenser.communicate()
@@ -36,7 +36,7 @@ async def get_runtimes(file_date: date, lines_returned: int, condenser_path: str
         size = os.path.getsize(input_file.name)
 
         lines = []
-        for i in range(lines_returned):
+        for i in range(min(lines_returned, len(stdout))):
             lines.append(stdout[i])
 
         return ("\n".join(lines), size, url)
