@@ -103,9 +103,9 @@ def setup_logs() -> None:
     chatlogger.propagate = False
     chatlogger.addHandler(handler)
 
-    #logging.getLogger("websockets").setLevel(logging.WARNING)
-    #logging.getLogger("urllib3").setLevel(logging.WARNING)
-    #logging.getLogger("bottom").setLevel(logging.WARNING)
-    #logging.getLogger("github3").setLevel(logging.WARNING)
-    #logging.getLogger("discord").setLevel(logging.WARNING)
-    #logging.getLogger("asyncio").setLevel(logging.INFO)
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("bottom").setLevel(logging.WARNING)
+    logging.getLogger("github3").setLevel(logging.WARNING)
+    logging.getLogger("discord").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.INFO)

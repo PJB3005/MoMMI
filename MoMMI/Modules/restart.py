@@ -5,8 +5,8 @@ import aiohttp
 import base64
 from typing import Match, Union, Any, Dict, List, cast, Optional
 from urllib.parse import parse_qs
-from discord import Message
-from MoMMI import command, MChannel
+from discord import Message, User
+from MoMMI import command, MChannel, master
 from MoMMI.Modules.help import register_help
 from MoMMI.types import MIdentifier
 
@@ -23,6 +23,11 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
 
     role: str = channel.server_config("modules.restart.role")
     servername = match.group(1)
+
+    if type(message.author) == User:
+        await channel.send("discord.py broke, try again in 5 seconds")
+        await master.client.request_offline_member(channel.server.id, message.author.id)
+        return;
 
     for r in message.author.roles:
         if r.id == role:
