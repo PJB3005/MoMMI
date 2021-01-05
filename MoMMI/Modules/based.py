@@ -9,7 +9,7 @@ async def based(channel: MChannel, _match: Match, message: Message) -> None:
     if not channel.server_config("based.enabled", True):
         return
 
-    match = re.search(r"^\s*(based|gebaseerd|basé|basato|basado|basiert|ベース)[\s*?.!)]*$", message.content, re.IGNORECASE)
+    match = re.search(r"^\s*(based|gebaseerd|basé|basato|basado|basiert|ベース|swept)[\s*?.!)]*$", message.content, re.IGNORECASE)
     if match is None:
         return
     
@@ -39,6 +39,10 @@ async def based(channel: MChannel, _match: Match, message: Message) -> None:
     elif match.group(1) == u"ベース":
         based = u"何に基づいてですか"
         unbased = u"ベースではない"
+		
+    elif match.group(1).lower() == u"swept":
+        based = u"moment"
+        unbased = u"-__-"
     
     if random.random() > 0.005:
         await channel.send(based)
