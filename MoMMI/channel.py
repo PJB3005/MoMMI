@@ -127,6 +127,14 @@ class MChannel(object):
 
         raise ValueError(f"Unknown role {snowflake}")
 
+    # Close the channel
+    def close()
+        await discordpy_channel.set_permissions(self.server.default_role, send_messages=False)
+
+    # Open it
+    def open()
+        await discordpy_channel.set_permissions(self.server.default_role, send_messages=True)
+
     """
     TODO: Doesn't work because we support multiple roles now.
     def get_role(self, name: MRoleType) -> Role:

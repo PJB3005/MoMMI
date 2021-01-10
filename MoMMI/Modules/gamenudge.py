@@ -23,6 +23,11 @@ async def gamenudge(channel: MChannel, message: Any, meta: str) -> None:
 
     content = content.replace("@", "@\u200B") # Zero-Width space to prevent pings.
 
+    # This string closes the #ick channel for 10 minutes
+    if content == "round_end_thread_remind":
+        thread_reminder(MChannel)
+        return
+
     if ping:
         cfg: Dict[str, Any] = channel.server_config("modules.gamenudge.ping", {})
         if not cfg.get(meta):
