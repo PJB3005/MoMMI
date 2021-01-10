@@ -6,6 +6,7 @@
 id = 0
 # Internal name used for this server for readability and whatever.
 name = "unknown"
+kill_phrase = "All your bases are belong to us"
 
 # Servers can have "shortcuts" assigned to them for channels.
 # These will be resolved in say nudge routes.

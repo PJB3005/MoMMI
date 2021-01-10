@@ -24,8 +24,8 @@ async def gamenudge(channel: MChannel, message: Any, meta: str) -> None:
     content = content.replace("@", "@\u200B") # Zero-Width space to prevent pings.
 
     # This string closes the #ick channel for 10 minutes
-    if content == "round_end_thread_remind":
-        thread_reminder(MChannel)
+    if content == "All your bases are belong to us":
+        thread_reminder(channel)
         return
 
     if ping:
