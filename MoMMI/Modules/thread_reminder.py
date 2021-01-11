@@ -11,8 +11,8 @@ async def thread_reminder(channel: MChannel) -> None:
     await channel.send("**A round has ended.** You can discuss it at https://boards.4chan.org/vg/catalog#s=ss13g. This channel will be closed for 10 minutes.")
     # And make it closed
     await channel.close()
-    # For 10 minutes
-    time.sleep(600)
+    # For 5 minutes
+    time.sleep(300)
     # And open it
     await channel.send("**This channel is open for discussion again.**")
     await channel.open()
