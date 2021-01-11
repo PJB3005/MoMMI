@@ -289,6 +289,31 @@ class MoMMI(object):
         for command in channel.iter_handlers(MCommand):
             await command.try_execute(channel, message)
 
+    async def on_reaction_add(self, reaction: discord.Reaction, member: discord.User) -> None:
+        from MoMMI.commands import MReactionCommand
+        from MoMMI.util import utcnow
+        if not self.initialized or self.shutting_down:
+            return
+
+        server = self.get_server(SnowflakeID(reaction.message.server.id))
+        channel = server.get_channel(SnowflakeID(reaction.message.channel.id))
+
+        for command in channel.iter_handlers(MReactionCommand):
+            await command.func(channel, reaction, member)
+
+    async def on_message_delete(self, message: discord.Message) -> None:
+        from MoMMI.commands import MDeleteCommand
+        from MoMMI.util import utcnow
+        if not self.initialized or self.shutting_down:
+            return
+
+        server = self.get_server(SnowflakeID(message.server.id))
+        channel = server.get_channel(SnowflakeID(message.channel.id))
+
+        for command in channel.iter_handlers(MDeleteCommand):
+            await command.func(channel, message)     
+
+
     def get_server(self, serverid: Union[SnowflakeID, str]) -> "MServer":
         if isinstance(serverid, str):
             return self.servers_name[serverid]

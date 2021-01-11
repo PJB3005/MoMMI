@@ -4,7 +4,7 @@ import random
 import re
 import traceback
 from typing import Callable, Match, Pattern, Awaitable, Optional, List, Any, TYPE_CHECKING
-from discord import Message
+from discord import Message, User, Reaction
 from MoMMI.handler import MHandler
 from MoMMI.permissions import bantypes
 from MoMMI.role import MRoleType
@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from MoMMI.channel import MChannel
 
 CommandType = Callable[["MChannel", Match, Message], Awaitable[None]]
+ReactionCommandType = Callable[["MChannel", Reaction, User], Awaitable[None]]
+DeleteCommandType = Callable[["MChannel", Message], Awaitable[None]]
 
 
 def command(name: str, regex: str, flags: int = re.IGNORECASE, **kwargs: Any) -> Callable[[CommandType], CommandType]:
@@ -48,6 +50,37 @@ def always_command(name: str, **kwargs: Any) -> Callable[[CommandType], CommandT
         return function
 
     return inner
+
+
+def reaction_command(name: str) -> Callable[[ReactionCommandType], ReactionCommandType]:
+    def inner(function: ReactionCommandType) -> ReactionCommandType:
+        from .master import master
+        if not asyncio.iscoroutinefunction(function):
+            logger.error(
+                f"Attempted to register non-coroutine {function} as reaction command!")
+            return function
+
+        commandhandler = MReactionCommand(name, function.__module__, function)
+        commandhandler.register(master)
+        return function
+
+    return inner
+
+
+def delete_command(name: str) -> Callable[[DeleteCommandType], DeleteCommandType]:
+    def inner(function: DeleteCommandType) -> DeleteCommandType:
+        from .master import master
+        if not asyncio.iscoroutinefunction(function):
+            logger.error(
+                f"Attempted to register non-coroutine {function} as reaction command!")
+            return function
+
+        commandhandler = MDeleteCommand(name, function.__module__, function)
+        commandhandler.register(master)
+        return function
+
+    return inner
+
 
 
 class MCommand(MHandler):
@@ -121,3 +154,29 @@ class MCommand(MHandler):
         except:
             traceback.print_exc()
             logger.exception("Exception in command handler!")
+
+
+class MReactionCommand(MHandler):
+    def __init__(self,
+                name: str,
+                module: str,
+                func: ReactionCommandType
+                ) -> None:
+
+        super().__init__(name, module)
+
+        self.func: ReactionCommandType = func
+
+
+class MDeleteCommand(MHandler):
+    def __init__(self,
+                name: str,
+                module: str,
+                func: DeleteCommandType
+                ) -> None:
+
+        super().__init__(name, module)
+
+        self.func: DeleteCommandType = func
+
+    
