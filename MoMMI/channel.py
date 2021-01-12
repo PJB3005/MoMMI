@@ -129,11 +129,11 @@ class MChannel(object):
 
     # Close the channel
     def close()
-        await discordpy_channel.set_permissions(self.server.default_role, send_messages=False)
+        await discordpy_channel.set_permissions(self.server.discordpy_server.default_role, send_messages=False)
 
     # Open it
     def open()
-        await discordpy_channel.set_permissions(self.server.default_role, send_messages=True)
+        await discordpy_channel.set_permissions(self.server.discordpy_server.default_role, send_messages=True)
 
     """
     TODO: Doesn't work because we support multiple roles now.

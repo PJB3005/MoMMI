@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict
-from MoMMI import MChannel, comm_event, SnowflakeID
+from MoMMI import MChannel, comm_event, SnowflakeID, thread_reminder
 
 import json
 
@@ -23,7 +23,7 @@ async def gamenudge(channel: MChannel, message: Any, meta: str) -> None:
 
     content = content.replace("@", "@\u200B") # Zero-Width space to prevent pings.
 
-    # This string closes the #ick channel for 10 minutes
+    # This string closes the #ick channel for 5 minutes
     if content == password:
         thread_reminder(channel)
         return
