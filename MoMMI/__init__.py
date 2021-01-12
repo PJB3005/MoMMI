@@ -1,5 +1,5 @@
 from MoMMI.channel import MChannel
-from MoMMI.commands import command, always_command
+from MoMMI.commands import command, always_command, reaction_command, delete_command
 from MoMMI.master import master
 from MoMMI.role import MRoleType
 from MoMMI.server import MServer

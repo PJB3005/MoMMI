@@ -110,7 +110,7 @@ class commloop(object):
             writer.write(ERROR_UNKNOWN)
 
     async def route(self, message: Dict[str, Any]) -> None:
-        print(message)
+        # print(message)
         # Do global comm events first.
         for globalhandler in self.master.iter_global_handlers(MGlobalCommEvent):
             try:
