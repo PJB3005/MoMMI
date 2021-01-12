@@ -12,7 +12,7 @@ async def thread_reminder(channel: MChannel) -> None:
     # And make it closed
     await channel.close()
     # For 5 minutes
-    time.sleep(300)
+    await asyncio.delay(300)
     # And open it
     await channel.send("**This channel is open for discussion again.**")
     await channel.open()
