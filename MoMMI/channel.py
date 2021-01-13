@@ -128,11 +128,11 @@ class MChannel(object):
         raise ValueError(f"Unknown role {snowflake}")
 
     # Close the channel
-    async def close()
+    async def close():
         await discordpy_channel.set_permissions(self.server.discordpy_server.default_role, send_messages=False)
 
     # Open it
-    async def open()
+    async def open():
         await discordpy_channel.set_permissions(self.server.discordpy_server.default_role, send_messages=True)
 
     """

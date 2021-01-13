@@ -1,7 +1,7 @@
 import logging
 from MoMMI import MChannel
 import time
-
+import asyncio
 
 logger = logging.getLogger(__name__)
 
