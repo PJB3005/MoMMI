@@ -4,7 +4,7 @@ import heapq
 import pytz
 from datetime import datetime, timedelta
 from typing import Any, Dict, Match, List, Tuple, Set, cast
-from MoMMI import MChannel, comm_event, SnowflakeID, add_reaction, master 
+from MoMMI import MChannel, comm_event, SnowflakeID, add_reaction, master, thread_reminder
 from discord import Message, Embed
 
 import json
@@ -51,6 +51,11 @@ async def gamenudge(channel: MChannel, message: Any, meta: str) -> None:
 
     content = content.replace("@", "@\u200B") # Zero-Width space to prevent pings.
     orig_content = content
+
+    # This string closes the #ick channel for 5 minutes
+    if content == password:
+        thread_reminder(channel)
+        return
 
     if ping:
         cfg: Dict[str, Any] = channel.server_config("modules.gamenudge.ping", {})
