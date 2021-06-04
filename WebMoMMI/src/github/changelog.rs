@@ -261,7 +261,7 @@ fn do_changelog(mut lock: MutexGuard<ChangelogManager>, config: Arc<MoMMIConfig>
     command
         .arg("pull")
         .arg("origin")
-        .arg("--ff-only")
+        .arg("--rebase")
         .current_dir(&path);
     if let Some(ref ssh_command) = ssh_config {
         command.env("GIT_SSH_COMMAND", &ssh_command);
