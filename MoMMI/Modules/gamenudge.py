@@ -4,7 +4,7 @@ import heapq
 import pytz
 from datetime import datetime, timedelta
 from typing import Any, Dict, Match, List, Tuple, Set, cast
-from MoMMI import MChannel, comm_event, SnowflakeID, add_reaction, master, thread_reminder
+from MoMMI import MChannel, comm_event, SnowflakeID, add_reaction, master
 from discord import Message, Embed
 
 import json
@@ -52,9 +52,12 @@ async def gamenudge(channel: MChannel, message: Any, meta: str) -> None:
     content = content.replace("@", "@\u200B") # Zero-Width space to prevent pings.
     orig_content = content
 
+    killphrase = channel.server_config("modules.gamenudge.kill_phrase", "")
+
     # This string closes the #ick channel for 5 minutes
-    if content == password:
-        thread_reminder(channel)
+    if killphrase and content == killphrase:
+        kill_channel = channel.server.get_channel(channel.server_config("modules.gamenudge.kill_channel"))
+        asyncio.ensure_future(thread_reminder(kill_channel))
         return
 
     if ping:
@@ -120,3 +123,15 @@ async def send_reminder(reminder: REMINDER_TUPLE_TYPE) -> None:
 def utcnow() -> datetime:
     return datetime.now(pytz.utc)
 
+
+async def thread_reminder(channel: MChannel) -> None:
+    minutes = 8
+    # Send the message
+    await channel.send(f"**A round has ended.** You can discuss it at https://boards.4chan.org/vg/catalog#s=ss13g. This channel will be closed for {minutes} minutes.")
+    # And make it closed
+    await channel.close()
+    # For 5 minutes
+    await asyncio.sleep(8 * 60)
+    # And open it
+    await channel.open()
+    await channel.send("**This channel is open for discussion again.**")

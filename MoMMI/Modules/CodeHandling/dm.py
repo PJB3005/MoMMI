@@ -6,6 +6,7 @@ import shutil
 import sys
 import aiofiles
 import tempfile
+import re
 from distutils import spawn
 from pathlib import Path
 from random import choice
@@ -17,6 +18,8 @@ from MoMMI.Modules.help import register_help
 from MoMMI import MChannel
 
 logger = logging.getLogger(__name__)
+
+INCLUDE_REGEX = re.compile(r"include")
 
 
 @codehandler
@@ -89,6 +92,10 @@ class DMCodeHandler(MCodeHandler):
         return dmepath
 
     async def execute(self, code: str, channel: MChannel, message: Message) -> None:
+        if INCLUDE_REGEX.search(code) is not None:
+            await channel.send("#include is not allowed for security reasons")
+            return
+
         if sys.platform == "win32" or sys.platform == "cygwin":
             # Attempting to run DD command line on Windows just makes it open a window, run the code, hide the window
             # code then finishes, but the Window and as such process doesn't close

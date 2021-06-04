@@ -21,7 +21,7 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         await channel.send("No status configuration for this Discord server!")
         return
 
-    role: str = channel.server_config("modules.restart.role")
+    roles: List[str] = channel.server_config("modules.restart.roles")
     servername = match.group(1)
 
     if type(message.author) == User:
@@ -30,7 +30,7 @@ async def serverstatus_command(channel: MChannel, match: Match, message: Message
         return;
 
     for r in message.author.roles:
-        if r.id == role:
+        if r.id in roles:
             break
 
     else:

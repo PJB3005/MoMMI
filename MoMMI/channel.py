@@ -1,6 +1,6 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional, cast, Type, Iterable, TypeVar
-from discord import Channel, Role, Member
+from discord import Channel, Role, Member, PermissionOverwrite
 from MoMMI.types import SnowflakeID
 from MoMMI.config import get_nested_dict_value, ConfigError
 from MoMMI.role import MRoleType
@@ -128,12 +128,18 @@ class MChannel(object):
         raise ValueError(f"Unknown role {snowflake}")
 
     # Close the channel
-    async def close():
-        await discordpy_channel.set_permissions(self.server.discordpy_server.default_role, send_messages=False)
+    async def close(self):
+        ateveryone = self.server.discordpy_server.default_role
+        overwrite = self.discordpy_channel.overwrites_for(ateveryone)
+        overwrite.send_messages = False
+        await self.server.master.client.edit_channel_permissions(self.discordpy_channel, ateveryone, overwrite)
 
     # Open it
-    async def open():
-        await discordpy_channel.set_permissions(self.server.discordpy_server.default_role, send_messages=True)
+    async def open(self):
+        ateveryone = self.server.discordpy_server.default_role
+        overwrite = self.discordpy_channel.overwrites_for(ateveryone)
+        overwrite.send_messages = None
+        await self.server.master.client.edit_channel_permissions(self.discordpy_channel, ateveryone, overwrite)
 
     """
     TODO: Doesn't work because we support multiple roles now.
