@@ -110,7 +110,7 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
         out += f", **{admins}** admins online"
                            
         if afk_admins is not None:
-            out += f", **{afk_admins}** afk admins online."
+            out += f", **{afk_admins}** AFK admins online."
     
         else:
             out += "."
