@@ -107,7 +107,7 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
         out += f", station time: {station_time}" 
                            
     if admins is not None:
-        out += f", **{admins}** admins online"
+        out += f", **{admins}** active admins online"
                            
         if afk_admins is not None:
             out += f", **{afk_admins}** AFK admins online."
