@@ -40,6 +40,10 @@ async def based(channel: MChannel, _match: Match, message: Message) -> None:
         based = u"何に基づいてですか"
         unbased = u"ベースではない"
     
+    elif match.group(1).lower() == "bunaithe":
+        based = "Cad é ina bunaithe?"
+        unbased = "Ní bunaithe."
+    
     if random.random() > 0.005:
         await channel.send(based)
     else:
