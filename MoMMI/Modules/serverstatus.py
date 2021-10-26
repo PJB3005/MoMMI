@@ -73,6 +73,7 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
     mapname: Optional[str]
     players: str
     admins: Optional[int] = None
+    adk_admins: Optional[int] = None
 
     try:
         if not isinstance(response, Dict):
@@ -89,6 +90,7 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
             for identifier in admindata:
                 if channel.is_identifier(identifier):
                     admins = int(response["admins"][0])
+                    afK_admins = int(response["afk_admins"][0])
                     break
 
     except:
@@ -105,8 +107,14 @@ async def get_status_ss13(address: str, port: int, channel: MChannel, admindata:
         out += f", station time: {station_time}" 
                            
     if admins is not None:
-        out += f", **{admins}** admins online. *Note: unable to provide AFK statistics for administrators.*"
-
+        out += f", **{admins}** active admins online"
+                           
+        if afk_admins is not None:
+            out += f", **{afk_admins}** AFK admins online."
+    
+        else:
+            out += "."
+    
     else:
         out += "."
 
