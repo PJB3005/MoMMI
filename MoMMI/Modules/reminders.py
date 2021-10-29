@@ -175,8 +175,7 @@ async def sneakremind_command(channel: MChannel, match: Match, message: Message)
     master.set_global_storage(REMINDER_UID, uid + 1)
     reminder = (time, match.group(5), SnowflakeID(match.group(2)), SnowflakeID(match.group(3)), SnowflakeID(match.group(4)), uid)
     heapq.heappush(heap, reminder)
-    pretty = time.strftime("%A %d %B %Y %H:%M:%S **%Z**")
-    await channel.send(f"#{uid} coming in at {pretty}")
+    await channel.send(f"#{uid} coming in at <t:{int(time.timestamp())}:F>")
     asyncio.ensure_future(add_reaction(message, "✅"))
     asyncio.ensure_future(master.save_global_storage(REMINDER_QUEUE))
     asyncio.ensure_future(master.save_global_storage(REMINDER_UID))
@@ -237,6 +236,9 @@ def parse_time(timestring: str) -> datetime:
 
             elif key == "s":
                 delta += timedelta(seconds=newa)
+
+            elif key == "w":
+                delta += timedelta(weeks=newa)
 
         return utcnow() + delta
 
