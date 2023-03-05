@@ -43,6 +43,7 @@ GITHUB_CACHE = "github_cache"
 GITHUB_ISSUE_MAX_MESSAGES = 5
 
 VALID_ISSUES_ACTIONS = {"opened", "closed", "reopened"}
+VALID_DISCUSSIONS_ACTIONS = {"answered", "created", "unanswered"}
 
 KNOWN_MERGE_COMMITS: Set[str] = set()
 
@@ -831,7 +832,7 @@ async def autolabels_command(channel: MChannel, match: Match, message: Message) 
             await channel.send(embed=embed)
 
 def format_desc(desc: str) -> str:
-    res = MD_COMMENT_RE.sub("", desc) # we need to use subn so it actually gets all the comments, not just the first
+    res = MD_COMMENT_RE.sub("", desc)
 
     if len(res) > MAX_BODY_LENGTH:
         res = res[:MAX_BODY_LENGTH] + "..."
@@ -856,24 +857,24 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
     emoji = ""
     if content["state"] == "open":
         if content.get("pull_request") is not None:
-            emoji = "<:PRopened:245910125041287168>"
+            emoji = "<:propen:896496081960054827>"
         else:
-            emoji = "<:ISSopened:246037149873340416>"
+            emoji = "<:issueopened:896502343288381521>"
         embed.color = COLOR_GITHUB_GREEN
 
     elif content.get("pull_request") is not None:
         if prcontent["merged"]:
-            emoji = "<:PRmerged:437316952772444170>"
+            emoji = "<:prmerge:896496082324979772>"
             embed.color = COLOR_GITHUB_PURPLE
         else:
-            emoji = "<:PRclosed:246037149839917056>"
+            emoji = "<:prclosed:896496081976827986>"
             embed.color = COLOR_GITHUB_RED
 
     else:
-        emoji = "<:ISSclosed:246037286322569216>"
+        emoji = "<:issueclosed:896502343565185031>"
         embed.color = COLOR_GITHUB_RED
 
-    embed.title = emoji + content["title"]
+    embed.title = emoji + " " + content["title"]
     embed.url = content["html_url"]
     embed.set_footer(
         text=f"{repo}#{content['number']} by {content['user']['login']}", icon_url=content["user"]["avatar_url"])
@@ -882,7 +883,8 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
         embed.set_author(
             name=sender_data["login"], url=sender_data["html_url"], icon_url=sender_data["avatar_url"])
 
-    embed.description = format_desc(content["body"]) + "\n"
+    # Body is null if the body is empty ??
+    embed.description = format_desc(content["body"] or "") + "\n"
 
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
     reactions = await get_github_object(f"{url}/reactions?per_page=100", accept="application/vnd.github.squirrel-girl-preview+json")
@@ -941,5 +943,69 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
             embed.add_field(name="status", value="🚨CONFLICTS🚨")
 
     embed.description += "\u200B"
+
+    await channel.send(embed=embed)
+
+
+async def on_github_discussion(channel: MChannel, message: Any, meta: str) -> None:
+    action = message["action"]
+    if action not in VALID_DISCUSSIONS_ACTIONS:
+        return
+
+    sender     = message["sender"]
+    discussion = message["discussion"]
+    repository = message["repository"]
+
+    if is_repo_muted(repository["full_name"]):
+        return
+
+    embed = Embed()
+    action_name = ""
+
+    show_body = False
+    if action == "answered":
+        embed.color = COLOR_GITHUB_GREEN
+        action_name = "Answered"
+    elif action == "unanswered":
+        embed.color = COLOR_GITHUB_RED
+        action_name = "Unanswered"
+    elif action == "created":
+        action_name = "Created"
+        show_body = True
+
+    embed.title = f"<:ghdiscussion:1082078543770554429> {action_name}: {discussion['title']}"
+    embed.url = discussion["html_url"]
+    embed.set_footer(text=f"{repository['full_name']}#{discussion['number']} by {discussion['user']['login']}", icon_url=discussion["user"]["avatar_url"])
+
+    if sender is not None and show_body:
+        embed.set_author(
+            name=sender["login"], url=sender["html_url"], icon_url=sender["avatar_url"])
+
+    # Body is null if the body is empty ??
+    embed.description = format_desc(discussion["body"] or "") + "\n"
+
+    await channel.send(embed=embed)
+
+
+async def on_github_discussion_comment(channel: MChannel, message: Any, meta: str) -> None:
+    if message["action"] != "created":
+        return
+
+    discussion = message["discussion"]
+    comment = message["comment"]
+    repo_name = message["repository"]["full_name"]
+
+    if not channel.module_config(f"github.repos.{repo_name}.show_comments", True):
+        return
+
+    embed = Embed()
+    embed.set_author(name=message["sender"]["login"], url=message["sender"]
+                     ["html_url"], icon_url=message["sender"]["avatar_url"])
+    embed.set_footer(
+        text=f"{repo_name}#{discussion['number']} by {discussion['user']['login']}")
+    embed.title = f"<:ghdiscussion:1082078543770554429> Commented: {discussion['title']}"
+    embed.url = message["comment"]["html_url"]
+
+    embed.description = format_desc(comment["body"])
 
     await channel.send(embed=embed)
