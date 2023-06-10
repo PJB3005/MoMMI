@@ -212,6 +212,9 @@ async def on_github_issue_comment(channel: MChannel, message: Any, meta: str) ->
     if not channel.module_config(f"github.repos.{repo_name}.show_comments", True):
         return
 
+    if message["sender"]["type"] == "Bot":
+        return
+
     embed = Embed()
     embed.set_author(name=message["sender"]["login"], url=message["sender"]
                      ["html_url"], icon_url=message["sender"]["avatar_url"])
