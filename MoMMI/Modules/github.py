@@ -3,7 +3,7 @@ import logging
 import re
 import asyncio
 import subprocess
-from typing import Match, Tuple, List, Optional, Any, Set, Dict, DefaultDict, cast, Union
+from typing import Match, Tuple, List, Optional, Any, Set, Dict, DefaultDict, cast, Union, Iterator
 from urllib.parse import quote, quote_plus
 from collections import defaultdict
 import aiohttp
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 REG_PATH = re.compile(r"\[(?:(\S+)\/\/)?(.+?)(?:(?::|#L)(\d+)(?:-L?(\d+))?)?\]", re.I)
 REG_ISSUE = re.compile(r"\[(?:(\S+)#|#)?([0-9]+)\]")
 REG_COMMIT = re.compile(r"\[(?:(\S+)@)?([0-9a-f]{40})\]", re.I)
+REG_CODE_MARKDOWN = re.compile(r"(?<!\\)`([^`]+)(?<!\\)`")
 REG_GIT_HEADER_PAGENUM = re.compile(r"[?&]page=(\d+)[^,]+rel=\"last\"")
 
 REG_AUTOLABEL = re.compile(r"\[(\w+?)\]", re.I)
@@ -334,6 +335,14 @@ async def issue_auto_label(type: str, message: Any, meta: str) -> None:
 # handling of stuff like [2000] and [world.dm]
 
 
+def ignore_message_code_markdown(message: Message, expression: re.Pattern, iterator: Iterator[Match[str]]) -> \
+                                                                                                   Iterator[Match[str]]:
+    for k in expression.finditer(''.join(REG_CODE_MARKDOWN.findall(message.content))):
+        for i in iterator:
+            if i.group(0) != k.group(0):
+                yield i
+
+
 @always_command("github_issue")
 async def issue_command(channel: MChannel, match: Match, message: Message) -> None:
     try:
@@ -349,7 +358,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
     for repo_config in cfg:
         repo = repo_config["repo"]
 
-        for match in REG_ISSUE.finditer(message.content):
+        for match in ignore_message_code_markdown(message, REG_ISSUE, REG_ISSUE.finditer(message.content)):
             #logger.debug("did match")
             prefix = match.group(1)
 
@@ -367,7 +376,7 @@ async def issue_command(channel: MChannel, match: Match, message: Message) -> No
             if messages >= GITHUB_ISSUE_MAX_MESSAGES:
                 return
 
-        for match in REG_COMMIT.finditer(message.content):
+        for match in ignore_message_code_markdown(message, REG_COMMIT, REG_COMMIT.finditer(message.content)):
             prefix = match.group(1)
 
             if not is_repo_valid_for_command(repo_config, channel, prefix):
