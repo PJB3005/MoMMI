@@ -335,8 +335,7 @@ async def issue_auto_label(type: str, message: Any, meta: str) -> None:
 # handling of stuff like [2000] and [world.dm]
 
 
-def ignore_message_code_markdown(message: Message, expression: re.Pattern, iterator: Iterator[Match[str]]) -> \
-                                                                                                   Iterator[Match[str]]:
+def ignore_message_code_markdown(message: Message, expression: re.Pattern, iterator: Iterator[Match[str]]) -> re.Match:
     for k in expression.finditer(''.join(REG_CODE_MARKDOWN.findall(message.content))):
         for i in iterator:
             if i.group(0) != k.group(0):
