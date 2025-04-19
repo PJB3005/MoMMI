@@ -898,7 +898,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
     did_up = False
     if all_reactions.get("+1"):
         up = all_reactions["+1"]
-        embed.description += f"<:upvote:590257887826411590> {up}"
+        embed.description += f"👍 {up}"
         did_up = True
 
 
@@ -906,7 +906,7 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
         down = all_reactions["-1"]
         if did_up:
             embed.description += "   "
-        embed.description += f"<:downvote:590257835447812207> {down}"
+        embed.description += f"👎 {down}"
 
 
     if content.get("pull_request") is not None:
