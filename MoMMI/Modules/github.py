@@ -18,6 +18,30 @@ from MoMMI.server import MServer
 from MoMMI.Modules.irc import irc_transform
 from MoMMI import command
 import random
+from enum import Enum
+
+class CheckStatus(Enum):
+    Unknown = 0
+    Incomplete = 1
+    Completed = 2
+    Failed = 3
+    Succeeded = 4
+
+LabelCategories = {
+    "P0": "Priority",
+    "P1": "Priority",
+    "P2": "Priority",
+    "P3": "Priority",
+    "D0": "Difficulty",
+    "D1": "Difficulty",
+    "D2": "Difficulty",
+    "D3": "Difficulty",
+    "DB": "Difficulty",
+    "P3": "Priority",
+    "S": "Status",
+    "A": "Area",
+    "T": "Type",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -887,7 +911,10 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
             name=sender_data["login"], url=sender_data["html_url"], icon_url=sender_data["avatar_url"])
 
     # Body is null if the body is empty ??
-    embed.description = format_desc(content["body"] or "") + "\n"
+    embed.description = format_desc(content["body"] or "")
+
+    if not embed.description.endswith("\n"):
+        embed.description += "\n"
 
     #we count all reactions, alternative would be to make one request for each reaction by adding content=myreaction as a param
     reactions = await get_github_object(f"{url}/reactions?per_page=100", accept="application/vnd.github.squirrel-girl-preview+json")
@@ -908,39 +935,56 @@ async def post_embedded_issue_or_pr(channel: MChannel, repo: str, issueid: int, 
             embed.description += "   "
         embed.description += f"👎 {down}"
 
+    # Convert labels such as "Area: Art" to a field "Area" with the value "Art"
+    for label in content["labels"]:
+        if label["name"].startswith("size/"):
+            # This is the single outlier for some reason
+            size = label["name"][len("size/"):]
+            embed.add_field(name="Size", value=size, inline=True)
+        elif ": " in label["name"]:
+            [category, value] = label["name"].split(": ")
+            if category in LabelCategories:
+                category = LabelCategories[category]
+            embed.add_field(name=category, value=value, inline=True)
 
     if content.get("pull_request") is not None:
         merge_sha = prcontent["head"]["sha"]
         check_content = await get_github_object(github_url(f"/repos/{repo}/commits/{merge_sha}/check-runs"), accept="application/vnd.github.antiope-preview+json")
 
         #logger.debug(check_content)
-        #get the admemes to add icons for all the checks so we can do this prettier
-        checks = ""
+
+        checks: DefaultDict[int, int] = defaultdict(int)
+
         for check in check_content["check_runs"]:
-            status = "❓"
+            status = CheckStatus.Unknown
+
             if check["status"] == "queued":
-                status = "😴"
+                status = CheckStatus.Incomplete
             elif check["status"] == "in_progress":
-                status = "🏃"
+                status = CheckStatus.Incomplete
             elif check["status"] == "completed":
                 if check["conclusion"] == "neutral": #would sure be nice to just know these huh GITHUB
-                    status = "😐"
+                    status = CheckStatus.Completed
                 elif check["conclusion"] == "success":
-                    status = "😄"
+                    status = CheckStatus.Succeeded
                 elif check["conclusion"] == "failure":
-                    status = "😭"
+                    status = CheckStatus.Failed
                 elif check["conclusion"] == "cancelled":
-                    status = "🛑"
+                    status = CheckStatus.Incomplete
                 elif check["conclusion"] == "timed_out":
-                    status = "⌛"
+                    status = CheckStatus.Incomplete
                 elif check["conclusion"] == "action_required":
-                    status = "🚧"
+                    status = CheckStatus.Incomplete
 
-            cname = check["name"]
-            checks += f"`{cname} {status}`\n" #will only need \n as long as we got no icons
+            checks[status] += 1
 
-        if checks:
-            embed.add_field(name="Checks", value=checks)
+        # Higher priority first
+        check_messages = []
+        for status in [CheckStatus.Failed, CheckStatus.Incomplete, CheckStatus.Succeeded, CheckStatus.Completed, CheckStatus.Unknown]:
+            if checks[status] > 0:
+                check_messages.append(str(checks[status]) + " " + CheckStatus(status).name)
+
+        embed.add_field(name="Checks", value=", ".join(check_messages), inline=False)
 
         if prcontent["mergeable"] is not None and not prcontent["mergeable"]:
             embed.add_field(name="status", value="🚨CONFLICTS🚨")
