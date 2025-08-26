@@ -63,6 +63,7 @@ class DMCodeHandler(MCodeHandler):
         output = ""
 
         if code.find("/proc/main") == -1:
+            libsDir = Path(os.path.realpath(__file__)) / 'StaticLibs'
             # Create a global variable and make it new the dummy type, so it instantly executes on world start.
             output = "var/a/b=new\n/a/New()\n"
             # Indent each line by one so we can put it as a datum's New().s
@@ -71,6 +72,10 @@ class DMCodeHandler(MCodeHandler):
                     continue
 
                 lines[index] = "\t" + line
+                if line.find('#include "'):
+                    library = line[10:-1]; # Fetch the library name within the ""
+                    libToCopy = libsDir.glob(library+".dm")
+                    copyfile(libToCopy, path/library+".dm")
 
             output += "\n".join(lines)
 
